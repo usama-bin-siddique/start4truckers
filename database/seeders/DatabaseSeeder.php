@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             ServicesSeeder::class,
             SettingsSeeder::class,
             EmailTemplatesSeeder::class,
+            TestDataSeeder::class,  // Add test data
         ]);
     }
 }

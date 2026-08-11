@@ -6,7 +6,6 @@ import {
     UserCheck,
     CreditCard,
     Settings,
-    FileText,
     CheckSquare,
     BarChart3,
     ChevronLeft,
@@ -15,6 +14,7 @@ import {
     Menu,
     Briefcase,
     FolderOpen,
+    X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -56,16 +56,16 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-    { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={18} /> },
-    { label: 'Leads', href: '/leads', icon: <Users size={18} />, roles: ['admin', 'sales'] },
-    { label: 'Clients', href: '/clients', icon: <UserCheck size={18} /> },
-    { label: 'Payments', href: '/payments', icon: <CreditCard size={18} />, roles: ['admin', 'sales'] },
-    { label: 'Operations', href: '/operations', icon: <Briefcase size={18} />, roles: ['admin', 'processing'] },
-    { label: 'Documents', href: '/documents', icon: <FolderOpen size={18} /> },
-    { label: 'Tasks', href: '/tasks', icon: <CheckSquare size={18} /> },
-    { label: 'Notifications', href: '/notifications', icon: <Bell size={18} /> },
-    { label: 'Reports', href: '/reports', icon: <BarChart3 size={18} />, roles: ['admin'] },
-    { label: 'Settings', href: '/settings', icon: <Settings size={18} />, roles: ['admin'] },
+    { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={20} /> },
+    { label: 'Leads', href: '/leads', icon: <Users size={20} />, roles: ['admin', 'sales'] },
+    { label: 'Clients', href: '/clients', icon: <UserCheck size={20} /> },
+    { label: 'Payments', href: '/payments', icon: <CreditCard size={20} />, roles: ['admin', 'sales'] },
+    { label: 'Operations', href: '/operations', icon: <Briefcase size={20} />, roles: ['admin', 'processing'] },
+    { label: 'Documents', href: '/documents', icon: <FolderOpen size={20} /> },
+    { label: 'Tasks', href: '/tasks', icon: <CheckSquare size={20} /> },
+    { label: 'Notifications', href: '/notifications', icon: <Bell size={20} /> },
+    { label: 'Reports', href: '/reports', icon: <BarChart3 size={20} />, roles: ['admin'] },
+    { label: 'Settings', href: '/settings', icon: <Settings size={20} />, roles: ['admin'] },
 ];
 
 function getInitials(name: string): string {
@@ -98,7 +98,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
 
     useEffect(() => {
         if (flashMsg) {
-            const t = setTimeout(() => setFlashMsg(null), 4000);
+            const t = setTimeout(() => setFlashMsg(null), 5000);
             return () => clearTimeout(t);
         }
     }, [flashMsg]);
@@ -108,34 +108,39 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
     );
 
     const SidebarContent = () => (
-        <div className="flex flex-col h-full">
-            {/* Logo */}
-            <div className={cn('flex items-center px-4 h-16 border-b border-gray-200', collapsed ? 'justify-center' : 'justify-between')}>
+        <div className="flex flex-col h-full bg-[#0F172A]">
+            {/* Logo Section */}
+            <div className={cn(
+                'flex items-center border-b border-white/10 h-16 px-4',
+                collapsed ? 'justify-center' : 'justify-between'
+            )}>
                 {!collapsed && (
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">S4T</span>
+                    <Link href="/dashboard" className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                            <span className="text-white text-sm font-bold">S4T</span>
                         </div>
-                        <span className="font-semibold text-gray-900 text-sm">Start4Truckers</span>
-                    </div>
+                        <span className="font-semibold text-white text-base">Start4Truckers</span>
+                    </Link>
                 )}
                 {collapsed && (
-                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">S4T</span>
-                    </div>
+                    <Link href="/dashboard">
+                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                            <span className="text-white text-sm font-bold">S4T</span>
+                        </div>
+                    </Link>
                 )}
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="hidden lg:flex h-7 w-7"
+                    className="hidden lg:flex h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
                     onClick={() => setCollapsed(!collapsed)}
                 >
-                    <ChevronLeft size={14} className={cn('transition-transform', collapsed && 'rotate-180')} />
+                    <ChevronLeft size={18} className={cn('transition-transform duration-200', collapsed && 'rotate-180')} />
                 </Button>
             </div>
 
-            {/* Nav */}
-            <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+            {/* Navigation */}
+            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 <TooltipProvider delayDuration={0}>
                     {visibleNav.map((item) => {
                         const isActive = currentPath.startsWith(item.href);
@@ -145,27 +150,39 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                                     <Link
                                         href={item.href}
                                         className={cn(
-                                            'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors relative',
+                                            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative',
                                             isActive
-                                                ? 'bg-blue-50 text-blue-700'
-                                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                                                : 'text-white/70 hover:bg-white/10 hover:text-white',
                                             collapsed && 'justify-center px-2'
                                         )}
                                     >
-                                        <span className={cn(isActive ? 'text-blue-600' : 'text-gray-400')}>
+                                        <span className={cn(isActive ? 'text-white' : '')}>
                                             {item.icon}
                                         </span>
                                         {!collapsed && <span>{item.label}</span>}
                                         {item.label === 'Notifications' && auth?.unread_notifications > 0 && (
                                             <span className={cn(
-                                                'absolute top-1 left-1 h-2 w-2 rounded-full bg-red-500',
-                                                collapsed && 'top-0.5 left-6'
-                                            )} />
+                                                'absolute flex items-center justify-center',
+                                                collapsed 
+                                                    ? 'top-1 right-1 h-2 w-2' 
+                                                    : 'right-3 h-5 w-5 text-[10px] font-semibold'
+                                            )}>
+                                                {collapsed ? (
+                                                    <span className="h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#0F172A]" />
+                                                ) : (
+                                                    <span className="rounded-full bg-red-500 text-white px-1.5 py-0.5 min-w-[20px] text-center">
+                                                        {auth.unread_notifications > 9 ? '9+' : auth.unread_notifications}
+                                                    </span>
+                                                )}
+                                            </span>
                                         )}
                                     </Link>
                                 </TooltipTrigger>
                                 {collapsed && (
-                                    <TooltipContent side="right">{item.label}</TooltipContent>
+                                    <TooltipContent side="right" className="bg-gray-900 text-white border-gray-800">
+                                        {item.label}
+                                    </TooltipContent>
                                 )}
                             </Tooltip>
                         );
@@ -173,38 +190,39 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                 </TooltipProvider>
             </nav>
 
-            {/* User */}
-            <div className={cn('border-t border-gray-200 p-3', collapsed && 'flex justify-center')}>
+            {/* User Section */}
+            <div className={cn('border-t border-white/10 p-3', collapsed && 'flex justify-center')}>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <button className={cn(
-                            'flex items-center gap-3 w-full rounded-md p-2 hover:bg-gray-100 transition-colors text-left',
-                            collapsed && 'w-auto'
+                            'flex items-center gap-3 w-full rounded-lg p-2.5 hover:bg-white/10 transition-colors text-left',
+                            collapsed && 'w-auto justify-center'
                         )}>
-                            <Avatar className="h-8 w-8 shrink-0">
-                                <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
+                            <Avatar className="h-9 w-9 shrink-0 ring-2 ring-white/20">
+                                <AvatarFallback className="text-xs font-semibold bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                                     {auth?.user ? getInitials(auth.user.name) : 'U'}
                                 </AvatarFallback>
                             </Avatar>
                             {!collapsed && (
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-gray-900 truncate">{auth?.user?.name}</p>
-                                    <p className="text-xs text-gray-500 truncate capitalize">{auth?.user?.role}</p>
+                                    <p className="text-sm font-medium text-white truncate">{auth?.user?.name}</p>
+                                    <p className="text-xs text-white/60 truncate capitalize">{auth?.user?.role}</p>
                                 </div>
                             )}
                         </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent side="top" align="start" className="w-48">
-                        <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                            <Link href="/profile" className="cursor-pointer">Profile</Link>
-                        </DropdownMenuItem>
+                    <DropdownMenuContent side="top" align="start" className="w-56 bg-white border-gray-200">
+                        <DropdownMenuLabel className="font-normal">
+                            <div className="flex flex-col space-y-1">
+                                <p className="text-sm font-medium text-gray-900">{auth?.user?.name}</p>
+                                <p className="text-xs text-gray-500">{auth?.user?.email}</p>
+                            </div>
+                        </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
                             <Link href="/logout" method="post" as="button" className="cursor-pointer w-full flex items-center gap-2 text-red-600">
-                                <LogOut size={14} />
-                                Sign out
+                                <LogOut size={16} />
+                                <span>Sign out</span>
                             </Link>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -217,67 +235,79 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
         <div className="flex h-screen bg-gray-50 overflow-hidden">
             {/* Desktop Sidebar */}
             <aside className={cn(
-                'hidden lg:flex flex-col bg-white border-r border-gray-200 transition-all duration-200 shrink-0',
-                collapsed ? 'w-16' : 'w-60'
+                'hidden lg:flex flex-col transition-all duration-300 shrink-0 shadow-xl',
+                collapsed ? 'w-16' : 'w-64'
             )}>
                 <SidebarContent />
             </aside>
 
-            {/* Mobile Sidebar */}
+            {/* Mobile Sidebar Overlay */}
             {mobileOpen && (
                 <>
                     <div
-                        className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+                        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity"
                         onClick={() => setMobileOpen(false)}
                     />
-                    <aside className="fixed left-0 top-0 z-50 flex flex-col w-60 h-full bg-white border-r border-gray-200 lg:hidden">
+                    <aside className="fixed left-0 top-0 z-50 flex flex-col w-64 h-full shadow-2xl lg:hidden animate-in slide-in-from-left duration-300">
                         <SidebarContent />
                     </aside>
                 </>
             )}
 
-            {/* Main */}
+            {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                {/* Top bar */}
-                <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0">
-                    <div className="flex items-center gap-3">
+                {/* Top Header Bar */}
+                <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0 shadow-sm">
+                    <div className="flex items-center gap-4">
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="lg:hidden"
+                            className="lg:hidden h-9 w-9"
                             onClick={() => setMobileOpen(true)}
                         >
-                            <Menu size={18} />
+                            <Menu size={20} />
                         </Button>
                         {title && (
-                            <h1 className="text-base font-semibold text-gray-900">{title}</h1>
+                            <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="relative">
-                            <Bell size={18} />
-                            {auth?.unread_notifications > 0 && (
-                                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
-                            )}
-                        </Button>
+                    <div className="flex items-center gap-3">
+                        <Link href="/notifications">
+                            <Button variant="ghost" size="icon" className="relative h-9 w-9">
+                                <Bell size={20} />
+                                {auth?.unread_notifications > 0 && (
+                                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                )}
+                            </Button>
+                        </Link>
                     </div>
                 </header>
 
-                {/* Flash message */}
+                {/* Flash Messages */}
                 {flashMsg && (
-                    <div className={`mx-6 mt-4 flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium ${
-                        flashMsg.type === 'success'
-                            ? 'bg-green-50 border border-green-200 text-green-800'
-                            : 'bg-red-50 border border-red-200 text-red-800'
-                    }`}>
-                        <span className="flex-1">{flashMsg.msg}</span>
-                        <button onClick={() => setFlashMsg(null)} className="shrink-0 opacity-60 hover:opacity-100">✕</button>
+                    <div className="mx-6 mt-4 animate-in slide-in-from-top duration-300">
+                        <div className={cn(
+                            'flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium shadow-sm border',
+                            flashMsg.type === 'success'
+                                ? 'bg-green-50 border-green-200 text-green-800'
+                                : 'bg-red-50 border-red-200 text-red-800'
+                        )}>
+                            <span className="flex-1">{flashMsg.msg}</span>
+                            <button 
+                                onClick={() => setFlashMsg(null)} 
+                                className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
                     </div>
                 )}
 
-                {/* Page content */}
-                <main className="flex-1 overflow-y-auto p-6">
-                    {children}
+                {/* Page Content */}
+                <main className="flex-1 overflow-y-auto">
+                    <div className="p-6">
+                        {children}
+                    </div>
                 </main>
             </div>
         </div>
