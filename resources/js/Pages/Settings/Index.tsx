@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, CheckCircle, XCircle, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface User { id: number; name: string; email: string; role: string; is_active: boolean }
@@ -41,14 +40,28 @@ export default function SettingsIndex({ users, services, templates, settings }: 
         <>
             <Head title="Settings" />
             <AppLayout title="Settings">
-                <Tabs defaultValue="users">
-                    <TabsList className="flex-wrap h-auto gap-1 mb-5">
-                        <TabsTrigger value="users">Users</TabsTrigger>
-                        <TabsTrigger value="services">Services & Pricing</TabsTrigger>
-                        <TabsTrigger value="templates">Email Templates</TabsTrigger>
-                        <TabsTrigger value="api">API Settings</TabsTrigger>
-                        <TabsTrigger value="general">General</TabsTrigger>
-                    </TabsList>
+                <div className="space-y-6">
+                    <div>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-amber-600">
+                            <Settings className="h-3 w-3" />
+                            ADMIN
+                        </span>
+                        <h2 className="mt-3 text-[32px] leading-none font-semibold tracking-tight text-gray-950">
+                            Settings
+                        </h2>
+                        <p className="mt-2 text-sm text-gray-500">
+                            Users, services, templates, and integrations for your workspace.
+                        </p>
+                    </div>
+
+                    <Tabs defaultValue="users">
+                        <TabsList className="mb-5 h-auto flex-wrap gap-1 rounded-xl bg-white p-1 shadow-sm">
+                            <TabsTrigger value="users" className="data-[state=active]:bg-[#12141D] data-[state=active]:text-white">Users</TabsTrigger>
+                            <TabsTrigger value="services" className="data-[state=active]:bg-[#12141D] data-[state=active]:text-white">Services & Pricing</TabsTrigger>
+                            <TabsTrigger value="templates" className="data-[state=active]:bg-[#12141D] data-[state=active]:text-white">Email Templates</TabsTrigger>
+                            <TabsTrigger value="api" className="data-[state=active]:bg-[#12141D] data-[state=active]:text-white">API Settings</TabsTrigger>
+                            <TabsTrigger value="general" className="data-[state=active]:bg-[#12141D] data-[state=active]:text-white">General</TabsTrigger>
+                        </TabsList>
 
                     <TabsContent value="users">
                         <UsersTab users={users} />
@@ -66,6 +79,7 @@ export default function SettingsIndex({ users, services, templates, settings }: 
                         <GeneralTab settings={settings} />
                     </TabsContent>
                 </Tabs>
+                </div>
             </AppLayout>
         </>
     );
@@ -101,46 +115,50 @@ function UsersTab({ users }: { users: User[] }) {
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="font-semibold text-gray-900">Users</h3>
+                    <h3 className="text-base font-semibold text-gray-950">Users</h3>
                     <p className="text-sm text-gray-500">Manage CRM user accounts and roles</p>
                 </div>
-                <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={13} /> Add User</Button>
+                <button
+                    type="button"
+                    onClick={() => setCreateOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
+                >
+                    <Plus className="h-4 w-4" /> Add user
+                </button>
             </div>
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Role</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-20" />
+            <section className="rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className="px-5 text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Name</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Email</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Role</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Status</TableHead>
+                            <TableHead className="w-20" />
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {users.map(u => (
+                            <TableRow key={u.id}>
+                                <TableCell className="px-5 text-sm font-medium">{u.name}</TableCell>
+                                <TableCell className="text-sm text-gray-600">{u.email}</TableCell>
+                                <TableCell><RoleBadge role={u.role} /></TableCell>
+                                <TableCell>
+                                    {u.is_active
+                                        ? <span className="flex items-center gap-1 text-xs text-emerald-600"><CheckCircle size={12} /> Active</span>
+                                        : <span className="flex items-center gap-1 text-xs text-gray-400"><XCircle size={12} /> Inactive</span>}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex gap-1">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(u)}><Edit size={13} /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget(u)}><Trash2 size={13} /></Button>
+                                    </div>
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {users.map(u => (
-                                <TableRow key={u.id}>
-                                    <TableCell className="font-medium text-sm">{u.name}</TableCell>
-                                    <TableCell className="text-sm text-gray-600">{u.email}</TableCell>
-                                    <TableCell><RoleBadge role={u.role} /></TableCell>
-                                    <TableCell>
-                                        {u.is_active
-                                            ? <span className="flex items-center gap-1 text-xs text-green-600"><CheckCircle size={12} /> Active</span>
-                                            : <span className="flex items-center gap-1 text-xs text-gray-400"><XCircle size={12} /> Inactive</span>}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(u)}><Edit size={13} /></Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget(u)}><Trash2 size={13} /></Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                        ))}
+                    </TableBody>
+                </Table>
+            </section>
 
             {/* Create */}
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -261,48 +279,52 @@ function ServicesTab({ services }: { services: ServiceItem[] }) {
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="font-semibold text-gray-900">Services & Pricing</h3>
+                    <h3 className="text-base font-semibold text-gray-950">Services & Pricing</h3>
                     <p className="text-sm text-gray-500">Configure available services and their default prices</p>
                 </div>
-                <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={13} /> Add Service</Button>
+                <button
+                    type="button"
+                    onClick={() => setCreateOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
+                >
+                    <Plus className="h-4 w-4" /> Add service
+                </button>
             </div>
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Order</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Slug</TableHead>
-                                <TableHead>Price</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-20" />
+            <section className="rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className="px-5 text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Order</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Name</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Slug</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Price</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Status</TableHead>
+                            <TableHead className="w-20" />
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {services.map(s => (
+                            <TableRow key={s.id}>
+                                <TableCell className="px-5 text-sm text-gray-400">{s.order}</TableCell>
+                                <TableCell className="text-sm font-medium">{s.name}</TableCell>
+                                <TableCell className="font-mono text-xs text-gray-500">{s.slug}</TableCell>
+                                <TableCell className="text-sm">{s.pricing ? `$${parseFloat(s.pricing.amount).toFixed(2)}` : <span className="text-gray-300">—</span>}</TableCell>
+                                <TableCell>
+                                    {s.is_active
+                                        ? <Badge variant="success" className="text-xs">Active</Badge>
+                                        : <Badge variant="secondary" className="text-xs">Inactive</Badge>}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex gap-1">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}><Edit size={13} /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget(s)}><Trash2 size={13} /></Button>
+                                    </div>
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {services.map(s => (
-                                <TableRow key={s.id}>
-                                    <TableCell className="text-gray-400 text-sm">{s.order}</TableCell>
-                                    <TableCell className="font-medium text-sm">{s.name}</TableCell>
-                                    <TableCell className="font-mono text-xs text-gray-500">{s.slug}</TableCell>
-                                    <TableCell className="text-sm">{s.pricing ? `$${parseFloat(s.pricing.amount).toFixed(2)}` : <span className="text-gray-300">—</span>}</TableCell>
-                                    <TableCell>
-                                        {s.is_active
-                                            ? <Badge variant="success" className="text-xs">Active</Badge>
-                                            : <Badge variant="secondary" className="text-xs">Inactive</Badge>}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}><Edit size={13} /></Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget(s)}><Trash2 size={13} /></Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                        ))}
+                    </TableBody>
+                </Table>
+            </section>
 
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogContent className="max-w-md">
@@ -423,29 +445,33 @@ function TemplatesTab({ templates }: { templates: Template[] }) {
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="font-semibold text-gray-900">Email Templates</h3>
+                    <h3 className="text-base font-semibold text-gray-950">Email templates</h3>
                     <p className="text-sm text-gray-500">Use {'{{variable}}'} placeholders in subject and body</p>
                 </div>
-                <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={13} /> Add Template</Button>
+                <button
+                    type="button"
+                    onClick={() => setCreateOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
+                >
+                    <Plus className="h-4 w-4" /> Add template
+                </button>
             </div>
             <div className="space-y-3">
                 {templates.map(t => (
-                    <Card key={t.id}>
-                        <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="font-medium text-sm text-gray-900">{t.name}</p>
-                                    <p className="font-mono text-xs text-gray-400 mt-0.5">{t.slug}</p>
-                                    <p className="text-xs text-gray-600 mt-1"><span className="text-gray-400">Subject:</span> {t.subject}</p>
-                                </div>
-                                <div className="flex gap-1 shrink-0">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewTarget(t)}><Eye size={13} /></Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(t)}><Edit size={13} /></Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget(t)}><Trash2 size={13} /></Button>
-                                </div>
+                    <div key={t.id} className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-950">{t.name}</p>
+                                <p className="mt-0.5 font-mono text-xs text-gray-400">{t.slug}</p>
+                                <p className="mt-1 text-xs text-gray-600"><span className="text-gray-400">Subject:</span> {t.subject}</p>
                             </div>
-                        </CardContent>
-                    </Card>
+                            <div className="flex shrink-0 gap-1">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewTarget(t)}><Eye size={13} /></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(t)}><Edit size={13} /></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget(t)}><Trash2 size={13} /></Button>
+                            </div>
+                        </div>
+                    </div>
                 ))}
             </div>
 
@@ -544,53 +570,45 @@ function ApiTab({ settings }: { settings: Record<string, string> }) {
     }
 
     return (
-        <div className="space-y-4 max-w-2xl">
+        <div className="max-w-2xl space-y-4">
             <div>
-                <h3 className="font-semibold text-gray-900">API Settings</h3>
+                <h3 className="text-base font-semibold text-gray-950">API settings</h3>
                 <p className="text-sm text-gray-500">Integration keys for Web3Forms and Stripe</p>
             </div>
 
             <form onSubmit={submit} className="space-y-5">
-                {/* Web3Forms */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">Web3Forms Integration</CardTitle>
-                        <CardDescription className="text-xs">Used for automatic lead creation from your website form</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <Field label="Web3Forms Access Key">
-                            <div className="relative">
-                                <Input type={showSecrets ? 'text' : 'password'} value={form.data.web3forms_key} onChange={e => form.setData('web3forms_key', e.target.value)} placeholder="Your Web3Forms access key" />
-                            </div>
+                <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+                    <h4 className="text-sm font-semibold text-gray-950">Web3Forms integration</h4>
+                    <p className="mt-1 text-xs text-gray-500">Used for automatic lead creation from your website form</p>
+                    <div className="mt-4 space-y-3">
+                        <Field label="Web3Forms access key">
+                            <Input type={showSecrets ? 'text' : 'password'} value={form.data.web3forms_key} onChange={e => form.setData('web3forms_key', e.target.value)} placeholder="Your Web3Forms access key" />
                         </Field>
-                        <Field label="Webhook Secret (validates incoming submissions)">
+                        <Field label="Webhook secret (validates incoming submissions)">
                             <Input type={showSecrets ? 'text' : 'password'} value={form.data.web3forms_secret} onChange={e => form.setData('web3forms_secret', e.target.value)} placeholder="Optional secret for webhook validation" />
                         </Field>
-                        <div className="text-xs text-gray-400 bg-blue-50 border border-blue-100 rounded-md p-3">
-                            Webhook URL: <code className="font-mono text-blue-700">{window.location.origin}/api/webhook/web3forms</code>
+                        <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs text-gray-600">
+                            Webhook URL: <code className="font-mono text-amber-800">{window.location.origin}/api/webhook/web3forms</code>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </section>
 
-                {/* Stripe */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">Stripe Integration</CardTitle>
-                        <CardDescription className="text-xs">Future payment integration — keys stored for when ready</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <Field label="Stripe Publishable Key">
+                <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+                    <h4 className="text-sm font-semibold text-gray-950">Stripe integration</h4>
+                    <p className="mt-1 text-xs text-gray-500">Future payment integration — keys stored for when ready</p>
+                    <div className="mt-4 space-y-3">
+                        <Field label="Stripe publishable key">
                             <Input type={showSecrets ? 'text' : 'password'} value={form.data.stripe_key} onChange={e => form.setData('stripe_key', e.target.value)} placeholder="pk_live_..." />
                         </Field>
-                        <Field label="Stripe Secret Key">
+                        <Field label="Stripe secret key">
                             <Input type={showSecrets ? 'text' : 'password'} value={form.data.stripe_secret} onChange={e => form.setData('stripe_secret', e.target.value)} placeholder="sk_live_..." />
                         </Field>
                         <Badge variant="secondary" className="text-xs">Stripe integration coming in a future update</Badge>
-                    </CardContent>
-                </Card>
+                    </div>
+                </section>
 
                 <div className="flex items-center gap-3">
-                    <Button type="submit" disabled={form.processing}>Save API Settings</Button>
+                    <Button type="submit" disabled={form.processing} className="rounded-lg bg-[#12141D] text-white hover:bg-black">Save API Settings</Button>
                     <Button type="button" variant="ghost" size="sm" onClick={() => setShowSecrets(!showSecrets)} className="text-gray-400">
                         {showSecrets ? <><EyeOff size={13} /> Hide keys</> : <><Eye size={13} /> Show keys</>}
                     </Button>
@@ -614,27 +632,25 @@ function GeneralTab({ settings }: { settings: Record<string, string> }) {
     }
 
     return (
-        <div className="space-y-4 max-w-lg">
+        <div className="max-w-lg space-y-4">
             <div>
-                <h3 className="font-semibold text-gray-900">General Settings</h3>
+                <h3 className="text-base font-semibold text-gray-950">General settings</h3>
                 <p className="text-sm text-gray-500">Company information used across the CRM</p>
             </div>
-            <Card>
-                <CardContent className="pt-5">
-                    <form onSubmit={submit} className="space-y-4">
-                        <Field label="Company Name" error={form.errors.company_name}>
-                            <Input value={form.data.company_name} onChange={e => form.setData('company_name', e.target.value)} />
-                        </Field>
-                        <Field label="Company Email" error={form.errors.company_email}>
-                            <Input type="email" value={form.data.company_email} onChange={e => form.setData('company_email', e.target.value)} />
-                        </Field>
-                        <Field label="Company Phone" error={form.errors.company_phone}>
-                            <Input value={form.data.company_phone} onChange={e => form.setData('company_phone', e.target.value)} />
-                        </Field>
-                        <Button type="submit" disabled={form.processing}>Save Settings</Button>
-                    </form>
-                </CardContent>
-            </Card>
+            <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+                <form onSubmit={submit} className="space-y-4">
+                    <Field label="Company Name" error={form.errors.company_name}>
+                        <Input value={form.data.company_name} onChange={e => form.setData('company_name', e.target.value)} />
+                    </Field>
+                    <Field label="Company Email" error={form.errors.company_email}>
+                        <Input type="email" value={form.data.company_email} onChange={e => form.setData('company_email', e.target.value)} />
+                    </Field>
+                    <Field label="Company Phone" error={form.errors.company_phone}>
+                        <Input value={form.data.company_phone} onChange={e => form.setData('company_phone', e.target.value)} />
+                    </Field>
+                    <Button type="submit" disabled={form.processing} className="rounded-lg bg-[#12141D] text-white hover:bg-black">Save Settings</Button>
+                </form>
+            </section>
         </div>
     );
 }

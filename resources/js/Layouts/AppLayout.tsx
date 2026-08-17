@@ -8,13 +8,13 @@ import {
     Settings,
     CheckSquare,
     BarChart3,
-    ChevronLeft,
     Bell,
     LogOut,
     Menu,
     Briefcase,
     FolderOpen,
     X,
+    Columns2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -55,17 +55,42 @@ interface NavItem {
     roles?: string[];
 }
 
-const navItems: NavItem[] = [
-    { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={20} /> },
-    { label: 'Leads', href: '/leads', icon: <Users size={20} />, roles: ['admin', 'sales'] },
-    { label: 'Clients', href: '/clients', icon: <UserCheck size={20} /> },
-    { label: 'Payments', href: '/payments', icon: <CreditCard size={20} />, roles: ['admin', 'sales'] },
-    { label: 'Operations', href: '/operations', icon: <Briefcase size={20} />, roles: ['admin', 'processing'] },
-    { label: 'Documents', href: '/documents', icon: <FolderOpen size={20} /> },
-    { label: 'Tasks', href: '/tasks', icon: <CheckSquare size={20} /> },
-    { label: 'Notifications', href: '/notifications', icon: <Bell size={20} /> },
-    { label: 'Reports', href: '/reports', icon: <BarChart3 size={20} />, roles: ['admin'] },
-    { label: 'Settings', href: '/settings', icon: <Settings size={20} />, roles: ['admin'] },
+interface NavGroup {
+    label: string;
+    items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+    {
+        label: 'Overview',
+        items: [
+            { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={18} /> },
+        ],
+    },
+    {
+        label: 'Pipeline',
+        items: [
+            { label: 'Leads', href: '/leads', icon: <Users size={18} />, roles: ['admin', 'sales'] },
+            { label: 'Clients', href: '/clients', icon: <UserCheck size={18} /> },
+            { label: 'Payments', href: '/payments', icon: <CreditCard size={18} />, roles: ['admin', 'sales'] },
+        ],
+    },
+    {
+        label: 'Work',
+        items: [
+            { label: 'Operations', href: '/operations', icon: <Briefcase size={18} />, roles: ['admin', 'processing'] },
+            { label: 'Documents', href: '/documents', icon: <FolderOpen size={18} /> },
+            { label: 'Tasks', href: '/tasks', icon: <CheckSquare size={18} /> },
+        ],
+    },
+    {
+        label: 'System',
+        items: [
+            { label: 'Notifications', href: '/notifications', icon: <Bell size={18} /> },
+            { label: 'Reports', href: '/reports', icon: <BarChart3 size={18} />, roles: ['admin'] },
+            { label: 'Settings', href: '/settings', icon: <Settings size={18} />, roles: ['admin'] },
+        ],
+    },
 ];
 
 function getInitials(name: string): string {
@@ -75,6 +100,14 @@ function getInitials(name: string): string {
         .join('')
         .toUpperCase()
         .slice(0, 2);
+}
+
+function formatHeaderDate(): string {
+    return new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+    });
 }
 
 interface AppLayoutProps {
@@ -103,115 +136,112 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
         }
     }, [flashMsg]);
 
-    const visibleNav = navItems.filter(
-        (item) => !item.roles || item.roles.includes(userRole)
-    );
+    const isItemVisible = (item: NavItem) => !item.roles || item.roles.includes(userRole);
 
-    const SidebarContent = () => (
-        <div className="flex flex-col h-full bg-[#0F172A]">
-            {/* Logo Section */}
-            <div className={cn(
-                'flex items-center border-b border-white/10 h-16 px-4',
-                collapsed ? 'justify-center' : 'justify-between'
-            )}>
-                {!collapsed && (
-                    <Link href="/dashboard" className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-                            <span className="text-white text-sm font-bold">S4T</span>
+    const isActive = (href: string) => {
+        if (href === '/dashboard') return currentPath === '/dashboard' || currentPath === '/';
+        return currentPath === href || currentPath.startsWith(`${href}/`);
+    };
+
+    const SidebarContent = ({ compact }: { compact: boolean }) => (
+        <div className="flex h-full flex-col overflow-hidden rounded-[20px] bg-[#12141D]">
+            <div className={cn('flex h-[72px] items-center px-4', compact ? 'justify-center' : 'gap-3')}>
+                <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.18)]">
+                        <span className="text-[11px] font-bold tracking-wide text-white">S4T</span>
+                    </div>
+                    {!compact && (
+                        <div className="min-w-0">
+                            <p className="truncate text-[15px] font-semibold text-white">Start4Truckers</p>
+                            <p className="text-[11px] text-white/45">Fleet CRM</p>
                         </div>
-                        <span className="font-semibold text-white text-base">Start4Truckers</span>
-                    </Link>
-                )}
-                {collapsed && (
-                    <Link href="/dashboard">
-                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-                            <span className="text-white text-sm font-bold">S4T</span>
-                        </div>
-                    </Link>
-                )}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hidden lg:flex h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
-                    onClick={() => setCollapsed(!collapsed)}
-                >
-                    <ChevronLeft size={18} className={cn('transition-transform duration-200', collapsed && 'rotate-180')} />
-                </Button>
+                    )}
+                </Link>
             </div>
 
-            {/* Navigation */}
-            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            <nav className="flex-1 overflow-y-auto px-3 pb-4">
                 <TooltipProvider delayDuration={0}>
-                    {visibleNav.map((item) => {
-                        const isActive = currentPath.startsWith(item.href);
+                    {navGroups.map((group) => {
+                        const items = group.items.filter(isItemVisible);
+                        if (items.length === 0) return null;
+
                         return (
-                            <Tooltip key={item.href}>
-                                <TooltipTrigger asChild>
-                                    <Link
-                                        href={item.href}
-                                        className={cn(
-                                            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative',
-                                            isActive
-                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                                                : 'text-white/70 hover:bg-white/10 hover:text-white',
-                                            collapsed && 'justify-center px-2'
-                                        )}
-                                    >
-                                        <span className={cn(isActive ? 'text-white' : '')}>
-                                            {item.icon}
-                                        </span>
-                                        {!collapsed && <span>{item.label}</span>}
-                                        {item.label === 'Notifications' && auth?.unread_notifications > 0 && (
-                                            <span className={cn(
-                                                'absolute flex items-center justify-center',
-                                                collapsed 
-                                                    ? 'top-1 right-1 h-2 w-2' 
-                                                    : 'right-3 h-5 w-5 text-[10px] font-semibold'
-                                            )}>
-                                                {collapsed ? (
-                                                    <span className="h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#0F172A]" />
-                                                ) : (
-                                                    <span className="rounded-full bg-red-500 text-white px-1.5 py-0.5 min-w-[20px] text-center">
-                                                        {auth.unread_notifications > 9 ? '9+' : auth.unread_notifications}
-                                                    </span>
-                                                )}
-                                            </span>
-                                        )}
-                                    </Link>
-                                </TooltipTrigger>
-                                {collapsed && (
-                                    <TooltipContent side="right" className="bg-gray-900 text-white border-gray-800">
-                                        {item.label}
-                                    </TooltipContent>
+                            <div key={group.label} className="mb-5">
+                                {!compact && (
+                                    <p className="mb-1.5 px-3 text-[10px] font-medium uppercase tracking-[0.18em] text-white/35">
+                                        {group.label}
+                                    </p>
                                 )}
-                            </Tooltip>
+                                <div className="space-y-0.5">
+                                    {items.map((item) => {
+                                        const active = isActive(item.href);
+                                        return (
+                                            <Tooltip key={item.href}>
+                                                <TooltipTrigger asChild>
+                                                    <Link
+                                                        href={item.href}
+                                                        onClick={() => setMobileOpen(false)}
+                                                        className={cn(
+                                                            'relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-colors',
+                                                            active
+                                                                ? 'border border-[#C4A035] border-l-[3px] bg-[#2A2416] text-[#E0B63C]'
+                                                                : 'border border-transparent text-white/55 hover:bg-white/[0.06] hover:text-white',
+                                                            compact && 'justify-center px-2'
+                                                        )}
+                                                    >
+                                                        <span className={cn(active ? 'text-[#E0B63C]' : 'text-current')}>
+                                                            {item.icon}
+                                                        </span>
+                                                        {!compact && <span>{item.label}</span>}
+                                                        {item.label === 'Notifications' && auth?.unread_notifications > 0 && (
+                                                            compact ? (
+                                                                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-[#12141D]" />
+                                                            ) : (
+                                                                <span className="ml-auto min-w-[20px] rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white">
+                                                                    {auth.unread_notifications > 9 ? '9+' : auth.unread_notifications}
+                                                                </span>
+                                                            )
+                                                        )}
+                                                    </Link>
+                                                </TooltipTrigger>
+                                                {compact && (
+                                                    <TooltipContent side="right" className="border-gray-800 bg-gray-900 text-white">
+                                                        {item.label}
+                                                    </TooltipContent>
+                                                )}
+                                            </Tooltip>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         );
                     })}
                 </TooltipProvider>
             </nav>
 
-            {/* User Section */}
-            <div className={cn('border-t border-white/10 p-3', collapsed && 'flex justify-center')}>
+            <div className={cn('border-t border-white/8 p-3', compact && 'flex justify-center')}>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <button className={cn(
-                            'flex items-center gap-3 w-full rounded-lg p-2.5 hover:bg-white/10 transition-colors text-left',
-                            collapsed && 'w-auto justify-center'
-                        )}>
-                            <Avatar className="h-9 w-9 shrink-0 ring-2 ring-white/20">
-                                <AvatarFallback className="text-xs font-semibold bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                        <button
+                            className={cn(
+                                'flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-white/[0.06]',
+                                compact && 'w-auto justify-center'
+                            )}
+                        >
+                            <Avatar className="h-9 w-9 shrink-0">
+                                <AvatarFallback className="bg-amber-500 text-xs font-semibold text-white">
                                     {auth?.user ? getInitials(auth.user.name) : 'U'}
                                 </AvatarFallback>
                             </Avatar>
-                            {!collapsed && (
+                            {!compact && (
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-white truncate">{auth?.user?.name}</p>
-                                    <p className="text-xs text-white/60 truncate capitalize">{auth?.user?.role}</p>
+                                    <p className="truncate text-sm font-medium text-white">{auth?.user?.name}</p>
+                                    <p className="truncate text-xs capitalize text-white/45">{auth?.user?.role}</p>
                                 </div>
                             )}
                         </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent side="top" align="start" className="w-56 bg-white border-gray-200">
+                    <DropdownMenuContent side="top" align="start" className="w-56 border-gray-200 bg-white">
                         <DropdownMenuLabel className="font-normal">
                             <div className="flex flex-col space-y-1">
                                 <p className="text-sm font-medium text-gray-900">{auth?.user?.name}</p>
@@ -220,7 +250,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
-                            <Link href="/logout" method="post" as="button" className="cursor-pointer w-full flex items-center gap-2 text-red-600">
+                            <Link href="/logout" method="post" as="button" className="flex w-full cursor-pointer items-center gap-2 text-red-600">
                                 <LogOut size={16} />
                                 <span>Sign out</span>
                             </Link>
@@ -232,70 +262,83 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
     );
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
-            {/* Desktop Sidebar */}
-            <aside className={cn(
-                'hidden lg:flex flex-col transition-all duration-300 shrink-0 shadow-xl',
-                collapsed ? 'w-16' : 'w-64'
-            )}>
-                <SidebarContent />
+        <div className="flex h-screen gap-3 overflow-hidden bg-[#EFEFEA] p-3">
+            <aside
+                className={cn(
+                    'hidden shrink-0 flex-col transition-all duration-300 lg:flex',
+                    collapsed ? 'w-[72px]' : 'w-[248px]'
+                )}
+            >
+                <SidebarContent compact={collapsed} />
             </aside>
 
-            {/* Mobile Sidebar Overlay */}
             {mobileOpen && (
                 <>
                     <div
-                        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity"
+                        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity lg:hidden"
                         onClick={() => setMobileOpen(false)}
                     />
-                    <aside className="fixed left-0 top-0 z-50 flex flex-col w-64 h-full shadow-2xl lg:hidden animate-in slide-in-from-left duration-300">
-                        <SidebarContent />
+                    <aside className="fixed top-3 left-3 z-50 flex h-[calc(100%-24px)] w-[248px] flex-col shadow-2xl lg:hidden animate-in slide-in-from-left duration-300">
+                        <SidebarContent compact={false} />
                     </aside>
                 </>
             )}
 
-            {/* Main Content Area */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                {/* Top Header Bar */}
-                <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0 shadow-sm">
-                    <div className="flex items-center gap-4">
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] bg-[#F6F6F4]">
+                <header className="flex shrink-0 items-start justify-between px-6 pt-6 pb-2 sm:px-8">
+                    <div className="flex items-start gap-3">
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="lg:hidden h-9 w-9"
+                            className="mt-0.5 h-9 w-9 text-gray-500 lg:hidden"
                             onClick={() => setMobileOpen(true)}
                         >
                             <Menu size={20} />
                         </Button>
-                        {title && (
-                            <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
-                        )}
+                        <div>
+                            {title && (
+                                <h1 className="text-[28px] leading-tight font-semibold tracking-tight text-gray-950">
+                                    {title}
+                                </h1>
+                            )}
+                            <p className="mt-0.5 text-sm text-gray-400">{formatHeaderDate()}</p>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 pt-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="hidden h-9 w-9 text-gray-400 hover:text-gray-700 lg:flex"
+                            onClick={() => setCollapsed(!collapsed)}
+                            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        >
+                            <Columns2 size={18} />
+                        </Button>
                         <Link href="/notifications">
-                            <Button variant="ghost" size="icon" className="relative h-9 w-9">
-                                <Bell size={20} />
+                            <Button variant="ghost" size="icon" className="relative h-9 w-9 text-gray-400 hover:text-gray-700">
+                                <Bell size={18} />
                                 {auth?.unread_notifications > 0 && (
-                                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                    <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-[#F6F6F4]" />
                                 )}
                             </Button>
                         </Link>
                     </div>
                 </header>
 
-                {/* Flash Messages */}
                 {flashMsg && (
-                    <div className="mx-6 mt-4 animate-in slide-in-from-top duration-300">
-                        <div className={cn(
-                            'flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium shadow-sm border',
-                            flashMsg.type === 'success'
-                                ? 'bg-green-50 border-green-200 text-green-800'
-                                : 'bg-red-50 border-red-200 text-red-800'
-                        )}>
+                    <div className="mx-6 mt-2 animate-in slide-in-from-top duration-300 sm:mx-8">
+                        <div
+                            className={cn(
+                                'flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-sm',
+                                flashMsg.type === 'success'
+                                    ? 'border-green-200 bg-green-50 text-green-800'
+                                    : 'border-red-200 bg-red-50 text-red-800'
+                            )}
+                        >
                             <span className="flex-1">{flashMsg.msg}</span>
-                            <button 
-                                onClick={() => setFlashMsg(null)} 
-                                className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+                            <button
+                                onClick={() => setFlashMsg(null)}
+                                className="shrink-0 opacity-60 transition-opacity hover:opacity-100"
                             >
                                 <X size={16} />
                             </button>
@@ -303,11 +346,8 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                     </div>
                 )}
 
-                {/* Page Content */}
                 <main className="flex-1 overflow-y-auto">
-                    <div className="p-6">
-                        {children}
-                    </div>
+                    <div className="px-6 pt-4 pb-8 sm:px-8">{children}</div>
                 </main>
             </div>
         </div>

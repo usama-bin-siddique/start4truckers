@@ -48,6 +48,14 @@ class DocumentController extends Controller
             ]),
             'categories' => Document::CATEGORIES,
             'filters'    => $request->only(['search', 'category', 'client_id']),
+            'stats'      => [
+                'total'      => Document::count(),
+                'this_month' => Document::whereYear('created_at', now()->year)
+                    ->whereMonth('created_at', now()->month)
+                    ->count(),
+                'clients'    => Document::distinct('client_id')->count('client_id'),
+                'categories' => Document::distinct('category')->count('category'),
+            ],
         ]);
     }
 
