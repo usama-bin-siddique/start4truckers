@@ -42,6 +42,7 @@ class ClientController extends Controller
                 'total'     => Client::count(),
                 'active'    => Client::where('status', 'active')->count(),
                 'completed' => Client::where('status', 'completed')->count(),
+                'inactive'  => Client::where('status', 'inactive')->count(),
             ],
         ]);
     }
