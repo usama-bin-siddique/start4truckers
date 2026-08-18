@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'destructive' | 'warning' | 'info' | 'outline' }> = {
     new:        { label: 'New',        variant: 'info' },
+    reviewed:   { label: 'Lead Reviewed', variant: 'warning' },
     contacted:  { label: 'Contacted',  variant: 'default' },
     'follow-up':{ label: 'Follow-up',  variant: 'warning' },
     quote_sent: { label: 'Quote Sent', variant: 'secondary' },

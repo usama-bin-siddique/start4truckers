@@ -40,7 +40,7 @@ interface Paginator<T> {
     per_page: number; total: number; next_page_url: string | null; prev_page_url: string | null;
     links: { url: string | null; label: string; active: boolean }[];
 }
-interface Stats  { total: number; new: number; contacted: number; won: number; lost: number }
+interface Stats  { total: number; new: number; reviewed?: number; contacted: number; won: number; lost: number }
 interface Filters { search?: string; status?: string; assigned_to?: string; service?: string; date_from?: string; date_to?: string }
 
 interface Props {
@@ -97,7 +97,7 @@ export default function LeadsIndex({ leads, users, statuses, filters, stats }: P
     const kpis = [
         { label: 'Total', value: stats.total, icon: <Users className="h-4 w-4 text-sky-700" />, iconClass: 'bg-sky-100' },
         { label: 'New', value: stats.new, icon: <Share2 className="h-4 w-4 text-blue-700" />, iconClass: 'bg-blue-100' },
-        { label: 'Contacted', value: stats.contacted, icon: <Phone className="h-4 w-4 text-amber-700" />, iconClass: 'bg-amber-100' },
+        { label: 'Reviewed', value: stats.reviewed ?? 0, icon: <Phone className="h-4 w-4 text-amber-700" />, iconClass: 'bg-amber-100' },
         { label: 'Won', value: stats.won, icon: <Trophy className="h-4 w-4 text-emerald-700" />, iconClass: 'bg-emerald-100' },
         { label: 'Lost', value: stats.lost, icon: <Ban className="h-4 w-4 text-red-600" />, iconClass: 'bg-red-100' },
     ];

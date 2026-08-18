@@ -30,6 +30,7 @@ const typeConfig: Record<string, { icon: React.ReactNode; label: string; color: 
     document_uploaded: { icon: <FileText size={16} />,       label: 'Document Uploaded', color: 'text-violet-700',  bg: 'bg-violet-100' },
     service_completed: { icon: <ClipboardCheck size={16} />, label: 'Service Completed', color: 'text-teal-700',    bg: 'bg-teal-100' },
     lead_converted:    { icon: <TrendingUp size={16} />,     label: 'Lead Converted',    color: 'text-emerald-700', bg: 'bg-emerald-100' },
+    sla_breached:      { icon: <Bell size={16} />,           label: 'SLA Missed',        color: 'text-red-700',     bg: 'bg-red-100' },
 };
 
 function getNotificationMessage(notification: Notification): string {
@@ -50,6 +51,8 @@ function getNotificationMessage(notification: Notification): string {
             return `Service completed for ${data.client_name || 'client'}: ${data.service_name || 'service'}`;
         case 'lead_converted':
             return `Lead converted to client: ${data.client_name || 'Unknown'}`;
+        case 'sla_breached':
+            return `SLA missed for lead: ${data.lead_name || 'Unknown'}. No action was taken in time.`;
         default:
             return (data.message as string) || 'New notification';
     }

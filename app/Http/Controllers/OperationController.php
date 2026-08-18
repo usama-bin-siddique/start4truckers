@@ -10,6 +10,7 @@ use App\Services\ActivityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -57,6 +58,43 @@ class OperationController extends Controller
                 'completed'   => ClientService::where('status', 'completed')->count(),
             ],
         ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $this->authorize('create', ClientService::class);
+
+        $data = $request->validate([
+            'client_id'   => ['required', 'exists:clients,id'],
+            'service_id'  => [
+                'required',
+                'exists:services,id',
+                Rule::unique('client_services', 'service_id')->where(
+                    fn ($q) => $q->where('client_id', $request->integer('client_id'))
+                ),
+            ],
+            'assigned_to' => ['nullable', 'exists:users,id'],
+            'notes'       => ['nullable', 'string', 'max:1000'],
+        ], [
+            'service_id.unique' => 'That service is already assigned to this client.',
+        ]);
+
+        $data['status'] = ClientService::STATUS_PENDING;
+
+        $operation = ClientService::create($data)->load('service');
+        $client    = Client::findOrFail($data['client_id']);
+
+        if ($client->status === Client::STATUS_COMPLETED) {
+            $client->update(['status' => Client::STATUS_ACTIVE]);
+        }
+
+        $this->activity->log(
+            $client,
+            Activity::ACTION_SERVICE_ASSIGNED,
+            "Service \"{$operation->service->name}\" assigned"
+        );
+
+        return Inertia::flash('success', 'Service assigned.')->back()->with('success', 'Service assigned.');
     }
 
     public function update(Request $request, ClientService $operation): RedirectResponse

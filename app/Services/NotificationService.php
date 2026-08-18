@@ -15,6 +15,7 @@ class NotificationService
     const TYPE_DOCUMENT_UPLOADED = 'document_uploaded';
     const TYPE_SERVICE_COMPLETED = 'service_completed';
     const TYPE_LEAD_CONVERTED    = 'lead_converted';
+    const TYPE_SLA_BREACHED      = 'sla_breached';
 
     public function notify(int|User $user, string $type, array $data): CrmNotification
     {

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChevronLeft, GitBranch } from 'lucide-react';
 
 interface User { id: number; name: string; role: string }
+interface CatalogService { id: number; name: string; slug: string }
 
 const US_STATES = [
     'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
@@ -17,16 +18,15 @@ const US_STATES = [
     'VA','WA','WV','WI','WY','DC',
 ];
 
-const SERVICES = [
-    'LLC', 'EIN', 'USDOT', 'MC Authority', 'BOC-3', 'UCR', 'IFTA', 'IRP', '2290', 'MCS-150',
-];
-
-export default function LeadCreate({ users }: { users: User[] }) {
+export default function LeadCreate({ users, services = [] }: { users: User[]; services?: CatalogService[] }) {
     const { data, setData, post, processing, errors } = useForm({
         name: '', phone: '', email: '', state: '',
         company: '', service_required: '', notes: '',
         source: 'manual', assigned_to: '',
     });
+    const serviceOptions = services.length > 0 ? services.map((s) => s.name) : [
+        'LLC', 'EIN', 'USDOT', 'MC Authority', 'BOC-3', 'UCR', 'IFTA', 'IRP', '2290', 'MCS-150',
+    ];
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -109,7 +109,7 @@ export default function LeadCreate({ users }: { users: User[] }) {
                                 <Select value={data.service_required} onValueChange={(v) => setData('service_required', v)}>
                                     <SelectTrigger><SelectValue placeholder="Select service" /></SelectTrigger>
                                     <SelectContent>
-                                        {SERVICES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                        {serviceOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </Field>

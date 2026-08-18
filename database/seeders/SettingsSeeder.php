@@ -20,6 +20,7 @@ class SettingsSeeder extends Seeder
             ['key' => 'web3forms_secret',   'value' => '',                          'group' => 'api'],
             ['key' => 'stripe_key',         'value' => '',                          'group' => 'api'],
             ['key' => 'stripe_secret',      'value' => '',                          'group' => 'api'],
+            ['key' => 'lead_sla_minutes',   'value' => '10',                        'group' => 'general'],
         ];
 
         foreach ($settings as $setting) {

@@ -267,18 +267,20 @@ export default function OperationsIndex({ services, all_services, users, filters
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-1">
-                                <Label className="text-xs">Assigned To</Label>
-                                <Select value={form.data.assigned_to} onValueChange={(v) => form.setData('assigned_to', v)}>
-                                    <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="">Unassigned</SelectItem>
-                                        {users.filter((u) => ['admin', 'processing'].includes(u.role)).map((u) => (
-                                            <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {form.data.status !== 'completed' && (
+                                <div className="space-y-1">
+                                    <Label className="text-xs">Assigned To</Label>
+                                    <Select value={form.data.assigned_to} onValueChange={(v) => form.setData('assigned_to', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">Unassigned</SelectItem>
+                                            {users.filter((u) => ['admin', 'processing'].includes(u.role)).map((u) => (
+                                                <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                             <div className="space-y-1">
                                 <Label className="text-xs">Completion Date</Label>
                                 <Input type="date" value={form.data.completion_date} onChange={(e) => form.setData('completion_date', e.target.value)} />

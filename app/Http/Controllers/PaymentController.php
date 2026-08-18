@@ -79,7 +79,11 @@ class PaymentController extends Controller
             'transaction_reference' => ['nullable', 'string', 'max:255'],
             'notes'                 => ['nullable', 'string'],
             'paid_at'               => ['nullable', 'date'],
+            'receipt'               => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
+
+        $receipt = $request->file('receipt');
+        unset($data['receipt']);
 
         $data['created_by']      = Auth::id();
         $data['amount_received'] = $data['amount_received'] ?? 0;
@@ -87,11 +91,18 @@ class PaymentController extends Controller
         $payment = Payment::create($data);
         $client  = Client::find($data['client_id']);
 
+        if ($receipt) {
+            $payment->update([
+                'receipt_path' => $receipt->store("clients/{$payment->client_id}/receipts", 'private'),
+            ]);
+        }
+
+        $proofNote = $receipt ? ' with payment proof' : '';
         $this->activity->log($client, Activity::ACTION_PAYMENT_CREATED,
-            "Payment of \${$payment->invoice_amount} created (received: \${$payment->amount_received})"
+            "Payment of \${$payment->invoice_amount} created (received: \${$payment->amount_received}){$proofNote}"
         );
 
-        return back()->with('success', 'Payment recorded.');
+        return Inertia::flash('success', 'Payment recorded.')->back()->with('success', 'Payment recorded.');
     }
 
     public function update(Request $request, Payment $payment): RedirectResponse

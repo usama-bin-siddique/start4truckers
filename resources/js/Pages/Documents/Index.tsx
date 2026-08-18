@@ -11,7 +11,7 @@ import { Search, Filter, X, Download, Trash2, FileText, FolderOpen, Users, Calen
 import { cn } from '@/lib/utils';
 
 interface Doc {
-    id: number; client_id: number; client_number: string; client_name: string;
+    id: number; client_id: number | null; lead_id: number | null; client_number: string | null; client_name: string;
     category: string; category_label: string; original_filename: string;
     file_size: string; uploaded_by: string | null; created_at: string;
 }
@@ -167,10 +167,19 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
                                     ) : documents.data.map((doc) => (
                                         <TableRow key={doc.id}>
                                             <TableCell className="px-5">
-                                                <Link href={`/clients/${doc.client_id}`} className="hover:text-amber-700">
+                                                {doc.client_id ? (
+                                                    <Link href={`/clients/${doc.client_id}`} className="hover:text-amber-700">
+                                                        <p className="text-sm font-medium text-gray-900">{doc.client_name}</p>
+                                                        <p className="font-mono text-xs text-amber-700">{doc.client_number}</p>
+                                                    </Link>
+                                                ) : doc.lead_id ? (
+                                                    <Link href={`/leads/${doc.lead_id}`} className="hover:text-amber-700">
+                                                        <p className="text-sm font-medium text-gray-900">{doc.client_name}</p>
+                                                        <p className="text-xs text-gray-400">Lead</p>
+                                                    </Link>
+                                                ) : (
                                                     <p className="text-sm font-medium text-gray-900">{doc.client_name}</p>
-                                                    <p className="font-mono text-xs text-amber-700">{doc.client_number}</p>
-                                                </Link>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant="secondary" className="text-xs">{doc.category_label}</Badge>

@@ -64,6 +64,30 @@ class Client extends Model
         return $this->hasMany(ClientService::class);
     }
 
+    /**
+     * Attach catalog services named on the originating lead.
+     *
+     * @return \Illuminate\Support\Collection<int, ClientService>
+     */
+    public function syncServicesFromLead()
+    {
+        $this->loadMissing('lead');
+        $created = collect();
+
+        foreach (Service::matchingRequirement($this->lead?->service_required) as $service) {
+            $row = $this->clientServices()->firstOrCreate(
+                ['service_id' => $service->id],
+                ['status' => ClientService::STATUS_PENDING]
+            );
+
+            if ($row->wasRecentlyCreated) {
+                $created->push($row->load('service'));
+            }
+        }
+
+        return $created;
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class)->latest();

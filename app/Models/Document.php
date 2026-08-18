@@ -12,6 +12,7 @@ class Document extends Model
 
     protected $fillable = [
         'client_id',
+        'lead_id',
         'category',
         'original_filename',
         'stored_path',
@@ -35,6 +36,11 @@ class Document extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function lead(): BelongsTo
+    {
+        return $this->belongsTo(Lead::class);
     }
 
     public function uploadedBy(): BelongsTo

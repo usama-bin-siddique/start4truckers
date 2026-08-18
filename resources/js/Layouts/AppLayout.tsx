@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     LayoutDashboard,
     Users,
@@ -116,7 +116,8 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children, title }: AppLayoutProps) {
-    const { auth, flash } = usePage<PageProps>().props;
+    const page = usePage<PageProps>();
+    const { auth, flash } = page.props;
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [flashMsg, setFlashMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -124,10 +125,19 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
     const userRole = auth?.user?.role || 'admin';
 
     useEffect(() => {
-        if (flash?.success) setFlashMsg({ type: 'success', msg: flash.success });
-        else if (flash?.error) setFlashMsg({ type: 'error', msg: flash.error });
-        else setFlashMsg(null);
-    }, [flash]);
+        const success = flash?.success ?? (typeof page.flash?.success === 'string' ? page.flash.success : undefined);
+        const error = flash?.error ?? (typeof page.flash?.error === 'string' ? page.flash.error : undefined);
+        if (success) setFlashMsg({ type: 'success', msg: success });
+        else if (error) setFlashMsg({ type: 'error', msg: error });
+    }, [flash?.success, flash?.error, page.flash]);
+
+    useEffect(() => {
+        return router.on('flash', (event) => {
+            const data = event.detail.flash as { success?: unknown; error?: unknown };
+            if (typeof data?.success === 'string') setFlashMsg({ type: 'success', msg: data.success });
+            else if (typeof data?.error === 'string') setFlashMsg({ type: 'error', msg: data.error });
+        });
+    }, []);
 
     useEffect(() => {
         if (flashMsg) {
@@ -326,10 +336,10 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                 </header>
 
                 {flashMsg && (
-                    <div className="mx-6 mt-2 animate-in slide-in-from-top duration-300 sm:mx-8">
+                    <div className="pointer-events-none fixed inset-x-0 top-4 z-[100] flex justify-center px-4">
                         <div
                             className={cn(
-                                'flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-sm',
+                                'pointer-events-auto flex w-full max-w-lg items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg',
                                 flashMsg.type === 'success'
                                     ? 'border-green-200 bg-green-50 text-green-800'
                                     : 'border-red-200 bg-red-50 text-red-800'

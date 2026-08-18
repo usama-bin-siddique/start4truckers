@@ -5,11 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Document;
+use App\Models\Lead;
 use App\Services\ActivityService;
+use App\Services\DocumentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -19,17 +20,22 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
 {
-    public function __construct(private ActivityService $activity) {}
+    public function __construct(
+        private ActivityService $activity,
+        private DocumentService $documents
+    ) {}
 
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Document::class);
 
-        $query = Document::with(['client.lead', 'uploadedBy'])
+        $query = Document::with(['client.lead', 'lead', 'uploadedBy'])
             ->when($request->search, fn ($q, $v) =>
-                $q->whereHas('client.lead', fn ($q) =>
-                    $q->where('name', 'like', "%{$v}%")
-                )->orWhere('original_filename', 'like', "%{$v}%")
+                $q->where(fn ($q) =>
+                    $q->where('original_filename', 'like', "%{$v}%")
+                      ->orWhereHas('client.lead', fn ($q) => $q->where('name', 'like', "%{$v}%"))
+                      ->orWhereHas('lead', fn ($q) => $q->where('name', 'like', "%{$v}%"))
+                )
             )
             ->when($request->category, fn ($q, $v) => $q->where('category', $v))
             ->when($request->client_id, fn ($q, $v) => $q->where('client_id', $v));
@@ -40,8 +46,9 @@ class DocumentController extends Controller
             'documents'  => $documents->through(fn ($d) => [
                 'id'                => $d->id,
                 'client_id'         => $d->client_id,
-                'client_number'     => $d->client->client_number,
-                'client_name'       => $d->client->lead?->name ?? '—',
+                'lead_id'           => $d->lead_id,
+                'client_number'     => $d->client?->client_number,
+                'client_name'       => $d->client?->lead?->name ?? $d->lead?->name ?? '—',
                 'category'          => $d->category,
                 'category_label'    => $d->category_label,
                 'original_filename' => $d->original_filename,
@@ -66,27 +73,32 @@ class DocumentController extends Controller
     {
         $this->authorize('create', Document::class);
 
-        if ($request->hasFile('files')) {
+        if ($this->hasCategoryUploads($request)) {
             return $this->storeBulk($request);
         }
 
         $request->validate([
-            'client_id' => ['required', 'exists:clients,id'],
+            'client_id' => ['nullable', 'exists:clients,id', 'required_without:lead_id'],
+            'lead_id'   => ['nullable', 'exists:leads,id', 'required_without:client_id'],
             'category'  => ['required', 'string', 'in:' . implode(',', array_keys(Document::CATEGORIES))],
             'file'      => ['required', 'file', 'max:20480', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx'],
         ]);
 
-        $client = Client::findOrFail($request->client_id);
-        $this->storeUploadedFile($client, $request->input('category'), $request->file('file'));
+        $owner = $request->filled('lead_id')
+            ? Lead::findOrFail($request->lead_id)
+            : Client::findOrFail($request->client_id);
 
-        return back()->with('success', 'Document uploaded.');
+        $this->documents->storeFor($owner, $request->input('category'), $request->file('file'));
+
+        return $this->flashedBack('Document uploaded.');
     }
 
     private function storeBulk(Request $request): RedirectResponse
     {
         $categoryKeys = array_keys(Document::CATEGORIES);
         $rules = [
-            'client_id' => ['required', 'exists:clients,id'],
+            'client_id' => ['nullable', 'exists:clients,id', 'required_without:lead_id'],
+            'lead_id'   => ['nullable', 'exists:leads,id', 'required_without:client_id'],
             'files'     => ['required', 'array'],
         ];
 
@@ -97,63 +109,54 @@ class DocumentController extends Controller
 
         $request->validate($rules);
 
-        $uploads = $request->file('files', []);
-        $files   = [];
+        $owner = $request->filled('lead_id')
+            ? Lead::findOrFail($request->lead_id)
+            : Client::findOrFail($request->client_id);
 
-        foreach ($uploads as $category => $fileList) {
-            if (! in_array($category, $categoryKeys, true)) {
-                throw ValidationException::withMessages([
-                    'files' => "Invalid document category: {$category}.",
-                ]);
-            }
+        $stored = [];
+        DB::transaction(function () use ($request, $owner, &$stored) {
+            $stored = $this->documents->storeCategoryUploads($owner, $request->file('files', []) ?? []);
+        });
 
-            $fileList = is_array($fileList) ? $fileList : [$fileList];
-
-            foreach ($fileList as $file) {
-                if ($file instanceof UploadedFile) {
-                    $files[] = [$category, $file];
-                }
-            }
-        }
-
-        if ($files === []) {
+        if ($stored === []) {
             throw ValidationException::withMessages([
                 'files' => 'Drop at least one file into a category.',
             ]);
         }
 
-        $client = Client::findOrFail($request->client_id);
+        $count = count($stored);
 
-        DB::transaction(function () use ($files, $client) {
-            foreach ($files as [$category, $file]) {
-                $this->storeUploadedFile($client, $category, $file);
-            }
-        });
-
-        $count = count($files);
-
-        return back()->with('success', $count === 1 ? 'Document uploaded.' : "{$count} documents uploaded.");
+        return $this->flashedBack($count === 1 ? 'Document uploaded.' : "{$count} documents uploaded.");
     }
 
-    private function storeUploadedFile(Client $client, string $category, UploadedFile $file): Document
+    /**
+     * Nested uploads arrive as files[category][] — Laravel's hasFile('files')
+     * only matches a top-level UploadedFile, so it misses this shape.
+     */
+    private function hasCategoryUploads(Request $request): bool
     {
-        $path = $file->store("clients/{$client->id}/documents", 'private');
+        $uploads = $request->file('files');
 
-        $document = Document::create([
-            'client_id'         => $client->id,
-            'category'          => $category,
-            'original_filename' => $file->getClientOriginalName(),
-            'stored_path'       => $path,
-            'mime_type'         => $file->getMimeType(),
-            'file_size'         => $file->getSize(),
-            'uploaded_by'       => Auth::id(),
-        ]);
+        if (! is_array($uploads) || $uploads === []) {
+            return false;
+        }
 
-        $this->activity->log($client, Activity::ACTION_DOCUMENT_UPLOADED,
-            "Document \"{$document->original_filename}\" uploaded ({$document->category_label})"
-        );
+        foreach ($uploads as $fileList) {
+            $fileList = is_array($fileList) ? $fileList : [$fileList];
 
-        return $document;
+            foreach ($fileList as $file) {
+                if ($file instanceof UploadedFile) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function flashedBack(string $message): RedirectResponse
+    {
+        return Inertia::flash('success', $message)->back()->with('success', $message);
     }
 
     public function download(Document $document): StreamedResponse
@@ -176,12 +179,15 @@ class DocumentController extends Controller
 
         Storage::disk('private')->delete($document->stored_path);
 
-        $this->activity->log($document->client, Activity::ACTION_DOCUMENT_DELETED,
-            "Document \"{$document->original_filename}\" deleted"
-        );
+        $subject = $document->client ?? $document->lead;
+        if ($subject) {
+            $this->activity->log($subject, Activity::ACTION_DOCUMENT_DELETED,
+                "Document \"{$document->original_filename}\" deleted"
+            );
+        }
 
         $document->delete();
 
-        return back()->with('success', 'Document deleted.');
+        return $this->flashedBack('Document deleted.');
     }
 }

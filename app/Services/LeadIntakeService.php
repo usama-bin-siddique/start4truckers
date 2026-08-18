@@ -10,10 +10,11 @@ class LeadIntakeService
 {
     public function __construct(
         private ActivityService $activity,
-        private NotificationService $notification
+        private NotificationService $notification,
+        private DocumentService $documents
     ) {}
 
-    public function createFromWebsite(array $data): Lead
+    public function createFromWebsite(array $data, array $uploads = []): Lead
     {
         $lead = Lead::create([
             'name'             => $data['name'],
@@ -35,6 +36,10 @@ class LeadIntakeService
             null,
             null
         );
+
+        if ($uploads !== []) {
+            $this->documents->storeCategoryUploads($lead, $uploads);
+        }
 
         $recipients = User::whereIn('role', ['admin', 'sales'])
             ->where('is_active', true)

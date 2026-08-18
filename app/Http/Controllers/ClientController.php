@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Document;
 use App\Models\Service;
@@ -62,6 +63,18 @@ class ClientController extends Controller
             'tasks.createdBy',
             'activities.causer',
         ]);
+
+        if ($client->clientServices->isEmpty() && $client->lead?->service_required) {
+            $assigned = $client->syncServicesFromLead();
+            foreach ($assigned as $row) {
+                $this->activity->log(
+                    $client,
+                    Activity::ACTION_SERVICE_ASSIGNED,
+                    "Service \"{$row->service->name}\" assigned from lead"
+                );
+            }
+            $client->load(['clientServices.service', 'clientServices.assignedUser', 'activities.causer']);
+        }
 
         return Inertia::render('Clients/Show', [
             'client'   => $this->formatClientFull($client),
@@ -173,6 +186,7 @@ class ClientController extends Controller
             'tasks'          => $client->tasks->map(fn ($t) => [
                 'id'            => $t->id,
                 'title'         => $t->title,
+                'description'   => $t->description,
                 'priority'      => $t->priority,
                 'status'        => $t->status,
                 'assigned_user' => $t->assignedUser ? ['name' => $t->assignedUser->name] : null,

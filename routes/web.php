@@ -37,14 +37,20 @@ Route::middleware(['auth'])->group(function () {
     // Leads — admin + sales
     Route::middleware('role:admin,sales')->group(function () {
         Route::get('/leads',                [LeadController::class, 'index'])->name('leads.index');
-        Route::get('/leads/create',         fn () => Inertia::render('Leads/Create', [
-            'users' => \App\Models\User::where('is_active', true)->select('id', 'name', 'role')->get(),
-        ]))->name('leads.create');
+        Route::get('/leads/create', function () {
+            return Inertia::render('Leads/Create', [
+                'users'    => \App\Models\User::where('is_active', true)->select('id', 'name', 'role')->get(),
+                'services' => \App\Models\Service::where('is_active', true)->orderBy('order')->get(['id', 'name', 'slug']),
+            ]);
+        })->name('leads.create');
         Route::post('/leads',               [LeadController::class, 'store'])->name('leads.store');
         Route::get('/leads/{lead}',         [LeadController::class, 'show'])->name('leads.show');
         Route::put('/leads/{lead}',         [LeadController::class, 'update'])->name('leads.update');
         Route::patch('/leads/{lead}/status',[LeadController::class, 'updateStatus'])->name('leads.status');
         Route::post('/leads/{lead}/note',   [LeadController::class, 'addNote'])->name('leads.note');
+        Route::post('/leads/{lead}/call',   [LeadController::class, 'logCall'])->name('leads.call');
+        Route::post('/leads/{lead}/follow-up', [LeadController::class, 'followUp'])->name('leads.follow-up');
+        Route::post('/leads/{lead}/invoices', [LeadController::class, 'storeInvoice'])->name('leads.invoices.store');
         Route::post('/leads/{lead}/assign', [LeadController::class, 'assign'])->name('leads.assign');
         Route::post('/leads/{lead}/convert',[LeadController::class, 'convert'])->name('leads.convert');
         Route::delete('/leads/{lead}',      [LeadController::class, 'destroy'])->name('leads.destroy');
@@ -68,6 +74,7 @@ Route::middleware(['auth'])->group(function () {
     // Operations — admin + processing
     Route::middleware('role:admin,processing')->group(function () {
         Route::get('/operations',              [OperationController::class, 'index'])->name('operations.index');
+        Route::post('/operations',             [OperationController::class, 'store'])->name('operations.store');
         Route::put('/operations/{operation}',  [OperationController::class, 'update'])->name('operations.update');
     });
 

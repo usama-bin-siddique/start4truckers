@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import CategoryDropzones, { queuedFileCount } from '@/components/CategoryDropzon
 import {
     ChevronLeft, Phone, Mail, Building, MapPin, Briefcase, Globe, Edit,
     DollarSign, FileText, CheckSquare, Clock, AlertCircle, CheckCircle2, Circle, GitBranch,
-    LayoutDashboard,
+    LayoutDashboard, Upload, X, Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,7 +25,7 @@ interface Lead { id: number; name: string; email: string | null; phone: string |
 interface Payment { id: number; invoice_amount: number; amount_received: number; balance_due: number; payment_method: string | null; transaction_reference: string | null; notes: string | null; paid_at: string | null; created_by: string | null; has_receipt: boolean; created_at: string }
 interface ClientService { id: number; service_id: number; service_name: string; status: string; assigned_to: number | null; assigned_user: { name: string } | null; completion_date: string | null; notes: string | null }
 interface Document { id: number; category: string; category_label: string; original_filename: string; file_size: string; uploaded_by: string | null; created_at: string }
-interface Task { id: number; title: string; priority: string; status: string; assigned_user: { name: string } | null; due_date: string | null; is_overdue: boolean }
+interface Task { id: number; title: string; description: string | null; priority: string; status: string; assigned_user: { name: string } | null; due_date: string | null; is_overdue: boolean }
 interface Activity { id: number; action: string; description: string; causer: string; old_value: Record<string, string> | null; new_value: Record<string, string> | null; created_at: string }
 interface Client {
     id: number; client_number: string; status: string; notes: string | null;
@@ -273,7 +273,7 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                             <PaymentsTab clientId={client.id} payments={client.payments} canEdit={['admin', 'sales'].includes(auth.user.role)} />
                         </TabsContent>
                         <TabsContent value="operations" className="mt-5">
-                            <OperationsTab clientId={client.id} services={client.client_services} users={users} canEdit={['admin', 'processing'].includes(auth.user.role)} />
+                            <OperationsTab clientId={client.id} assigned={client.client_services} catalog={services} users={users} canEdit={['admin', 'processing'].includes(auth.user.role)} />
                         </TabsContent>
                         <TabsContent value="documents" className="mt-5">
                             <DocumentsTab clientId={client.id} documents={client.documents} categories={doc_categories} canUpload={['admin', 'processing'].includes(auth.user.role)} />
@@ -332,11 +332,32 @@ export default function ClientShow({ client, users, services, doc_categories }: 
 
 function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; payments: Payment[]; canEdit: boolean }) {
     const [open, setOpen] = useState(false);
-    const form = useForm({ invoice_amount: '', amount_received: '', payment_method: '', transaction_reference: '', notes: '', paid_at: '', client_id: String(clientId) });
+    const form = useForm<{
+        invoice_amount: string;
+        amount_received: string;
+        payment_method: string;
+        transaction_reference: string;
+        notes: string;
+        paid_at: string;
+        client_id: string;
+        receipt: File | null;
+    }>({
+        invoice_amount: '',
+        amount_received: '',
+        payment_method: '',
+        transaction_reference: '',
+        notes: '',
+        paid_at: '',
+        client_id: String(clientId),
+        receipt: null,
+    });
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        form.post('/payments', { onSuccess: () => { form.reset(); setOpen(false); } });
+        form.post('/payments', {
+            forceFormData: true,
+            onSuccess: () => { form.reset(); setOpen(false); },
+        });
     }
 
     return (
@@ -363,12 +384,13 @@ function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; paymen
                             <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Reference</TableHead>
                             <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Date</TableHead>
                             <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">By</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Proof</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {payments.length === 0 ? (
                             <TableRow className="hover:bg-transparent">
-                                <TableCell colSpan={7} className="h-48 text-center text-sm text-gray-400">No payments recorded</TableCell>
+                                <TableCell colSpan={8} className="h-48 text-center text-sm text-gray-400">No payments recorded</TableCell>
                             </TableRow>
                         ) : payments.map((p) => (
                             <TableRow key={p.id}>
@@ -379,13 +401,27 @@ function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; paymen
                                 <TableCell className="font-mono text-xs">{p.transaction_reference ?? '—'}</TableCell>
                                 <TableCell className="text-xs text-gray-400">{p.paid_at ?? p.created_at}</TableCell>
                                 <TableCell className="text-xs text-gray-500">{p.created_by ?? '—'}</TableCell>
+                                <TableCell>
+                                    {p.has_receipt ? (
+                                        <a
+                                            href={`/payments/${p.id}/receipt`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:text-amber-800"
+                                        >
+                                            <Download className="h-3.5 w-3.5" /> View
+                                        </a>
+                                    ) : (
+                                        <span className="text-xs text-gray-300">—</span>
+                                    )}
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
             </section>
 
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) form.reset(); }}>
                 <DialogContent className="max-w-md">
                     <DialogHeader><DialogTitle>Add Payment</DialogTitle></DialogHeader>
                     <form onSubmit={submit} className="space-y-3">
@@ -416,6 +452,11 @@ function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; paymen
                         <Field label="Notes" error={form.errors.notes}>
                             <Textarea rows={2} value={form.data.notes} onChange={(e) => form.setData('notes', e.target.value)} />
                         </Field>
+                        <PaymentProofField
+                            file={form.data.receipt}
+                            error={form.errors.receipt}
+                            onChange={(file) => form.setData('receipt', file)}
+                        />
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={form.processing}>Save Payment</Button>
@@ -427,9 +468,24 @@ function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; paymen
     );
 }
 
-function OperationsTab({ services, users, canEdit }: { clientId: number; services: ClientService[]; users: { id: number; name: string; role: string }[]; canEdit: boolean }) {
+function OperationsTab({
+    clientId,
+    assigned,
+    catalog,
+    users,
+    canEdit,
+}: {
+    clientId: number;
+    assigned: ClientService[];
+    catalog: { id: number; name: string; slug: string }[];
+    users: { id: number; name: string; role: string }[];
+    canEdit: boolean;
+}) {
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [addOpen, setAddOpen] = useState(false);
     const form = useForm({ status: '', assigned_to: '', completion_date: '', notes: '' });
+    const addForm = useForm({ client_id: String(clientId), service_id: '', assigned_to: '', notes: '' });
+    const available = catalog.filter((s) => !assigned.some((cs) => cs.service_id === s.id));
 
     function openEdit(cs: ClientService) {
         form.setData({ status: cs.status, assigned_to: cs.assigned_to ? String(cs.assigned_to) : '', completion_date: cs.completion_date ?? '', notes: cs.notes ?? '' });
@@ -441,13 +497,32 @@ function OperationsTab({ services, users, canEdit }: { clientId: number; service
         form.put(`/operations/${editingId}`, { onSuccess: () => setEditingId(null) });
     }
 
+    function submitAdd(e: React.FormEvent) {
+        e.preventDefault();
+        addForm.post('/operations', {
+            onSuccess: () => { addForm.reset(); setAddOpen(false); },
+        });
+    }
+
     return (
-        <div className="space-y-3">
-            {services.length === 0 ? (
+        <div className="space-y-4">
+            {canEdit && (
+                <div className="flex justify-end">
+                    <button
+                        type="button"
+                        onClick={() => setAddOpen(true)}
+                        disabled={available.length === 0}
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black disabled:opacity-50"
+                    >
+                        <Briefcase className="h-4 w-4" /> Assign service
+                    </button>
+                </div>
+            )}
+            {assigned.length === 0 ? (
                 <section className="flex h-48 items-center justify-center rounded-2xl border border-gray-200/80 bg-white text-sm text-gray-400 shadow-sm">
                     No services assigned to this client.
                 </section>
-            ) : services.map((cs) => (
+            ) : assigned.map((cs) => (
                 <section key={cs.id} className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
@@ -471,6 +546,41 @@ function OperationsTab({ services, users, canEdit }: { clientId: number; service
                 </section>
             ))}
 
+            <Dialog open={addOpen} onOpenChange={(next) => { setAddOpen(next); if (!next) addForm.reset(); }}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader><DialogTitle>Assign service</DialogTitle></DialogHeader>
+                    <form onSubmit={submitAdd} className="space-y-3">
+                        <Field label="Service *" error={addForm.errors.service_id}>
+                            <Select value={addForm.data.service_id} onValueChange={(v) => addForm.setData('service_id', v)}>
+                                <SelectTrigger><SelectValue placeholder="Select a service" /></SelectTrigger>
+                                <SelectContent>
+                                    {available.map((s) => (
+                                        <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </Field>
+                        <Field label="Assign to" error={addForm.errors.assigned_to}>
+                            <Select value={addForm.data.assigned_to} onValueChange={(v) => addForm.setData('assigned_to', v)}>
+                                <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                                <SelectContent>
+                                    {users.filter((u) => ['admin', 'processing'].includes(u.role)).map((u) => (
+                                        <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </Field>
+                        <Field label="Notes" error={addForm.errors.notes}>
+                            <Textarea rows={2} placeholder="Optional" value={addForm.data.notes} onChange={(e) => addForm.setData('notes', e.target.value)} />
+                        </Field>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+                            <Button type="submit" disabled={addForm.processing || !addForm.data.service_id}>Assign</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={editingId !== null} onOpenChange={() => setEditingId(null)}>
                 <DialogContent className="max-w-sm">
                     <DialogHeader><DialogTitle>Update Service</DialogTitle></DialogHeader>
@@ -485,17 +595,19 @@ function OperationsTab({ services, users, canEdit }: { clientId: number; service
                                 </SelectContent>
                             </Select>
                         </Field>
-                        <Field label="Assigned To">
-                            <Select value={form.data.assigned_to} onValueChange={(v) => form.setData('assigned_to', v)}>
-                                <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">Unassigned</SelectItem>
-                                    {users.filter((u) => ['admin', 'processing'].includes(u.role)).map((u) => (
-                                        <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </Field>
+                        {form.data.status !== 'completed' && (
+                            <Field label="Assigned To">
+                                <Select value={form.data.assigned_to} onValueChange={(v) => form.setData('assigned_to', v)}>
+                                    <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="">Unassigned</SelectItem>
+                                        {users.filter((u) => ['admin', 'processing'].includes(u.role)).map((u) => (
+                                            <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                        )}
                         <Field label="Completion Date">
                             <Input type="date" value={form.data.completion_date} onChange={(e) => form.setData('completion_date', e.target.value)} />
                         </Field>
@@ -518,18 +630,16 @@ function DocumentsTab({ clientId, documents, categories, canUpload }: { clientId
     const [deleteTarget, setDeleteTarget] = useState<Document | null>(null);
     const [files, setFiles] = useState<Record<string, File[]>>({});
     const [processing, setProcessing] = useState(false);
-    const { errors } = usePage<{ errors: Record<string, string> }>().props;
+    const errors = usePage().props.errors as Record<string, string>;
     const queued = queuedFileCount(files);
+    const uploadError = firstUploadError(errors);
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        const fd = new FormData();
-        fd.append('client_id', String(clientId));
-        Object.entries(files).forEach(([category, list]) => {
-            list.forEach((file) => fd.append(`files[${category}][]`, file));
-        });
         setProcessing(true);
-        router.post('/documents', fd, {
+        router.post('/documents', { client_id: clientId, files }, {
+            forceFormData: true,
+            preserveScroll: true,
             onSuccess: () => { setFiles({}); setOpen(false); },
             onFinish: () => setProcessing(false),
         });
@@ -594,7 +704,7 @@ function DocumentsTab({ clientId, documents, categories, canUpload }: { clientId
                                 categories={categories}
                                 files={files}
                                 onChange={setFiles}
-                                error={errors.files}
+                                error={uploadError}
                             />
                         </div>
                         <DialogFooter className="border-t border-gray-100 px-6 py-4">
@@ -659,6 +769,9 @@ function TasksTab({ clientId, tasks, users }: { clientId: number; tasks: Task[];
                                 {t.status === 'completed' ? <CheckCircle2 size={15} className="text-emerald-500" /> : t.is_overdue ? <AlertCircle size={15} className="text-red-500" /> : <Circle size={15} className="text-gray-400" />}
                                 <div>
                                     <p className={cn('text-sm font-medium', t.status === 'completed' && 'text-gray-400 line-through')}>{t.title}</p>
+                                    {t.description && (
+                                        <p className={cn('mt-0.5 text-sm text-gray-500', t.status === 'completed' && 'text-gray-400')}>{t.description}</p>
+                                    )}
                                     <p className="mt-0.5 text-xs text-gray-400">
                                         {t.assigned_user?.name ?? 'Unassigned'}
                                         {t.due_date && ` · Due ${t.due_date}`}
@@ -678,6 +791,9 @@ function TasksTab({ clientId, tasks, users }: { clientId: number; tasks: Task[];
                     <form onSubmit={submit} className="space-y-3">
                         <Field label="Title *" error={form.errors.title}>
                             <Input placeholder="Task title" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} />
+                        </Field>
+                        <Field label="Description" error={form.errors.description}>
+                            <Textarea rows={3} placeholder="What needs to be done?" value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
                         </Field>
                         <div className="grid grid-cols-2 gap-3">
                             <Field label="Assigned To" error={form.errors.assigned_to}>
@@ -746,6 +862,95 @@ function Field({ label, error, children }: { label: string; error?: string; chil
             {children}
             {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
+    );
+}
+
+function firstUploadError(errors: Record<string, string>): string | undefined {
+    if (errors.files) return errors.files;
+    if (errors.file) return errors.file;
+    if (errors.category) return errors.category;
+    return Object.entries(errors).find(([key]) => key.startsWith('files'))?.[1];
+}
+
+const PROOF_ACCEPT = '.jpg,.jpeg,.png,.pdf';
+const PROOF_EXT = ['jpg', 'jpeg', 'png', 'pdf'];
+const PROOF_MAX_BYTES = 5 * 1024 * 1024;
+
+function PaymentProofField({
+    file,
+    onChange,
+    error,
+}: {
+    file: File | null;
+    onChange: (file: File | null) => void;
+    error?: string;
+}) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [over, setOver] = useState(false);
+
+    function take(incoming?: File) {
+        if (!incoming) return;
+        const ext = incoming.name.split('.').pop()?.toLowerCase() ?? '';
+        if (!PROOF_EXT.includes(ext) || incoming.size > PROOF_MAX_BYTES) return;
+        onChange(incoming);
+    }
+
+    function formatSize(bytes: number) {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    return (
+        <Field label="Payment proof" error={error}>
+            {file ? (
+                <div className="flex items-center gap-2 rounded-xl border border-gray-200/80 bg-[#FAFAF8] px-3 py-2">
+                    <FileText className="h-4 w-4 shrink-0 text-amber-700" />
+                    <span className="min-w-0 flex-1 truncate text-xs text-gray-800">{file.name}</span>
+                    <span className="shrink-0 text-[10px] text-gray-400">{formatSize(file.size)}</span>
+                    <button
+                        type="button"
+                        onClick={() => onChange(null)}
+                        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        aria-label="Remove payment proof"
+                    >
+                        <X className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+                    onDragLeave={() => setOver(false)}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        setOver(false);
+                        take(e.dataTransfer.files[0]);
+                    }}
+                    className={cn(
+                        'flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-5 text-center transition-colors',
+                        over
+                            ? 'border-[#C4A035] bg-amber-50'
+                            : 'border-gray-200 bg-[#FAFAF8] hover:border-[#C4A035]/60 hover:bg-amber-50/40',
+                    )}
+                >
+                    <Upload className={cn('mb-1.5 h-4 w-4', over ? 'text-amber-700' : 'text-gray-400')} />
+                    <span className="text-xs font-medium text-gray-600">Drop screenshot or PDF, or click to browse</span>
+                    <span className="mt-0.5 text-[11px] text-gray-400">JPG, PNG, or PDF · max 5 MB</span>
+                </button>
+            )}
+            <input
+                ref={inputRef}
+                type="file"
+                accept={PROOF_ACCEPT}
+                className="hidden"
+                onChange={(e) => {
+                    take(e.target.files?.[0]);
+                    e.target.value = '';
+                }}
+            />
+        </Field>
     );
 }
 

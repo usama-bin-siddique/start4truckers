@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import React, { useEffect, useState } from 'react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,8 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -22,15 +20,24 @@ import {
 } from '@/components/ui/alert-dialog';
 import LeadStatusBadge from '@/components/LeadStatusBadge';
 import ActivityTimeline from '@/components/ActivityTimeline';
+import CategoryDropzones, { queuedFileCount } from '@/components/CategoryDropzones';
 import {
     Phone, Mail, MessageCircle, Edit, UserPlus, ArrowRightCircle,
-    Trash2, Building, MapPin, Briefcase, Globe, ChevronLeft,
+    Building, MapPin, Briefcase, Globe, ChevronLeft, Clock,
+    FileText, DollarSign, PhoneCall,
 } from 'lucide-react';
 
 interface Activity {
     id: number; action: string; description: string; causer: string;
     old_value: Record<string, string> | null; new_value: Record<string, string> | null;
     created_at: string;
+}
+interface LeadDoc {
+    id: number; category: string; category_label: string; original_filename: string;
+    file_size: string; uploaded_by: string | null; created_at: string;
+}
+interface LeadInvoice {
+    id: number; amount: number; notes: string | null; created_by: string | null; created_at: string;
 }
 interface Lead {
     id: number; name: string; phone: string | null; email: string | null;
@@ -39,7 +46,10 @@ interface Lead {
     assigned_user: { id: number; name: string } | null;
     converted_at: string | null; converted_by: string | null;
     client_id: number | null; client_number: string | null;
+    reviewed_at: string | null; sla_started_at: string | null; sla_expires_at: string | null;
+    sla_completed_at: string | null; sla_breached_at: string | null;
     created_at: string; updated_at: string; activities: Activity[];
+    documents: LeadDoc[]; invoices: LeadInvoice[];
 }
 interface User { id: number; name: string; role: string }
 
@@ -47,14 +57,25 @@ interface Props {
     lead: Lead;
     users: User[];
     statuses: Record<string, string>;
+    doc_categories: Record<string, string>;
+    services?: { id: number; name: string; slug: string }[];
     auth: { user: { role: string; id: number } };
 }
 
-export default function LeadShow({ lead, users, statuses }: Props) {
+export default function LeadShow({ lead, users, statuses, doc_categories = {}, services = [] }: Props) {
+    const { auth, errors } = usePage<Props>().props;
     const [editOpen, setEditOpen] = useState(false);
     const [assignOpen, setAssignOpen] = useState(false);
     const [noteOpen, setNoteOpen] = useState(false);
     const [convertOpen, setConvertOpen] = useState(false);
+    const [followOpen, setFollowOpen] = useState(false);
+    const [invoiceOpen, setInvoiceOpen] = useState(false);
+    const [uploadOpen, setUploadOpen] = useState(false);
+    const [files, setFiles] = useState<Record<string, File[]>>({});
+    const [uploading, setUploading] = useState(false);
+    const canUpload = ['admin', 'sales', 'processing'].includes(auth.user.role);
+    const queued = queuedFileCount(files);
+    const uploadError = firstUploadError((errors ?? {}) as Record<string, string>);
 
     const editForm = useForm({
         name: lead.name, phone: lead.phone ?? '', email: lead.email ?? '',
@@ -66,6 +87,8 @@ export default function LeadShow({ lead, users, statuses }: Props) {
 
     const assignForm = useForm({ assigned_to: '' });
     const noteForm   = useForm({ note: '' });
+    const followForm = useForm({ notes: '' });
+    const invoiceForm = useForm({ amount: '', notes: '' });
 
     function submitEdit(e: React.FormEvent) {
         e.preventDefault();
@@ -94,6 +117,46 @@ export default function LeadShow({ lead, users, statuses }: Props) {
         if (statusLocked) return;
         router.patch(`/leads/${lead.id}/status`, { status });
     }
+
+    function logCall() {
+        router.post(`/leads/${lead.id}/call`, {}, {
+            onSuccess: () => {
+                if (lead.phone) window.open(`tel:${lead.phone}`);
+            },
+        });
+    }
+
+    function submitFollow(e: React.FormEvent) {
+        e.preventDefault();
+        followForm.post(`/leads/${lead.id}/follow-up`, {
+            onSuccess: () => { followForm.reset(); setFollowOpen(false); },
+        });
+    }
+
+    function submitInvoice(e: React.FormEvent) {
+        e.preventDefault();
+        invoiceForm.post(`/leads/${lead.id}/invoices`, {
+            onSuccess: () => { invoiceForm.reset(); setInvoiceOpen(false); },
+        });
+    }
+
+    function submitUpload(e: React.FormEvent) {
+        e.preventDefault();
+        setUploading(true);
+        router.post('/documents', { lead_id: lead.id, files }, {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => { setFiles({}); setUploadOpen(false); },
+            onFinish: () => setUploading(false),
+        });
+    }
+
+    useEffect(() => {
+        if (!lead.sla_expires_at || lead.sla_completed_at || lead.sla_breached_at) return;
+        const ms = new Date(lead.sla_expires_at).getTime() - Date.now();
+        const t = setTimeout(() => router.reload({ only: ['lead'] }), Math.max(ms + 800, 800));
+        return () => clearTimeout(t);
+    }, [lead.sla_expires_at, lead.sla_completed_at, lead.sla_breached_at]);
 
     return (
         <>
@@ -127,8 +190,8 @@ export default function LeadShow({ lead, users, statuses }: Props) {
 
                         <div className="flex flex-wrap gap-2">
                             {lead.phone && (
-                                <Button size="sm" variant="outline" onClick={() => window.open(`tel:${lead.phone}`)}>
-                                    <Phone size={13} /> Call
+                                <Button size="sm" variant="outline" onClick={logCall}>
+                                    <PhoneCall size={13} /> Call
                                 </Button>
                             )}
                             {lead.email && (
@@ -142,12 +205,16 @@ export default function LeadShow({ lead, users, statuses }: Props) {
                                     <MessageCircle size={13} /> WhatsApp
                                 </Button>
                             )}
-                            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-                                <Edit size={13} /> Edit
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
-                                <UserPlus size={13} /> Assign
-                            </Button>
+                            {!statusLocked && (
+                                <>
+                                    <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+                                        <Edit size={13} /> Edit
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
+                                        <UserPlus size={13} /> Assign
+                                    </Button>
+                                </>
+                            )}
                             {!lead.converted_at && (
                                 <Button size="sm" variant="success" onClick={() => setConvertOpen(true)}>
                                     <ArrowRightCircle size={13} /> Convert to Client
@@ -159,6 +226,21 @@ export default function LeadShow({ lead, users, statuses }: Props) {
                                 </Button>
                             )}
                         </div>
+                    </div>
+
+                    <SlaBanner lead={lead} />
+
+                    <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setNoteOpen(true)}>Add note</Button>
+                        <Button size="sm" variant="outline" onClick={() => setFollowOpen(true)}>Log follow-up</Button>
+                        <Button size="sm" variant="outline" onClick={() => setInvoiceOpen(true)}>
+                            <DollarSign size={13} /> Record invoice
+                        </Button>
+                        {canUpload && (
+                            <Button size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
+                                <FileText size={13} /> Upload documents
+                            </Button>
+                        )}
                     </div>
 
                     {/* Status quick-change — locked once won or lost */}
@@ -233,6 +315,40 @@ export default function LeadShow({ lead, users, statuses }: Props) {
                                     <ActivityTimeline activities={lead.activities} />
                                 </CardContent>
                             </Card>
+
+                            <Card>
+                                <CardHeader className="pb-2"><CardTitle className="text-sm">Documents</CardTitle></CardHeader>
+                                <CardContent className="space-y-2">
+                                    {(lead.documents ?? []).length === 0 ? (
+                                        <p className="text-sm text-gray-400">No documents uploaded yet</p>
+                                    ) : lead.documents.map((doc) => (
+                                        <div key={doc.id} className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] font-semibold tracking-wide text-amber-700 uppercase">{doc.category_label}</p>
+                                                <p className="truncate text-sm text-gray-800">{doc.original_filename}</p>
+                                                <p className="text-xs text-gray-400">{doc.file_size} · {doc.created_at}</p>
+                                            </div>
+                                            <a href={`/documents/${doc.id}/download`} target="_blank" rel="noreferrer" className="text-xs text-amber-700 hover:underline">
+                                                Download
+                                            </a>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+
+                            {(lead.invoices ?? []).length > 0 && (
+                                <Card>
+                                    <CardHeader className="pb-2"><CardTitle className="text-sm">Invoices</CardTitle></CardHeader>
+                                    <CardContent className="space-y-2">
+                                        {lead.invoices.map((inv) => (
+                                            <div key={inv.id} className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-700">${inv.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                                <span className="text-xs text-gray-400">{inv.created_at}</span>
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -259,7 +375,18 @@ export default function LeadShow({ lead, users, statuses }: Props) {
                                     <Input value={editForm.data.company} onChange={e => editForm.setData('company', e.target.value)} />
                                 </FormField>
                                 <FormField label="Service Required" error={editForm.errors.service_required}>
-                                    <Input value={editForm.data.service_required} onChange={e => editForm.setData('service_required', e.target.value)} />
+                                    {services.length > 0 ? (
+                                        <Select value={editForm.data.service_required} onValueChange={v => editForm.setData('service_required', v)}>
+                                            <SelectTrigger><SelectValue placeholder="Select service" /></SelectTrigger>
+                                            <SelectContent>
+                                                {services.map((s) => (
+                                                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <Input value={editForm.data.service_required} onChange={e => editForm.setData('service_required', e.target.value)} />
+                                    )}
                                 </FormField>
                             </div>
                             <FormField label="Status" error={editForm.errors.status}>
@@ -342,6 +469,64 @@ export default function LeadShow({ lead, users, statuses }: Props) {
                     </DialogContent>
                 </Dialog>
 
+                {/* Follow-up */}
+                <Dialog open={followOpen} onOpenChange={setFollowOpen}>
+                    <DialogContent className="max-w-sm">
+                        <DialogHeader><DialogTitle>Log follow-up</DialogTitle></DialogHeader>
+                        <form onSubmit={submitFollow} className="space-y-4">
+                            <FormField label="Notes" error={followForm.errors.notes}>
+                                <Textarea rows={4} placeholder="What did you follow up on?"
+                                    value={followForm.data.notes}
+                                    onChange={e => followForm.setData('notes', e.target.value)} />
+                            </FormField>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setFollowOpen(false)}>Cancel</Button>
+                                <Button type="submit" disabled={followForm.processing}>Save follow-up</Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
+                    <DialogContent className="max-w-sm">
+                        <DialogHeader><DialogTitle>Record invoice</DialogTitle></DialogHeader>
+                        <form onSubmit={submitInvoice} className="space-y-4">
+                            <FormField label="Amount *" error={invoiceForm.errors.amount}>
+                                <Input type="number" step="0.01" placeholder="0.00"
+                                    value={invoiceForm.data.amount}
+                                    onChange={e => invoiceForm.setData('amount', e.target.value)} />
+                            </FormField>
+                            <FormField label="Notes" error={invoiceForm.errors.notes}>
+                                <Textarea rows={3} value={invoiceForm.data.notes}
+                                    onChange={e => invoiceForm.setData('notes', e.target.value)} />
+                            </FormField>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setInvoiceOpen(false)}>Cancel</Button>
+                                <Button type="submit" disabled={invoiceForm.processing}>Save invoice</Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={uploadOpen} onOpenChange={(next) => { setUploadOpen(next); if (!next) setFiles({}); }}>
+                    <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+                        <DialogHeader className="border-b border-gray-100 px-6 py-5">
+                            <DialogTitle>Upload documents</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={submitUpload} className="flex min-h-0 flex-1 flex-col">
+                            <div className="flex-1 overflow-y-auto px-6 py-5">
+                                <CategoryDropzones categories={doc_categories ?? {}} files={files} onChange={setFiles} error={uploadError} />
+                            </div>
+                            <DialogFooter className="border-t border-gray-100 px-6 py-4">
+                                <Button type="button" variant="outline" onClick={() => setUploadOpen(false)}>Cancel</Button>
+                                <Button type="submit" disabled={uploading || queued === 0}>
+                                    {uploading ? 'Uploading…' : queued === 0 ? 'Upload' : `Upload ${queued} file${queued === 1 ? '' : 's'}`}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
                 {/* Convert confirmation */}
                 <AlertDialog open={convertOpen} onOpenChange={setConvertOpen}>
                     <AlertDialogContent>
@@ -366,6 +551,47 @@ export default function LeadShow({ lead, users, statuses }: Props) {
     );
 }
 
+function SlaBanner({ lead }: { lead: Lead }) {
+    const [now, setNow] = useState(Date.now());
+
+    useEffect(() => {
+        if (!lead.sla_expires_at || lead.sla_completed_at || lead.sla_breached_at) return;
+        const t = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(t);
+    }, [lead.sla_expires_at, lead.sla_completed_at, lead.sla_breached_at]);
+
+    if (!lead.sla_started_at) return null;
+
+    if (lead.sla_completed_at) {
+        return (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                SLA met. An action was logged before the timer expired.
+            </div>
+        );
+    }
+
+    if (lead.sla_breached_at) {
+        return (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                SLA missed. Admin has been notified because no call, note, follow-up, status update, or invoice was logged in time.
+            </div>
+        );
+    }
+
+    const remaining = Math.max(0, new Date(lead.sla_expires_at!).getTime() - now);
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    const urgent = remaining <= 2 * 60 * 1000;
+
+    return (
+        <div className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm ${urgent ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-gray-200 bg-white text-gray-700'}`}>
+            <Clock size={16} />
+            First-open SLA: <span className="font-semibold tabular-nums">{minutes}:{String(seconds).padStart(2, '0')}</span> remaining
+            <span className="text-gray-400">· log a call, note, follow-up, status change, or invoice</span>
+        </div>
+    );
+}
+
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | null | undefined }) {
     if (!value) return null;
     return (
@@ -387,4 +613,11 @@ function FormField({ label, error, children }: { label: string; error?: string; 
             {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
     );
+}
+
+function firstUploadError(errors: Record<string, string>): string | undefined {
+    if (errors.files) return errors.files;
+    if (errors.file) return errors.file;
+    if (errors.category) return errors.category;
+    return Object.entries(errors).find(([key]) => key.startsWith('files'))?.[1];
 }

@@ -19,7 +19,7 @@ class DocumentPolicy
 
     public function create(User $user): bool
     {
-        return in_array($user->role, ['admin', 'processing']);
+        return in_array($user->role, ['admin', 'sales', 'processing']);
     }
 
     public function delete(User $user, Document $document): bool

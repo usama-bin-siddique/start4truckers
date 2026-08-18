@@ -26,17 +26,28 @@ class Lead extends Model
         'assigned_to',
         'converted_by',
         'converted_at',
+        'reviewed_at',
+        'sla_started_at',
+        'sla_expires_at',
+        'sla_completed_at',
+        'sla_breached_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'converted_at' => 'datetime',
+            'converted_at'     => 'datetime',
+            'reviewed_at'      => 'datetime',
+            'sla_started_at'   => 'datetime',
+            'sla_expires_at'   => 'datetime',
+            'sla_completed_at' => 'datetime',
+            'sla_breached_at'  => 'datetime',
         ];
     }
 
     // Status constants
     const STATUS_NEW        = 'new';
+    const STATUS_REVIEWED   = 'reviewed';
     const STATUS_CONTACTED  = 'contacted';
     const STATUS_FOLLOW_UP  = 'follow-up';
     const STATUS_QUOTE_SENT = 'quote_sent';
@@ -47,6 +58,7 @@ class Lead extends Model
     {
         return [
             self::STATUS_NEW        => 'New',
+            self::STATUS_REVIEWED   => 'Lead Reviewed',
             self::STATUS_CONTACTED  => 'Contacted',
             self::STATUS_FOLLOW_UP  => 'Follow-up',
             self::STATUS_QUOTE_SENT => 'Quote Sent',
@@ -79,6 +91,16 @@ class Lead extends Model
     public function client(): HasOne
     {
         return $this->hasOne(Client::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(Document::class)->latest();
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(LeadInvoice::class)->latest();
     }
 
     public function activities(): MorphMany
