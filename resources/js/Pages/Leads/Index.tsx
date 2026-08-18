@@ -98,6 +98,7 @@ export default function LeadsIndex({ leads, users, statuses, filters, stats }: P
         { label: 'Total', value: stats.total, icon: <Users className="h-4 w-4 text-sky-700" />, iconClass: 'bg-sky-100' },
         { label: 'New', value: stats.new, icon: <Share2 className="h-4 w-4 text-blue-700" />, iconClass: 'bg-blue-100' },
         { label: 'Reviewed', value: stats.reviewed ?? 0, icon: <Phone className="h-4 w-4 text-amber-700" />, iconClass: 'bg-amber-100' },
+        { label: 'Contacted', value: stats.contacted, icon: <Phone className="h-4 w-4 text-blue-700" />, iconClass: 'bg-blue-100' },
         { label: 'Won', value: stats.won, icon: <Trophy className="h-4 w-4 text-emerald-700" />, iconClass: 'bg-emerald-100' },
         { label: 'Lost', value: stats.lost, icon: <Ban className="h-4 w-4 text-red-600" />, iconClass: 'bg-red-100' },
     ];
@@ -130,7 +131,7 @@ export default function LeadsIndex({ leads, users, statuses, filters, stats }: P
                         </Link>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
                         {kpis.map((k) => (
                             <div key={k.label} className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm">
                                 <div className="flex items-start justify-between">
