@@ -8,8 +8,11 @@ use App\Models\Document;
 use App\Services\ActivityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -63,19 +66,82 @@ class DocumentController extends Controller
     {
         $this->authorize('create', Document::class);
 
+        if ($request->hasFile('files')) {
+            return $this->storeBulk($request);
+        }
+
         $request->validate([
             'client_id' => ['required', 'exists:clients,id'],
             'category'  => ['required', 'string', 'in:' . implode(',', array_keys(Document::CATEGORIES))],
             'file'      => ['required', 'file', 'max:20480', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx'],
         ]);
 
-        $file  = $request->file('file');
-        $path  = $file->store("clients/{$request->client_id}/documents", 'private');
-        $client = Client::find($request->client_id);
+        $client = Client::findOrFail($request->client_id);
+        $this->storeUploadedFile($client, $request->input('category'), $request->file('file'));
+
+        return back()->with('success', 'Document uploaded.');
+    }
+
+    private function storeBulk(Request $request): RedirectResponse
+    {
+        $categoryKeys = array_keys(Document::CATEGORIES);
+        $rules = [
+            'client_id' => ['required', 'exists:clients,id'],
+            'files'     => ['required', 'array'],
+        ];
+
+        foreach ($categoryKeys as $category) {
+            $rules["files.{$category}"]   = ['nullable', 'array'];
+            $rules["files.{$category}.*"] = ['file', 'max:20480', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx'];
+        }
+
+        $request->validate($rules);
+
+        $uploads = $request->file('files', []);
+        $files   = [];
+
+        foreach ($uploads as $category => $fileList) {
+            if (! in_array($category, $categoryKeys, true)) {
+                throw ValidationException::withMessages([
+                    'files' => "Invalid document category: {$category}.",
+                ]);
+            }
+
+            $fileList = is_array($fileList) ? $fileList : [$fileList];
+
+            foreach ($fileList as $file) {
+                if ($file instanceof UploadedFile) {
+                    $files[] = [$category, $file];
+                }
+            }
+        }
+
+        if ($files === []) {
+            throw ValidationException::withMessages([
+                'files' => 'Drop at least one file into a category.',
+            ]);
+        }
+
+        $client = Client::findOrFail($request->client_id);
+
+        DB::transaction(function () use ($files, $client) {
+            foreach ($files as [$category, $file]) {
+                $this->storeUploadedFile($client, $category, $file);
+            }
+        });
+
+        $count = count($files);
+
+        return back()->with('success', $count === 1 ? 'Document uploaded.' : "{$count} documents uploaded.");
+    }
+
+    private function storeUploadedFile(Client $client, string $category, UploadedFile $file): Document
+    {
+        $path = $file->store("clients/{$client->id}/documents", 'private');
 
         $document = Document::create([
-            'client_id'         => $request->client_id,
-            'category'          => $request->category,
+            'client_id'         => $client->id,
+            'category'          => $category,
             'original_filename' => $file->getClientOriginalName(),
             'stored_path'       => $path,
             'mime_type'         => $file->getMimeType(),
@@ -87,7 +153,7 @@ class DocumentController extends Controller
             "Document \"{$document->original_filename}\" uploaded ({$document->category_label})"
         );
 
-        return back()->with('success', 'Document uploaded.');
+        return $document;
     }
 
     public function download(Document $document): StreamedResponse

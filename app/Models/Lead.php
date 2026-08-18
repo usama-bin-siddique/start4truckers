@@ -60,6 +60,11 @@ class Lead extends Model
         return $this->converted_at !== null;
     }
 
+    public function isStatusLocked(): bool
+    {
+        return in_array($this->status, [self::STATUS_WON, self::STATUS_LOST], true);
+    }
+
     // Relationships
     public function assignedUser(): BelongsTo
     {

@@ -131,6 +131,16 @@ class LeadController extends Controller
         ]);
 
         $old = $lead->only(['status', 'assigned_to']);
+
+        if ($lead->isStatusLocked()) {
+            if ($data['status'] !== $lead->status) {
+                return back()->withErrors([
+                    'status' => 'Won or lost leads cannot change status.',
+                ]);
+            }
+            $data['status'] = $lead->status;
+        }
+
         $lead->update($data);
 
         // Log status change
@@ -156,6 +166,10 @@ class LeadController extends Controller
     public function updateStatus(Request $request, Lead $lead): RedirectResponse
     {
         $this->authorize('update', $lead);
+
+        if ($lead->isStatusLocked()) {
+            return back()->with('error', 'Won or lost leads cannot change status.');
+        }
 
         $data = $request->validate([
             'status' => ['required', 'in:' . implode(',', array_keys(Lead::statuses()))],

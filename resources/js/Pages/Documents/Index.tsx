@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Filter, X, Upload, Download, Trash2, FileText, FolderOpen, Users, CalendarDays, Layers } from 'lucide-react';
+import { Search, Filter, X, Download, Trash2, FileText, FolderOpen, Users, CalendarDays, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Doc {
@@ -28,14 +26,11 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
     stats: Stats;
 }) {
     const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
-    const [uploadOpen, setUploadOpen] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<Doc | null>(null);
     const [search, setSearch] = useState(filters.search ?? '');
     const canManage = ['admin', 'processing'].includes(auth.user.role);
     const hasFilters = Object.values(filters).some(Boolean);
-
-    const form = useForm<{ client_id: string; category: string; file: File | null }>({ client_id: '', category: '', file: null });
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -51,11 +46,6 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
     function clearFilters() {
         setSearch('');
         router.get('/documents', {}, { preserveState: true, replace: true });
-    }
-
-    function submitUpload(e: React.FormEvent) {
-        e.preventDefault();
-        form.post('/documents', { forceFormData: true, onSuccess: () => { form.reset(); setUploadOpen(false); } });
     }
 
     function confirmDelete() {
@@ -89,16 +79,6 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
                                 Store, search, and share files across client accounts.
                             </p>
                         </div>
-                        {canManage && (
-                            <button
-                                type="button"
-                                onClick={() => setUploadOpen(true)}
-                                className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
-                            >
-                                <Upload className="h-4 w-4" />
-                                Upload
-                            </button>
-                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -249,40 +229,6 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
                         )}
                     </section>
                 </div>
-
-                <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-                    <DialogContent className="max-w-sm">
-                        <DialogHeader><DialogTitle>Upload Document</DialogTitle></DialogHeader>
-                        <form onSubmit={submitUpload} className="space-y-3">
-                            <div className="space-y-1">
-                                <Label className="text-xs">Client ID *</Label>
-                                <Input placeholder="Client ID number" value={form.data.client_id} onChange={(e) => form.setData('client_id', e.target.value)} />
-                                {form.errors.client_id && <p className="text-xs text-red-500">{form.errors.client_id}</p>}
-                            </div>
-                            <div className="space-y-1">
-                                <Label className="text-xs">Category *</Label>
-                                <Select value={form.data.category} onValueChange={(v) => form.setData('category', v)}>
-                                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(categories).map(([k, v]) => (
-                                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {form.errors.category && <p className="text-xs text-red-500">{form.errors.category}</p>}
-                            </div>
-                            <div className="space-y-1">
-                                <Label className="text-xs">File *</Label>
-                                <Input type="file" onChange={(e) => form.setData('file', e.target.files?.[0] ?? null)} />
-                                {form.errors.file && <p className="text-xs text-red-500">{form.errors.file}</p>}
-                            </div>
-                            <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setUploadOpen(false)}>Cancel</Button>
-                                <Button type="submit" disabled={form.processing}>Upload</Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
 
                 <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
                     <AlertDialogContent>

@@ -112,6 +112,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/settings/templates/{template}', [SettingsController::class, 'destroyTemplate'])->name('settings.templates.destroy');
         // General + API settings
         Route::post('/settings/general',                [SettingsController::class, 'updateSettings'])->name('settings.general.update');
+        Route::post('/settings/website-api-key',        [SettingsController::class, 'regenerateWebsiteApiKey'])->name('settings.website-api-key');
     });
 });
 

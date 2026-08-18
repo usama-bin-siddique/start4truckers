@@ -3,11 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Activity;
-use App\Models\Lead;
 use App\Models\Setting;
-use App\Services\ActivityService;
-use App\Services\NotificationService;
+use App\Services\LeadIntakeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,13 +12,11 @@ use Illuminate\Support\Facades\Log;
 class Web3FormsController extends Controller
 {
     public function __construct(
-        private ActivityService $activity,
-        private NotificationService $notification
+        private LeadIntakeService $intake
     ) {}
 
     public function receive(Request $request): JsonResponse
     {
-        // Validate the secret key if configured
         $secret = Setting::get('web3forms_secret');
         if ($secret) {
             $incoming = $request->header('X-Web3Forms-Secret')
@@ -33,7 +28,6 @@ class Web3FormsController extends Controller
             }
         }
 
-        // Map incoming fields — Web3Forms field names may vary
         $payload = $request->all();
 
         $name    = $payload['name']             ?? $payload['full_name']      ?? $payload['your-name']     ?? null;
@@ -49,7 +43,7 @@ class Web3FormsController extends Controller
             return response()->json(['message' => 'Missing required fields'], 422);
         }
 
-        $lead = Lead::create([
+        $lead = $this->intake->createFromWebsite([
             'name'             => $name ?? 'Unknown',
             'email'            => $email,
             'phone'            => $phone,
@@ -57,29 +51,6 @@ class Web3FormsController extends Controller
             'company'          => $company,
             'service_required' => $service,
             'notes'            => $message,
-            'source'           => 'website',
-            'status'           => Lead::STATUS_NEW,
-        ]);
-
-        $this->activity->log(
-            $lead,
-            Activity::ACTION_LEAD_CREATED,
-            "Lead created automatically from website form submission",
-            null,
-            null,
-            null // system action, no causer
-        );
-        
-        // Notify all admins and sales users about new lead
-        $adminsAndSales = \App\Models\User::whereIn('role', ['admin', 'sales'])
-            ->where('is_active', true)
-            ->pluck('id')
-            ->toArray();
-        
-        $this->notification->notifyMultiple($adminsAndSales, NotificationService::TYPE_NEW_LEAD, [
-            'lead_id'   => $lead->id,
-            'lead_name' => $lead->name,
-            'source'    => 'website',
         ]);
 
         Log::info("Web3Forms: lead #{$lead->id} created for {$lead->name}");

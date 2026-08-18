@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Eye, EyeOff, CheckCircle, XCircle, Settings } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, CheckCircle, XCircle, Settings, Copy, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface User { id: number; name: string; email: string; role: string; is_active: boolean }
@@ -557,26 +557,87 @@ function TemplatesTab({ templates }: { templates: Template[] }) {
 // ─── API Settings Tab ─────────────────────────────────────────────────────────
 function ApiTab({ settings }: { settings: Record<string, string> }) {
     const [showSecrets, setShowSecrets] = useState(false);
+    const [copied, setCopied] = useState<'key' | 'url' | null>(null);
     const form = useForm({
         web3forms_key:    settings.web3forms_key    ?? '',
         web3forms_secret: settings.web3forms_secret ?? '',
         stripe_key:       settings.stripe_key       ?? '',
         stripe_secret:    settings.stripe_secret    ?? '',
+        website_api_key:  settings.website_api_key  ?? '',
     });
+    const apiUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/api/leads`;
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
         form.post('/settings/general');
     }
 
+    function copy(text: string, which: 'key' | 'url') {
+        navigator.clipboard.writeText(text);
+        setCopied(which);
+        setTimeout(() => setCopied(null), 1500);
+    }
+
     return (
         <div className="max-w-2xl space-y-4">
             <div>
                 <h3 className="text-base font-semibold text-gray-950">API settings</h3>
-                <p className="text-sm text-gray-500">Integration keys for Web3Forms and Stripe</p>
+                <p className="text-sm text-gray-500">Connect the marketing website so new form submissions become CRM leads.</p>
             </div>
 
             <form onSubmit={submit} className="space-y-5">
+                <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+                    <h4 className="text-sm font-semibold text-gray-950">Website lead API</h4>
+                    <p className="mt-1 text-xs text-gray-500">POST contact-form data from the website to this endpoint. Source is stored as website.</p>
+                    <div className="mt-4 space-y-3">
+                        <Field label="Endpoint">
+                            <div className="flex gap-2">
+                                <Input readOnly value={apiUrl} className="font-mono text-xs" />
+                                <Button type="button" variant="outline" onClick={() => copy(apiUrl, 'url')}>
+                                    {copied === 'url' ? <CheckCircle size={14} /> : <Copy size={14} />}
+                                </Button>
+                            </div>
+                        </Field>
+                        <Field label="API key">
+                            <div className="flex gap-2">
+                                <Input
+                                    type={showSecrets ? 'text' : 'password'}
+                                    value={form.data.website_api_key}
+                                    onChange={(e) => form.setData('website_api_key', e.target.value)}
+                                    placeholder="Generate a key to enable the API"
+                                    className="font-mono text-xs"
+                                />
+                                <Button type="button" variant="outline" onClick={() => copy(form.data.website_api_key, 'key')} disabled={!form.data.website_api_key}>
+                                    {copied === 'key' ? <CheckCircle size={14} /> : <Copy size={14} />}
+                                </Button>
+                                <Button type="button" variant="outline" onClick={() => router.post('/settings/website-api-key', {}, { preserveState: false })}>
+                                    <RefreshCw size={14} />
+                                </Button>
+                            </div>
+                        </Field>
+                        <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs text-gray-600">
+                            <p className="font-medium text-gray-800">Website example</p>
+                            <pre className="mt-2 overflow-x-auto font-mono text-[11px] leading-relaxed text-amber-900">{`fetch('${apiUrl}', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': '${form.data.website_api_key || 'YOUR_API_KEY'}'
+  },
+  body: JSON.stringify({
+    name: 'Jane Doe',
+    email: 'jane@example.com',
+    phone: '555-0100',
+    state: 'TX',
+    company: 'Doe Logistics',
+    service_required: 'DOT Number',
+    notes: 'Need help getting started'
+  })
+})`}</pre>
+                            <p className="mt-2 text-gray-500">Send <code className="font-mono">X-API-Key</code> or <code className="font-mono">Authorization: Bearer …</code>. Name is required, plus email or phone.</p>
+                        </div>
+                    </div>
+                </section>
+
                 <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
                     <h4 className="text-sm font-semibold text-gray-950">Web3Forms integration</h4>
                     <p className="mt-1 text-xs text-gray-500">Used for automatic lead creation from your website form</p>

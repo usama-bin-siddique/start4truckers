@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Setting;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class SettingsSeeder extends Seeder
 {
@@ -27,5 +28,10 @@ class SettingsSeeder extends Seeder
                 $setting
             );
         }
+
+        Setting::firstOrCreate(
+            ['key' => 'website_api_key'],
+            ['value' => Str::random(48), 'group' => 'api']
+        );
     }
 }

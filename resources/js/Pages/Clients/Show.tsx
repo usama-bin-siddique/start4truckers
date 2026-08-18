@@ -3,9 +3,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,7 +13,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import ActivityTimeline from '@/components/ActivityTimeline';
 import LeadStatusBadge from '@/components/LeadStatusBadge';
-import { ChevronLeft, Phone, Mail, Building, MapPin, Briefcase, Globe, Edit, DollarSign, FileText, CheckSquare, Folder, Clock, AlertCircle, CheckCircle2, Circle } from 'lucide-react';
+import CategoryDropzones, { queuedFileCount } from '@/components/CategoryDropzones';
+import {
+    ChevronLeft, Phone, Mail, Building, MapPin, Briefcase, Globe, Edit,
+    DollarSign, FileText, CheckSquare, Clock, AlertCircle, CheckCircle2, Circle, GitBranch,
+    LayoutDashboard,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Lead { id: number; name: string; email: string | null; phone: string | null; state: string | null; company: string | null; service_required: string | null; source: string; status: string; created_at: string }
@@ -49,10 +52,53 @@ const serviceStatusIcon: Record<string, React.ReactNode> = {
     completed:   <CheckCircle2 size={14} className="text-green-500" />,
 };
 
+function fmt(n: number) {
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function ClientTab({
+    value,
+    icon,
+    label,
+    badge,
+    alert,
+}: {
+    value: string;
+    icon: React.ReactNode;
+    label: string;
+    badge?: React.ReactNode;
+    alert?: boolean;
+}) {
+    return (
+        <TabsTrigger
+            value={value}
+            className={cn(
+                'group flex h-auto w-full flex-col gap-2 rounded-xl border border-transparent px-2 py-3.5 text-[13px] font-medium text-gray-400 shadow-none',
+                'hover:bg-gray-50 hover:text-gray-600',
+                'data-[state=active]:border-[#C4A035]/40 data-[state=active]:bg-[#12141D] data-[state=active]:text-white data-[state=active]:shadow-md',
+            )}
+        >
+            <span className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-500 transition-colors group-data-[state=active]:bg-[#C4A035]/20 group-data-[state=active]:text-[#E0B63C]">
+                {icon}
+                {alert && (
+                    <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white group-data-[state=active]:ring-[#12141D]" />
+                )}
+            </span>
+            <span className="flex items-center gap-1.5 leading-none">
+                {label}
+                {badge != null && (
+                    <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-gray-500 group-data-[state=active]:bg-white/10 group-data-[state=active]:text-white/70">
+                        {badge}
+                    </span>
+                )}
+            </span>
+        </TabsTrigger>
+    );
+}
+
 export default function ClientShow({ client, users, services, doc_categories }: Props) {
     const { auth } = usePage<Props>().props;
     const [editOpen, setEditOpen] = useState(false);
-    const isAdmin = auth.user.role === 'admin';
     const canEdit = ['admin', 'sales', 'processing'].includes(auth.user.role);
 
     const editForm = useForm({
@@ -66,191 +112,190 @@ export default function ClientShow({ client, users, services, doc_categories }: 
         editForm.put(`/clients/${client.id}`, { onSuccess: () => setEditOpen(false) });
     }
 
-    const completedServices = client.client_services.filter(s => s.status === 'completed').length;
+    const completedServices = client.client_services.filter((s) => s.status === 'completed').length;
     const totalServices = client.client_services.length;
 
     return (
         <>
             <Head title={`Client ${client.client_number}`} />
             <AppLayout title="Client Profile">
-                <div className="max-w-6xl mx-auto space-y-4">
+                <div className="space-y-6">
 
-                    {/* Breadcrumb */}
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Link href="/clients" className="hover:text-blue-600 flex items-center gap-1">
-                            <ChevronLeft size={14} /> Clients
-                        </Link>
-                        <span>/</span>
-                        <span className="font-mono text-blue-600 font-semibold">{client.client_number}</span>
-                    </div>
-
-                    {/* Header */}
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <h2 className="text-xl font-bold text-gray-900">{client.lead?.name ?? 'Unknown Client'}</h2>
-                                <span className="font-mono text-sm text-gray-400">{client.client_number}</span>
+                            <Link href="/clients" className="mb-3 inline-flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-gray-700">
+                                <ChevronLeft size={14} /> Back to clients
+                            </Link>
+                            <div className="mt-3">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-amber-600">
+                                    <GitBranch className="h-3 w-3" />
+                                    PIPELINE
+                                </span>
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
+                                <h2 className="text-[32px] leading-none font-semibold tracking-tight text-gray-950">
+                                    {client.lead?.name ?? 'Unknown client'}
+                                </h2>
+                                <span className="font-mono text-sm text-amber-700">{client.client_number}</span>
                                 <ClientStatusBadge status={client.status} />
                             </div>
-                            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
-                                {client.lead?.company && <span className="flex items-center gap-1"><Building size={13} />{client.lead.company}</span>}
-                                {client.lead?.phone  && <span className="flex items-center gap-1"><Phone size={13} />{client.lead.phone}</span>}
-                                {client.lead?.email  && <span className="flex items-center gap-1"><Mail size={13} />{client.lead.email}</span>}
-                                {client.lead?.state  && <span className="flex items-center gap-1"><MapPin size={13} />{client.lead.state}</span>}
+                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+                                {client.lead?.company && <span className="inline-flex items-center gap-1.5"><Building size={14} />{client.lead.company}</span>}
+                                {client.lead?.phone && <span className="inline-flex items-center gap-1.5"><Phone size={14} />{client.lead.phone}</span>}
+                                {client.lead?.email && <span className="inline-flex items-center gap-1.5"><Mail size={14} />{client.lead.email}</span>}
+                                {client.lead?.state && <span className="inline-flex items-center gap-1.5"><MapPin size={14} />{client.lead.state}</span>}
                             </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2.5">
                             {client.lead && (
-                                <Button size="sm" variant="outline" asChild>
-                                    <Link href={`/leads/${client.lead.id}`}>View Lead</Link>
-                                </Button>
+                                <Link
+                                    href={`/leads/${client.lead.id}`}
+                                    className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+                                >
+                                    View lead
+                                </Link>
                             )}
                             {canEdit && (
-                                <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-                                    <Edit size={13} /> Edit
-                                </Button>
+                                <button
+                                    type="button"
+                                    onClick={() => setEditOpen(true)}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
+                                >
+                                    <Edit className="h-4 w-4" /> Edit
+                                </button>
                             )}
                         </div>
                     </div>
 
-                    {/* Financial summary */}
-                    <div className="grid grid-cols-3 gap-3">
-                        {[
-                            { label: 'Total Invoiced',  value: `$${client.total_invoiced.toFixed(2)}`,  color: 'text-gray-900' },
-                            { label: 'Total Received',  value: `$${client.total_received.toFixed(2)}`,  color: 'text-green-600' },
-                            { label: 'Balance Due',     value: `$${client.balance_due.toFixed(2)}`,     color: client.balance_due > 0 ? 'text-red-600' : 'text-green-600' },
-                        ].map(s => (
-                            <Card key={s.label} className="py-3 px-4">
-                                <p className="text-xs text-gray-400 uppercase tracking-wide">{s.label}</p>
-                                <p className={`text-xl font-bold mt-0.5 ${s.color}`}>{s.value}</p>
-                            </Card>
-                        ))}
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                        <KpiCard label="Invoiced" value={fmt(client.total_invoiced)} icon={<DollarSign className="h-4 w-4 text-sky-700" />} iconClass="bg-sky-100" />
+                        <KpiCard label="Received" value={fmt(client.total_received)} icon={<CheckCircle2 className="h-4 w-4 text-emerald-700" />} iconClass="bg-emerald-100" />
+                        <KpiCard label="Balance due" value={fmt(client.balance_due)} icon={<AlertCircle className="h-4 w-4 text-red-600" />} iconClass="bg-red-100" />
+                        <KpiCard label="Services" value={`${completedServices}/${totalServices}`} icon={<Briefcase className="h-4 w-4 text-amber-700" />} iconClass="bg-amber-100" />
                     </div>
 
-                    {/* Tabs */}
                     <Tabs defaultValue="overview">
-                        <TabsList className="flex-wrap h-auto gap-1">
-                            <TabsTrigger value="overview">Overview</TabsTrigger>
-                            <TabsTrigger value="payments">
-                                Payments
-                                {client.balance_due > 0 && <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-red-500 inline-block" />}
-                            </TabsTrigger>
-                            <TabsTrigger value="operations">
-                                Operations
-                                {totalServices > 0 && (
-                                    <span className="ml-1.5 text-[10px] text-gray-500">{completedServices}/{totalServices}</span>
-                                )}
-                            </TabsTrigger>
-                            <TabsTrigger value="documents">Documents</TabsTrigger>
-                            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-                            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+                        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-2xl border border-gray-200/80 bg-white p-1.5 text-gray-400 shadow-sm sm:grid-cols-3 lg:grid-cols-6">
+                            <ClientTab value="overview" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
+                            <ClientTab
+                                value="payments"
+                                label="Payments"
+                                icon={<DollarSign className="h-4 w-4" />}
+                                alert={client.balance_due > 0}
+                            />
+                            <ClientTab
+                                value="operations"
+                                label="Operations"
+                                icon={<Briefcase className="h-4 w-4" />}
+                                badge={totalServices > 0 ? `${completedServices}/${totalServices}` : undefined}
+                            />
+                            <ClientTab
+                                value="documents"
+                                label="Documents"
+                                icon={<FileText className="h-4 w-4" />}
+                                badge={client.documents.length || undefined}
+                            />
+                            <ClientTab
+                                value="tasks"
+                                label="Tasks"
+                                icon={<CheckSquare className="h-4 w-4" />}
+                                badge={client.tasks.length || undefined}
+                            />
+                            <ClientTab value="timeline" label="Timeline" icon={<Clock className="h-4 w-4" />} />
                         </TabsList>
 
-                        {/* Overview */}
-                        <TabsContent value="overview" className="mt-4">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <Card>
-                                    <CardHeader className="pb-2"><CardTitle className="text-sm">Lead Information</CardTitle></CardHeader>
-                                    <CardContent className="space-y-3">
-                                        <InfoRow icon={<Briefcase size={14} />} label="Service Required" value={client.lead?.service_required} />
-                                        <InfoRow icon={<Globe size={14} />}     label="Lead Source"       value={client.lead?.source} />
-                                        <InfoRow icon={<MapPin size={14} />}    label="State"             value={client.lead?.state} />
+                        <TabsContent value="overview" className="mt-5">
+                            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+                                    <h3 className="text-base font-semibold text-gray-950">Lead information</h3>
+                                    <div className="mt-4 space-y-4">
+                                        <InfoRow icon={<Briefcase size={14} />} label="Service required" value={client.lead?.service_required} />
+                                        <InfoRow icon={<Globe size={14} />} label="Lead source" value={client.lead?.source} />
+                                        <InfoRow icon={<MapPin size={14} />} label="State" value={client.lead?.state} />
                                         {client.lead && (
-                                            <div className="flex items-start gap-2 pt-1">
-                                                <span className="text-gray-400 mt-0.5 shrink-0"><FileText size={14} /></span>
+                                            <div className="flex items-start gap-2">
+                                                <span className="mt-0.5 shrink-0 text-gray-400"><FileText size={14} /></span>
                                                 <div>
-                                                    <p className="text-xs text-gray-400">Lead Status</p>
+                                                    <p className="text-xs text-gray-400">Lead status</p>
                                                     <LeadStatusBadge status={client.lead.status} />
                                                 </div>
                                             </div>
                                         )}
-                                        <div className="pt-1 text-xs text-gray-400">
+                                        <p className="pt-1 text-xs text-gray-400">
                                             Lead created {client.lead?.created_at} · Client since {client.created_at.split('T')[0]}
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                        </p>
+                                    </div>
+                                </section>
 
-                                <Card>
-                                    <CardHeader className="pb-2"><CardTitle className="text-sm">Assignment & Notes</CardTitle></CardHeader>
-                                    <CardContent className="space-y-3">
+                                <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+                                    <h3 className="text-base font-semibold text-gray-950">Assignment & notes</h3>
+                                    <div className="mt-4 space-y-4">
                                         <div>
-                                            <p className="text-xs text-gray-400">Assigned To</p>
-                                            <p className="text-sm text-gray-800 mt-0.5">
-                                                {client.assigned_user?.name ?? <span className="text-gray-400 italic">Unassigned</span>}
+                                            <p className="text-xs text-gray-400">Assigned to</p>
+                                            <p className="mt-0.5 text-sm text-gray-800">
+                                                {client.assigned_user?.name ?? <span className="italic text-gray-400">Unassigned</span>}
                                             </p>
                                         </div>
                                         {client.notes && (
                                             <div>
                                                 <p className="text-xs text-gray-400">Notes</p>
-                                                <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-wrap">{client.notes}</p>
+                                                <p className="mt-0.5 whitespace-pre-wrap text-sm text-gray-700">{client.notes}</p>
                                             </div>
                                         )}
-                                    </CardContent>
-                                </Card>
+                                    </div>
+                                </section>
 
-                                {/* Service progress summary */}
                                 {client.client_services.length > 0 && (
-                                    <Card className="lg:col-span-2">
-                                        <CardHeader className="pb-2"><CardTitle className="text-sm">Services Progress</CardTitle></CardHeader>
-                                        <CardContent>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                                                {client.client_services.map(cs => (
-                                                    <div key={cs.id} className={cn(
-                                                        'flex items-center gap-2 rounded-md border p-2.5 text-xs',
-                                                        cs.status === 'completed' ? 'bg-green-50 border-green-200' :
-                                                        cs.status === 'in_progress' ? 'bg-amber-50 border-amber-200' :
-                                                        'bg-gray-50 border-gray-200'
-                                                    )}>
-                                                        {serviceStatusIcon[cs.status]}
-                                                        <span className="font-medium text-gray-700">{cs.service_name}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                    <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm lg:col-span-2">
+                                        <h3 className="text-base font-semibold text-gray-950">Services progress</h3>
+                                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                                            {client.client_services.map((cs) => (
+                                                <div
+                                                    key={cs.id}
+                                                    className={cn(
+                                                        'flex items-center gap-2 rounded-xl border p-3 text-xs',
+                                                        cs.status === 'completed' ? 'border-emerald-200 bg-emerald-50' :
+                                                        cs.status === 'in_progress' ? 'border-amber-200 bg-amber-50' :
+                                                        'border-gray-200 bg-gray-50'
+                                                    )}
+                                                >
+                                                    {serviceStatusIcon[cs.status]}
+                                                    <span className="font-medium text-gray-700">{cs.service_name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
                                 )}
                             </div>
                         </TabsContent>
 
-                        {/* Payments tab — rendered by sub-component */}
-                        <TabsContent value="payments" className="mt-4">
-                            <PaymentsTab clientId={client.id} payments={client.payments} canEdit={['admin','sales'].includes(auth.user.role)} />
+                        <TabsContent value="payments" className="mt-5">
+                            <PaymentsTab clientId={client.id} payments={client.payments} canEdit={['admin', 'sales'].includes(auth.user.role)} />
                         </TabsContent>
-
-                        {/* Operations */}
-                        <TabsContent value="operations" className="mt-4">
-                            <OperationsTab clientId={client.id} services={client.client_services} users={users} allServices={services} canEdit={['admin','processing'].includes(auth.user.role)} />
+                        <TabsContent value="operations" className="mt-5">
+                            <OperationsTab clientId={client.id} services={client.client_services} users={users} canEdit={['admin', 'processing'].includes(auth.user.role)} />
                         </TabsContent>
-
-                        {/* Documents */}
-                        <TabsContent value="documents" className="mt-4">
-                            <DocumentsTab clientId={client.id} documents={client.documents} categories={doc_categories} canUpload={['admin','processing'].includes(auth.user.role)} />
+                        <TabsContent value="documents" className="mt-5">
+                            <DocumentsTab clientId={client.id} documents={client.documents} categories={doc_categories} canUpload={['admin', 'processing'].includes(auth.user.role)} />
                         </TabsContent>
-
-                        {/* Tasks */}
-                        <TabsContent value="tasks" className="mt-4">
+                        <TabsContent value="tasks" className="mt-5">
                             <TasksTab clientId={client.id} tasks={client.tasks} users={users} />
                         </TabsContent>
-
-                        {/* Timeline */}
-                        <TabsContent value="timeline" className="mt-4">
-                            <Card>
-                                <CardContent className="pt-4">
-                                    <ActivityTimeline activities={client.activities} />
-                                </CardContent>
-                            </Card>
+                        <TabsContent value="timeline" className="mt-5">
+                            <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+                                <ActivityTimeline activities={client.activities} />
+                            </section>
                         </TabsContent>
                     </Tabs>
                 </div>
 
-                {/* Edit modal */}
                 <Dialog open={editOpen} onOpenChange={setEditOpen}>
                     <DialogContent className="max-w-md">
                         <DialogHeader><DialogTitle>Edit Client</DialogTitle></DialogHeader>
                         <form onSubmit={submitEdit} className="space-y-4">
                             <div className="space-y-1">
                                 <Label className="text-xs">Status</Label>
-                                <Select value={editForm.data.status} onValueChange={v => editForm.setData('status', v)}>
+                                <Select value={editForm.data.status} onValueChange={(v) => editForm.setData('status', v)}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="active">Active</SelectItem>
@@ -261,17 +306,17 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                             </div>
                             <div className="space-y-1">
                                 <Label className="text-xs">Assigned To</Label>
-                                <Select value={editForm.data.assigned_to} onValueChange={v => editForm.setData('assigned_to', v)}>
+                                <Select value={editForm.data.assigned_to} onValueChange={(v) => editForm.setData('assigned_to', v)}>
                                     <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="">Unassigned</SelectItem>
-                                        {users.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>)}
+                                        {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-1">
                                 <Label className="text-xs">Internal Notes</Label>
-                                <Textarea rows={3} value={editForm.data.notes} onChange={e => editForm.setData('notes', e.target.value)} />
+                                <Textarea rows={3} value={editForm.data.notes} onChange={(e) => editForm.setData('notes', e.target.value)} />
                             </div>
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
@@ -285,55 +330,60 @@ export default function ClientShow({ client, users, services, doc_categories }: 
     );
 }
 
-// ─── Payments Tab ────────────────────────────────────────────────────────────
 function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; payments: Payment[]; canEdit: boolean }) {
     const [open, setOpen] = useState(false);
-    const form = useForm({ invoice_amount: '', amount_received: '', payment_method: '', transaction_reference: '', notes: '', paid_at: '' });
+    const form = useForm({ invoice_amount: '', amount_received: '', payment_method: '', transaction_reference: '', notes: '', paid_at: '', client_id: String(clientId) });
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        form.post(`/payments`, { data: { ...form.data, client_id: clientId }, onSuccess: () => { form.reset(); setOpen(false); } });
+        form.post('/payments', { onSuccess: () => { form.reset(); setOpen(false); } });
     }
 
     return (
         <div className="space-y-4">
             {canEdit && (
                 <div className="flex justify-end">
-                    <Button size="sm" onClick={() => setOpen(true)}><DollarSign size={13} /> Add Payment</Button>
+                    <button
+                        type="button"
+                        onClick={() => setOpen(true)}
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
+                    >
+                        <DollarSign className="h-4 w-4" /> Add payment
+                    </button>
                 </div>
             )}
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Invoice</TableHead>
-                                <TableHead>Received</TableHead>
-                                <TableHead>Balance</TableHead>
-                                <TableHead>Method</TableHead>
-                                <TableHead>Reference</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead>By</TableHead>
+            <section className="rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className="px-5 text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Invoice</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Received</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Balance</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Method</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Reference</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Date</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">By</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {payments.length === 0 ? (
+                            <TableRow className="hover:bg-transparent">
+                                <TableCell colSpan={7} className="h-48 text-center text-sm text-gray-400">No payments recorded</TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {payments.length === 0 ? (
-                                <TableRow><TableCell colSpan={7} className="text-center py-8 text-gray-400">No payments recorded</TableCell></TableRow>
-                            ) : payments.map(p => (
-                                <TableRow key={p.id}>
-                                    <TableCell className="font-medium">${p.invoice_amount.toFixed(2)}</TableCell>
-                                    <TableCell className="text-green-600">${p.amount_received.toFixed(2)}</TableCell>
-                                    <TableCell className={p.balance_due > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>${p.balance_due.toFixed(2)}</TableCell>
-                                    <TableCell className="text-xs capitalize">{p.payment_method ?? '—'}</TableCell>
-                                    <TableCell className="text-xs font-mono">{p.transaction_reference ?? '—'}</TableCell>
-                                    <TableCell className="text-xs text-gray-500">{p.paid_at ?? p.created_at}</TableCell>
-                                    <TableCell className="text-xs text-gray-500">{p.created_by ?? '—'}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                        ) : payments.map((p) => (
+                            <TableRow key={p.id}>
+                                <TableCell className="px-5 font-medium">{fmt(p.invoice_amount)}</TableCell>
+                                <TableCell className="text-emerald-600">{fmt(p.amount_received)}</TableCell>
+                                <TableCell className={p.balance_due > 0 ? 'font-medium text-red-600' : 'text-emerald-600'}>{fmt(p.balance_due)}</TableCell>
+                                <TableCell className="text-xs capitalize">{p.payment_method ?? '—'}</TableCell>
+                                <TableCell className="font-mono text-xs">{p.transaction_reference ?? '—'}</TableCell>
+                                <TableCell className="text-xs text-gray-400">{p.paid_at ?? p.created_at}</TableCell>
+                                <TableCell className="text-xs text-gray-500">{p.created_by ?? '—'}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </section>
 
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="max-w-md">
@@ -341,30 +391,30 @@ function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; paymen
                     <form onSubmit={submit} className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                             <Field label="Invoice Amount *" error={form.errors.invoice_amount}>
-                                <Input type="number" step="0.01" placeholder="0.00" value={form.data.invoice_amount} onChange={e => form.setData('invoice_amount', e.target.value)} />
+                                <Input type="number" step="0.01" placeholder="0.00" value={form.data.invoice_amount} onChange={(e) => form.setData('invoice_amount', e.target.value)} />
                             </Field>
                             <Field label="Amount Received" error={form.errors.amount_received}>
-                                <Input type="number" step="0.01" placeholder="0.00" value={form.data.amount_received} onChange={e => form.setData('amount_received', e.target.value)} />
+                                <Input type="number" step="0.01" placeholder="0.00" value={form.data.amount_received} onChange={(e) => form.setData('amount_received', e.target.value)} />
                             </Field>
                         </div>
                         <Field label="Payment Method" error={form.errors.payment_method}>
-                            <Select value={form.data.payment_method} onValueChange={v => form.setData('payment_method', v)}>
+                            <Select value={form.data.payment_method} onValueChange={(v) => form.setData('payment_method', v)}>
                                 <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
                                 <SelectContent>
-                                    {['Cash','Check','Zelle','Venmo','Bank Transfer','Stripe','Other'].map(m => (
-                                        <SelectItem key={m} value={m.toLowerCase().replace(' ','_')}>{m}</SelectItem>
+                                    {['Cash', 'Check', 'Zelle', 'Venmo', 'Bank Transfer', 'Stripe', 'Other'].map((m) => (
+                                        <SelectItem key={m} value={m.toLowerCase().replace(' ', '_')}>{m}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </Field>
                         <Field label="Transaction Reference" error={form.errors.transaction_reference}>
-                            <Input placeholder="TX-12345" value={form.data.transaction_reference} onChange={e => form.setData('transaction_reference', e.target.value)} />
+                            <Input placeholder="TX-12345" value={form.data.transaction_reference} onChange={(e) => form.setData('transaction_reference', e.target.value)} />
                         </Field>
                         <Field label="Payment Date" error={form.errors.paid_at}>
-                            <Input type="date" value={form.data.paid_at} onChange={e => form.setData('paid_at', e.target.value)} />
+                            <Input type="date" value={form.data.paid_at} onChange={(e) => form.setData('paid_at', e.target.value)} />
                         </Field>
                         <Field label="Notes" error={form.errors.notes}>
-                            <Textarea rows={2} value={form.data.notes} onChange={e => form.setData('notes', e.target.value)} />
+                            <Textarea rows={2} value={form.data.notes} onChange={(e) => form.setData('notes', e.target.value)} />
                         </Field>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
@@ -377,8 +427,7 @@ function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; paymen
     );
 }
 
-// ─── Operations Tab ──────────────────────────────────────────────────────────
-function OperationsTab({ clientId, services, users, allServices, canEdit }: { clientId: number; services: ClientService[]; users: { id: number; name: string; role: string }[]; allServices: { id: number; name: string; slug: string }[]; canEdit: boolean }) {
+function OperationsTab({ services, users, canEdit }: { clientId: number; services: ClientService[]; users: { id: number; name: string; role: string }[]; canEdit: boolean }) {
     const [editingId, setEditingId] = useState<number | null>(null);
     const form = useForm({ status: '', assigned_to: '', completion_date: '', notes: '' });
 
@@ -395,31 +444,31 @@ function OperationsTab({ clientId, services, users, allServices, canEdit }: { cl
     return (
         <div className="space-y-3">
             {services.length === 0 ? (
-                <Card><CardContent className="py-8 text-center text-sm text-gray-400">No services assigned to this client.</CardContent></Card>
-            ) : services.map(cs => (
-                <Card key={cs.id}>
-                    <CardContent className="p-4">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                                {serviceStatusIcon[cs.status]}
-                                <div>
-                                    <p className="font-medium text-gray-900">{cs.service_name}</p>
-                                    <p className="text-xs text-gray-400 mt-0.5">
-                                        {cs.assigned_user ? `Assigned: ${cs.assigned_user.name}` : 'Unassigned'}
-                                        {cs.completion_date ? ` · Completed: ${cs.completion_date}` : ''}
-                                    </p>
-                                    {cs.notes && <p className="text-xs text-gray-500 mt-1 italic">{cs.notes}</p>}
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                                <ServiceStatusBadge status={cs.status} />
-                                {canEdit && (
-                                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(cs)}>Update</Button>
-                                )}
+                <section className="flex h-48 items-center justify-center rounded-2xl border border-gray-200/80 bg-white text-sm text-gray-400 shadow-sm">
+                    No services assigned to this client.
+                </section>
+            ) : services.map((cs) => (
+                <section key={cs.id} className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            {serviceStatusIcon[cs.status]}
+                            <div>
+                                <p className="font-medium text-gray-950">{cs.service_name}</p>
+                                <p className="mt-0.5 text-xs text-gray-400">
+                                    {cs.assigned_user ? `Assigned: ${cs.assigned_user.name}` : 'Unassigned'}
+                                    {cs.completion_date ? ` · Completed: ${cs.completion_date}` : ''}
+                                </p>
+                                {cs.notes && <p className="mt-1 text-xs italic text-gray-500">{cs.notes}</p>}
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                        <div className="flex shrink-0 items-center gap-2">
+                            <ServiceStatusBadge status={cs.status} />
+                            {canEdit && (
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(cs)}>Update</Button>
+                            )}
+                        </div>
+                    </div>
+                </section>
             ))}
 
             <Dialog open={editingId !== null} onOpenChange={() => setEditingId(null)}>
@@ -427,7 +476,7 @@ function OperationsTab({ clientId, services, users, allServices, canEdit }: { cl
                     <DialogHeader><DialogTitle>Update Service</DialogTitle></DialogHeader>
                     <form onSubmit={submitEdit} className="space-y-3">
                         <Field label="Status">
-                            <Select value={form.data.status} onValueChange={v => form.setData('status', v)}>
+                            <Select value={form.data.status} onValueChange={(v) => form.setData('status', v)}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="pending">Pending</SelectItem>
@@ -437,21 +486,21 @@ function OperationsTab({ clientId, services, users, allServices, canEdit }: { cl
                             </Select>
                         </Field>
                         <Field label="Assigned To">
-                            <Select value={form.data.assigned_to} onValueChange={v => form.setData('assigned_to', v)}>
+                            <Select value={form.data.assigned_to} onValueChange={(v) => form.setData('assigned_to', v)}>
                                 <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="">Unassigned</SelectItem>
-                                    {users.filter(u => ['admin','processing'].includes(u.role)).map(u => (
+                                    {users.filter((u) => ['admin', 'processing'].includes(u.role)).map((u) => (
                                         <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </Field>
                         <Field label="Completion Date">
-                            <Input type="date" value={form.data.completion_date} onChange={e => form.setData('completion_date', e.target.value)} />
+                            <Input type="date" value={form.data.completion_date} onChange={(e) => form.setData('completion_date', e.target.value)} />
                         </Field>
                         <Field label="Notes">
-                            <Textarea rows={2} value={form.data.notes} onChange={e => form.setData('notes', e.target.value)} />
+                            <Textarea rows={2} value={form.data.notes} onChange={(e) => form.setData('notes', e.target.value)} />
                         </Field>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
@@ -464,15 +513,26 @@ function OperationsTab({ clientId, services, users, allServices, canEdit }: { cl
     );
 }
 
-// ─── Documents Tab ────────────────────────────────────────────────────────────
 function DocumentsTab({ clientId, documents, categories, canUpload }: { clientId: number; documents: Document[]; categories: Record<string, string>; canUpload: boolean }) {
     const [open, setOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<Document | null>(null);
-    const form = useForm<{ client_id: number; category: string; file: File | null }>({ client_id: clientId, category: '', file: null });
+    const [files, setFiles] = useState<Record<string, File[]>>({});
+    const [processing, setProcessing] = useState(false);
+    const { errors } = usePage<{ errors: Record<string, string> }>().props;
+    const queued = queuedFileCount(files);
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        form.post('/documents', { forceFormData: true, onSuccess: () => { form.reset(); setOpen(false); } });
+        const fd = new FormData();
+        fd.append('client_id', String(clientId));
+        Object.entries(files).forEach(([category, list]) => {
+            list.forEach((file) => fd.append(`files[${category}][]`, file));
+        });
+        setProcessing(true);
+        router.post('/documents', fd, {
+            onSuccess: () => { setFiles({}); setOpen(false); },
+            onFinish: () => setProcessing(false),
+        });
     }
 
     function deleteDoc() {
@@ -484,59 +544,68 @@ function DocumentsTab({ clientId, documents, categories, canUpload }: { clientId
         <div className="space-y-4">
             {canUpload && (
                 <div className="flex justify-end">
-                    <Button size="sm" onClick={() => setOpen(true)}>Upload Document</Button>
+                    <button
+                        type="button"
+                        onClick={() => setOpen(true)}
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
+                    >
+                        Upload documents
+                    </button>
                 </div>
             )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {documents.length === 0 ? (
-                    <Card className="col-span-full"><CardContent className="py-8 text-center text-sm text-gray-400">No documents uploaded yet</CardContent></Card>
-                ) : documents.map(doc => (
-                    <Card key={doc.id} className="group">
-                        <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">{doc.category_label}</p>
-                                    <p className="text-sm text-gray-800 truncate mt-0.5">{doc.original_filename}</p>
-                                    <p className="text-xs text-gray-400 mt-1">{doc.file_size} · {doc.created_at}</p>
-                                    <p className="text-xs text-gray-400">By {doc.uploaded_by ?? '—'}</p>
-                                </div>
-                                <div className="flex gap-1 shrink-0">
-                                    <Button size="icon" variant="ghost" className="h-7 w-7" asChild>
-                                        <a href={`/documents/${doc.id}/download`} target="_blank" rel="noreferrer">
-                                            <FileText size={13} />
-                                        </a>
-                                    </Button>
-                                    {canUpload && (
-                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600"
-                                            onClick={() => setDeleteTarget(doc)}>✕</Button>
-                                    )}
-                                </div>
+                    <section className="col-span-full flex h-48 items-center justify-center rounded-2xl border border-gray-200/80 bg-white text-sm text-gray-400 shadow-sm">
+                        No documents uploaded yet
+                    </section>
+                ) : documents.map((doc) => (
+                    <section key={doc.id} className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                                <p className="text-[11px] font-semibold tracking-[0.12em] text-amber-700 uppercase">{doc.category_label}</p>
+                                <p className="mt-1 truncate text-sm text-gray-800">{doc.original_filename}</p>
+                                <p className="mt-1 text-xs text-gray-400">{doc.file_size} · {doc.created_at}</p>
+                                <p className="text-xs text-gray-400">By {doc.uploaded_by ?? '—'}</p>
                             </div>
-                        </CardContent>
-                    </Card>
+                            <div className="flex shrink-0 gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7" asChild>
+                                    <a href={`/documents/${doc.id}/download`} target="_blank" rel="noreferrer">
+                                        <FileText size={13} />
+                                    </a>
+                                </Button>
+                                {canUpload && (
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget(doc)}>✕</Button>
+                                )}
+                            </div>
+                        </div>
+                    </section>
                 ))}
             </div>
 
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="max-w-sm">
-                    <DialogHeader><DialogTitle>Upload Document</DialogTitle></DialogHeader>
-                    <form onSubmit={submit} className="space-y-3">
-                        <Field label="Category *" error={form.errors.category}>
-                            <Select value={form.data.category} onValueChange={v => form.setData('category', v)}>
-                                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                                <SelectContent>
-                                    {Object.entries(categories).map(([k, v]) => (
-                                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </Field>
-                        <Field label="File *" error={form.errors.file}>
-                            <Input type="file" onChange={e => form.setData('file', e.target.files?.[0] ?? null)} />
-                        </Field>
-                        <DialogFooter>
+            <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setFiles({}); }}>
+                <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+                    <DialogHeader className="border-b border-gray-100 px-6 py-5">
+                        <DialogTitle>Upload documents</DialogTitle>
+                        <p className="text-sm text-gray-500">Drop files into every category you need. All selected files upload together.</p>
+                    </DialogHeader>
+                    <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+                        <div className="flex-1 overflow-y-auto px-6 py-5">
+                            <CategoryDropzones
+                                categories={categories}
+                                files={files}
+                                onChange={setFiles}
+                                error={errors.files}
+                            />
+                        </div>
+                        <DialogFooter className="border-t border-gray-100 px-6 py-4">
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                            <Button type="submit" disabled={form.processing}>Upload</Button>
+                            <button
+                                type="submit"
+                                disabled={processing || queued === 0}
+                                className="inline-flex items-center rounded-lg bg-[#12141D] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black disabled:opacity-50"
+                            >
+                                {processing ? 'Uploading…' : queued === 0 ? 'Upload' : `Upload ${queued} file${queued === 1 ? '' : 's'}`}
+                            </button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
@@ -558,7 +627,6 @@ function DocumentsTab({ clientId, documents, categories, canUpload }: { clientId
     );
 }
 
-// ─── Tasks Tab ─────────────────────────────────────────────────────────────────
 function TasksTab({ clientId, tasks, users }: { clientId: number; tasks: Task[]; users: { id: number; name: string; role: string }[] }) {
     const [open, setOpen] = useState(false);
     const form = useForm({ client_id: clientId, title: '', description: '', assigned_to: '', priority: 'medium', due_date: '', reminder_at: '' });
@@ -571,30 +639,36 @@ function TasksTab({ clientId, tasks, users }: { clientId: number; tasks: Task[];
     return (
         <div className="space-y-4">
             <div className="flex justify-end">
-                <Button size="sm" onClick={() => setOpen(true)}><CheckSquare size={13} /> Add Task</Button>
+                <button
+                    type="button"
+                    onClick={() => setOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
+                >
+                    <CheckSquare className="h-4 w-4" /> Add task
+                </button>
             </div>
             <div className="space-y-2">
                 {tasks.length === 0 ? (
-                    <Card><CardContent className="py-8 text-center text-sm text-gray-400">No tasks yet</CardContent></Card>
-                ) : tasks.map(t => (
-                    <Card key={t.id} className={t.is_overdue ? 'border-red-200' : ''}>
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                    {t.status === 'completed' ? <CheckCircle2 size={15} className="text-green-500" /> : t.is_overdue ? <AlertCircle size={15} className="text-red-500" /> : <Circle size={15} className="text-gray-400" />}
-                                    <div>
-                                        <p className={cn('text-sm font-medium', t.status === 'completed' && 'line-through text-gray-400')}>{t.title}</p>
-                                        <p className="text-xs text-gray-400 mt-0.5">
-                                            {t.assigned_user?.name ?? 'Unassigned'}
-                                            {t.due_date && ` · Due ${t.due_date}`}
-                                            {t.is_overdue && <span className="text-red-500 ml-1">Overdue</span>}
-                                        </p>
-                                    </div>
+                    <section className="flex h-48 items-center justify-center rounded-2xl border border-gray-200/80 bg-white text-sm text-gray-400 shadow-sm">
+                        No tasks yet
+                    </section>
+                ) : tasks.map((t) => (
+                    <section key={t.id} className={cn('rounded-2xl border bg-white p-5 shadow-sm', t.is_overdue ? 'border-red-200' : 'border-gray-200/80')}>
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                {t.status === 'completed' ? <CheckCircle2 size={15} className="text-emerald-500" /> : t.is_overdue ? <AlertCircle size={15} className="text-red-500" /> : <Circle size={15} className="text-gray-400" />}
+                                <div>
+                                    <p className={cn('text-sm font-medium', t.status === 'completed' && 'text-gray-400 line-through')}>{t.title}</p>
+                                    <p className="mt-0.5 text-xs text-gray-400">
+                                        {t.assigned_user?.name ?? 'Unassigned'}
+                                        {t.due_date && ` · Due ${t.due_date}`}
+                                        {t.is_overdue && <span className="ml-1 text-red-500">Overdue</span>}
+                                    </p>
                                 </div>
-                                <Badge variant={priorityVariant[t.priority] ?? 'secondary'} className="capitalize text-[10px]">{t.priority}</Badge>
                             </div>
-                        </CardContent>
-                    </Card>
+                            <Badge variant={priorityVariant[t.priority] ?? 'secondary'} className="text-[10px] capitalize">{t.priority}</Badge>
+                        </div>
+                    </section>
                 ))}
             </div>
 
@@ -603,30 +677,30 @@ function TasksTab({ clientId, tasks, users }: { clientId: number; tasks: Task[];
                     <DialogHeader><DialogTitle>Add Task</DialogTitle></DialogHeader>
                     <form onSubmit={submit} className="space-y-3">
                         <Field label="Title *" error={form.errors.title}>
-                            <Input placeholder="Task title" value={form.data.title} onChange={e => form.setData('title', e.target.value)} />
+                            <Input placeholder="Task title" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} />
                         </Field>
                         <div className="grid grid-cols-2 gap-3">
                             <Field label="Assigned To" error={form.errors.assigned_to}>
-                                <Select value={form.data.assigned_to} onValueChange={v => form.setData('assigned_to', v)}>
+                                <Select value={form.data.assigned_to} onValueChange={(v) => form.setData('assigned_to', v)}>
                                     <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                                     <SelectContent>
-                                        {users.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>)}
+                                        {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </Field>
                             <Field label="Priority" error={form.errors.priority}>
-                                <Select value={form.data.priority} onValueChange={v => form.setData('priority', v)}>
+                                <Select value={form.data.priority} onValueChange={(v) => form.setData('priority', v)}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        {['low','medium','high','urgent'].map(p => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}
+                                        {['low', 'medium', 'high', 'urgent'].map((p) => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </Field>
                             <Field label="Due Date" error={form.errors.due_date}>
-                                <Input type="date" value={form.data.due_date} onChange={e => form.setData('due_date', e.target.value)} />
+                                <Input type="date" value={form.data.due_date} onChange={(e) => form.setData('due_date', e.target.value)} />
                             </Field>
                             <Field label="Reminder" error={form.errors.reminder_at}>
-                                <Input type="datetime-local" value={form.data.reminder_at} onChange={e => form.setData('reminder_at', e.target.value)} />
+                                <Input type="datetime-local" value={form.data.reminder_at} onChange={(e) => form.setData('reminder_at', e.target.value)} />
                             </Field>
                         </div>
                         <DialogFooter>
@@ -640,13 +714,27 @@ function TasksTab({ clientId, tasks, users }: { clientId: number; tasks: Task[];
     );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+function KpiCard({ label, value, icon, iconClass }: { label: string; value: string; icon: React.ReactNode; iconClass: string }) {
+    return (
+        <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between">
+                <p className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">{label}</p>
+                <div className={cn('flex h-9 w-9 items-center justify-center rounded-full', iconClass)}>{icon}</div>
+            </div>
+            <p className="mt-4 text-[28px] leading-none font-semibold tracking-tight text-gray-950">{value}</p>
+        </div>
+    );
+}
+
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | null | undefined }) {
     if (!value) return null;
     return (
         <div className="flex items-start gap-2">
-            <span className="text-gray-400 mt-0.5 shrink-0">{icon}</span>
-            <div><p className="text-xs text-gray-400">{label}</p><p className="text-sm text-gray-800">{value}</p></div>
+            <span className="mt-0.5 shrink-0 text-gray-400">{icon}</span>
+            <div>
+                <p className="text-xs text-gray-400">{label}</p>
+                <p className="text-sm text-gray-800">{value}</p>
+            </div>
         </div>
     );
 }

@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -209,6 +210,7 @@ class SettingsController extends Controller
             'web3forms_secret' => ['nullable', 'string', 'max:255'],
             'stripe_key'       => ['nullable', 'string', 'max:255'],
             'stripe_secret'    => ['nullable', 'string', 'max:255'],
+            'website_api_key'  => ['nullable', 'string', 'max:255'],
         ]);
 
         $groups = [
@@ -219,12 +221,25 @@ class SettingsController extends Controller
             'web3forms_secret' => 'api',
             'stripe_key'       => 'api',
             'stripe_secret'    => 'api',
+            'website_api_key'  => 'api',
         ];
 
         foreach ($data as $key => $value) {
+            if ($key === 'website_api_key' && ($value === null || $value === '')) {
+                continue;
+            }
             Setting::set($key, $value ?? '', $groups[$key] ?? 'general');
         }
 
         return back()->with('success', 'Settings saved.');
+    }
+
+    public function regenerateWebsiteApiKey(): RedirectResponse
+    {
+        abort_unless(auth()->user()->role === 'admin', 403, 'Unauthorized');
+
+        Setting::set('website_api_key', Str::random(48), 'api');
+
+        return back()->with('success', 'Website API key generated.');
     }
 }

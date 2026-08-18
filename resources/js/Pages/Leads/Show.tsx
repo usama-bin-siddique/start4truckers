@@ -88,7 +88,10 @@ export default function LeadShow({ lead, users, statuses }: Props) {
         router.post(`/leads/${lead.id}/convert`);
     }
 
+    const statusLocked = lead.status === 'won' || lead.status === 'lost';
+
     function updateStatus(status: string) {
+        if (statusLocked) return;
         router.patch(`/leads/${lead.id}/status`, { status });
     }
 
@@ -158,10 +161,14 @@ export default function LeadShow({ lead, users, statuses }: Props) {
                         </div>
                     </div>
 
-                    {/* Status quick-change */}
-                    {!lead.converted_at && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-500">Status:</span>
+                    {/* Status quick-change — locked once won or lost */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-gray-500">Status:</span>
+                        {statusLocked ? (
+                            <p className="text-sm text-gray-400">
+                                This lead is {lead.status === 'won' ? 'won' : 'lost'} and its status cannot be changed.
+                            </p>
+                        ) : (
                             <Select value={lead.status} onValueChange={updateStatus}>
                                 <SelectTrigger className="h-8 w-36 text-sm">
                                     <SelectValue />
@@ -172,8 +179,8 @@ export default function LeadShow({ lead, users, statuses }: Props) {
                                     ))}
                                 </SelectContent>
                             </Select>
-                        </div>
-                    )}
+                        )}
+                    </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -256,14 +263,21 @@ export default function LeadShow({ lead, users, statuses }: Props) {
                                 </FormField>
                             </div>
                             <FormField label="Status" error={editForm.errors.status}>
-                                <Select value={editForm.data.status} onValueChange={v => editForm.setData('status', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                <Select
+                                    value={editForm.data.status}
+                                    onValueChange={v => editForm.setData('status', v)}
+                                    disabled={statusLocked}
+                                >
+                                    <SelectTrigger disabled={statusLocked}><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         {Object.entries(statuses).map(([k, v]) => (
                                             <SelectItem key={k} value={k}>{v}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {statusLocked && (
+                                    <p className="mt-1 text-xs text-gray-400">Won and lost leads cannot change status.</p>
+                                )}
                             </FormField>
                             <FormField label="Assigned To" error={editForm.errors.assigned_to}>
                                 <Select value={editForm.data.assigned_to} onValueChange={v => editForm.setData('assigned_to', v)}>
