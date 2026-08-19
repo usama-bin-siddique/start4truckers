@@ -32,9 +32,12 @@ class LeadController extends Controller
     {
         $this->authorize('viewAny', Lead::class);
 
+        $user = Auth::user();
+
         $this->sla->checkExpired();
 
         $query = Lead::with('assignedUser')
+            ->visibleTo($user)
             ->when($request->search, fn ($q, $v) =>
                 $q->where(fn ($q) =>
                     $q->where('name', 'like', "%{$v}%")
@@ -48,12 +51,9 @@ class LeadController extends Controller
             ->when($request->date_from, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
             ->when($request->date_to, fn ($q, $v) => $q->whereDate('created_at', '<=', $v));
 
-        // Sales only see their assigned leads
-        if (Auth::user()->role === 'sales') {
-            $query->where('assigned_to', Auth::id());
-        }
-
         $leads = $query->latest()->paginate(20)->withQueryString();
+
+        $stats = Lead::query()->visibleTo($user);
 
         return Inertia::render('Leads/Index', [
             'leads'    => $leads,
@@ -61,12 +61,12 @@ class LeadController extends Controller
             'statuses' => Lead::statuses(),
             'filters'  => $request->only(['search', 'status', 'assigned_to', 'service', 'date_from', 'date_to']),
             'stats'    => [
-                'total'       => Lead::count(),
-                'new'         => Lead::where('status', 'new')->count(),
-                'reviewed'    => Lead::where('status', 'reviewed')->count(),
-                'contacted'   => Lead::where('status', 'contacted')->count(),
-                'won'         => Lead::where('status', 'won')->count(),
-                'lost'        => Lead::where('status', 'lost')->count(),
+                'total'       => (clone $stats)->count(),
+                'new'         => (clone $stats)->where('status', 'new')->count(),
+                'reviewed'    => (clone $stats)->where('status', 'reviewed')->count(),
+                'contacted'   => (clone $stats)->where('status', 'contacted')->count(),
+                'won'         => (clone $stats)->where('status', 'won')->count(),
+                'lost'        => (clone $stats)->where('status', 'lost')->count(),
             ],
         ]);
     }
@@ -108,6 +108,10 @@ class LeadController extends Controller
             'assigned_to'      => ['nullable', 'exists:users,id'],
         ]);
 
+        if (Auth::user()->isSalesRep()) {
+            $data['assigned_to'] = Auth::id();
+        }
+
         $lead = Lead::create($data);
 
         $this->activity->log($lead, Activity::ACTION_LEAD_CREATED,
@@ -146,6 +150,10 @@ class LeadController extends Controller
             'assigned_to'      => ['nullable', 'exists:users,id'],
             'status'           => ['required', 'in:' . implode(',', array_keys(Lead::statuses()))],
         ]);
+
+        if (Auth::user()->isSalesRep()) {
+            unset($data['assigned_to']);
+        }
 
         $old = $lead->only(['status', 'assigned_to']);
 

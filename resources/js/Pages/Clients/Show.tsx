@@ -99,7 +99,8 @@ function ClientTab({
 export default function ClientShow({ client, users, services, doc_categories }: Props) {
     const { auth } = usePage<Props>().props;
     const [editOpen, setEditOpen] = useState(false);
-    const canEdit = ['admin', 'sales', 'processing'].includes(auth.user.role);
+    const canEdit = ['admin', 'sales', 'processing', 'manager'].includes(auth.user.role);
+    const canReassign = ['admin', 'manager'].includes(auth.user.role);
 
     const editForm = useForm({
         notes:       client.notes ?? '',
@@ -304,6 +305,7 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                     </SelectContent>
                                 </Select>
                             </div>
+                            {canReassign && (
                             <div className="space-y-1">
                                 <Label className="text-xs">Assigned To</Label>
                                 <Select value={editForm.data.assigned_to} onValueChange={(v) => editForm.setData('assigned_to', v)}>
@@ -314,6 +316,7 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                     </SelectContent>
                                 </Select>
                             </div>
+                            )}
                             <div className="space-y-1">
                                 <Label className="text-xs">Internal Notes</Label>
                                 <Textarea rows={3} value={editForm.data.notes} onChange={(e) => editForm.setData('notes', e.target.value)} />

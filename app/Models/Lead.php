@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -75,6 +76,20 @@ class Lead extends Model
     public function isStatusLocked(): bool
     {
         return in_array($this->status, [self::STATUS_WON, self::STATUS_LOST], true);
+    }
+
+    public function isAssignedTo(User $user): bool
+    {
+        return (int) $this->assigned_to === (int) $user->id;
+    }
+
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->isSalesRep()) {
+            $query->where('assigned_to', $user->id);
+        }
+
+        return $query;
     }
 
     // Relationships

@@ -73,7 +73,8 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
     const [uploadOpen, setUploadOpen] = useState(false);
     const [files, setFiles] = useState<Record<string, File[]>>({});
     const [uploading, setUploading] = useState(false);
-    const canUpload = ['admin', 'sales', 'processing'].includes(auth.user.role);
+    const canUpload = ['admin', 'sales', 'manager', 'processing'].includes(auth.user.role);
+    const canReassign = ['admin', 'manager'].includes(auth.user.role);
     const queued = queuedFileCount(files);
     const uploadError = firstUploadError((errors ?? {}) as Record<string, string>);
 
@@ -210,9 +211,11 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                                     <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
                                         <Edit size={13} /> Edit
                                     </Button>
+                                    {canReassign && (
                                     <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
                                         <UserPlus size={13} /> Assign
                                     </Button>
+                                    )}
                                 </>
                             )}
                             {!lead.converted_at && (
@@ -406,17 +409,19 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                                     <p className="mt-1 text-xs text-gray-400">Won and lost leads cannot change status.</p>
                                 )}
                             </FormField>
+                            {canReassign && (
                             <FormField label="Assigned To" error={editForm.errors.assigned_to}>
                                 <Select value={editForm.data.assigned_to} onValueChange={v => editForm.setData('assigned_to', v)}>
                                     <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="">Unassigned</SelectItem>
-                                        {users.filter(u => ['admin','sales'].includes(u.role)).map(u => (
+                                        {users.filter(u => ['admin','sales','manager'].includes(u.role)).map(u => (
                                             <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </FormField>
+                            )}
                             <FormField label="Notes" error={editForm.errors.notes}>
                                 <Textarea rows={3} value={editForm.data.notes} onChange={e => editForm.setData('notes', e.target.value)} />
                             </FormField>
@@ -437,7 +442,7 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                                 <Select value={assignForm.data.assigned_to} onValueChange={v => assignForm.setData('assigned_to', v)}>
                                     <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
                                     <SelectContent>
-                                        {users.filter(u => ['admin','sales'].includes(u.role)).map(u => (
+                                        {users.filter(u => ['admin','sales','manager'].includes(u.role)).map(u => (
                                             <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
                                         ))}
                                     </SelectContent>

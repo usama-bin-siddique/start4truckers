@@ -8,7 +8,6 @@ use App\Models\Payment;
 use App\Models\Task;
 use App\Models\Activity;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
@@ -22,31 +21,27 @@ class DashboardService
 
         return [
             'stats'            => $this->getStats($user, $today, $startOfWeek, $startOfMonth, $startOfYear),
-            'monthly_revenue'  => $this->getMonthlyRevenue(),
-            'lead_conversion'  => $this->getLeadConversion(),
-            'recent_activities'=> $this->getRecentActivities(),
+            'monthly_revenue'  => $this->getMonthlyRevenue($user),
+            'lead_conversion'  => $this->getLeadConversion($user),
+            'recent_activities'=> $this->getRecentActivities($user),
             'tasks_due_today'  => $this->getTasksDueToday($user, $today),
         ];
     }
 
     private function getStats($user, $today, $startOfWeek, $startOfMonth, $startOfYear): array
     {
-        $leadsQuery = Lead::query();
-        $paymentsQuery = Payment::query();
-
-        // Sales users only see their own leads
-        if ($user->role === 'sales') {
-            $leadsQuery->where('assigned_to', $user->id);
-        }
+        $leadsQuery = Lead::query()->visibleTo($user);
+        $paymentsQuery = Payment::query()->visibleTo($user);
+        $clientsQuery = Client::query()->visibleTo($user);
 
         return [
             'leads_today'       => (clone $leadsQuery)->whereDate('created_at', $today)->count(),
             'leads_this_week'   => (clone $leadsQuery)->whereDate('created_at', '>=', $startOfWeek)->count(),
-            'active_clients'    => Client::where('status', 'active')->count(),
+            'active_clients'    => (clone $clientsQuery)->where('status', 'active')->count(),
             'revenue_today'     => (clone $paymentsQuery)->whereDate('paid_at', $today)->sum('amount_received'),
             'revenue_month'     => (clone $paymentsQuery)->whereDate('paid_at', '>=', $startOfMonth)->sum('amount_received'),
             'revenue_year'      => (clone $paymentsQuery)->whereDate('paid_at', '>=', $startOfYear)->sum('amount_received'),
-            'pending_payments'  => Client::withSum('payments', 'invoice_amount')
+            'pending_payments'  => (clone $clientsQuery)->withSum('payments', 'invoice_amount')
                                     ->withSum('payments', 'amount_received')
                                     ->get()
                                     ->sum(fn ($c) => max(0, $c->payments_sum_invoice_amount - $c->payments_sum_amount_received)),
@@ -57,11 +52,12 @@ class DashboardService
         ];
     }
 
-    private function getMonthlyRevenue(): array
+    private function getMonthlyRevenue($user): array
     {
-        $months = collect(range(11, 0))->map(function ($i) {
+        $months = collect(range(11, 0))->map(function ($i) use ($user) {
             $date = now()->subMonths($i);
-            $revenue = Payment::whereYear('paid_at', $date->year)
+            $revenue = Payment::query()->visibleTo($user)
+                ->whereYear('paid_at', $date->year)
                 ->whereMonth('paid_at', $date->month)
                 ->sum('amount_received');
             return [
@@ -73,11 +69,12 @@ class DashboardService
         return $months->values()->toArray();
     }
 
-    private function getLeadConversion(): array
+    private function getLeadConversion($user): array
     {
-        $total = Lead::whereDate('created_at', '>=', now()->subDays(30))->count();
-        $won   = Lead::where('status', 'won')->whereDate('created_at', '>=', now()->subDays(30))->count();
-        $lost  = Lead::where('status', 'lost')->whereDate('created_at', '>=', now()->subDays(30))->count();
+        $base = Lead::query()->visibleTo($user)->whereDate('created_at', '>=', now()->subDays(30));
+        $total = (clone $base)->count();
+        $won   = (clone $base)->where('status', 'won')->count();
+        $lost  = (clone $base)->where('status', 'lost')->count();
         $open  = $total - $won - $lost;
 
         return [
@@ -87,9 +84,20 @@ class DashboardService
         ];
     }
 
-    private function getRecentActivities(): array
+    private function getRecentActivities($user): array
     {
         return Activity::with(['causer', 'subject'])
+            ->when($user->isSalesRep(), function ($q) use ($user) {
+                $q->where(function ($q) use ($user) {
+                    $q->where(function ($q) use ($user) {
+                        $q->where('subject_type', Lead::class)
+                            ->whereIn('subject_id', Lead::query()->where('assigned_to', $user->id)->select('id'));
+                    })->orWhere(function ($q) use ($user) {
+                        $q->where('subject_type', Client::class)
+                            ->whereIn('subject_id', Client::query()->where('assigned_to', $user->id)->select('id'));
+                    });
+                });
+            })
             ->latest()
             ->limit(10)
             ->get()
