@@ -9,26 +9,30 @@ class PaymentPolicy
 {
     public function viewAny(User $user): bool
     {
-        return in_array($user->role, ['admin', 'sales']);
+        return in_array($user->role, ['admin', 'sales'], true);
     }
 
     public function view(User $user, Payment $payment): bool
     {
-        return in_array($user->role, ['admin', 'sales']);
+        if (! in_array($user->role, ['admin', 'sales'], true)) {
+            return false;
+        }
+
+        return $payment->isVisibleTo($user);
     }
 
     public function create(User $user): bool
     {
-        return in_array($user->role, ['admin', 'sales']);
+        return in_array($user->role, ['admin', 'sales'], true);
     }
 
     public function update(User $user, Payment $payment): bool
     {
-        return in_array($user->role, ['admin', 'sales']);
+        return $this->view($user, $payment);
     }
 
     public function delete(User $user, Payment $payment): bool
     {
-        return $user->role === 'admin';
+        return $user->isAdmin();
     }
 }

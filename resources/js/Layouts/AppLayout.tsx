@@ -70,7 +70,7 @@ const navGroups: NavGroup[] = [
     {
         label: 'Pipeline',
         items: [
-            { label: 'Leads', href: '/leads', icon: <Users size={18} />, roles: ['admin', 'sales'] },
+            { label: 'Leads', href: '/leads', icon: <Users size={18} />, roles: ['admin', 'sales', 'manager'] },
             { label: 'Clients', href: '/clients', icon: <UserCheck size={18} /> },
             { label: 'Payments', href: '/payments', icon: <CreditCard size={18} />, roles: ['admin', 'sales'] },
         ],

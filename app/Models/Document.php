@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -32,6 +33,30 @@ class Document extends Model
         'truck_registration'=> 'Truck Registration',
         'other'             => 'Other',
     ];
+
+    public function isVisibleTo(User $user): bool
+    {
+        if (! $user->isSalesRep()) {
+            return true;
+        }
+
+        $this->loadMissing(['lead', 'client']);
+
+        return ($this->lead && $this->lead->isAssignedTo($user))
+            || ($this->client && $this->client->isAssignedTo($user));
+    }
+
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if (! $user->isSalesRep()) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $q) use ($user) {
+            $q->whereHas('lead', fn (Builder $lead) => $lead->where('assigned_to', $user->id))
+                ->orWhereHas('client', fn (Builder $client) => $client->where('assigned_to', $user->id));
+        });
+    }
 
     public function client(): BelongsTo
     {

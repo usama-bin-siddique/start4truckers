@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,8 @@ const statusConfig: Record<string, { label: string; badge: 'success' | 'secondar
 };
 
 export default function ClientsIndex({ clients, users, filters, stats }: Props) {
+    const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
+    const canReassign = auth.user.role !== 'sales';
     const [showFilters, setShowFilters] = useState(false);
     const [search, setSearch] = useState(filters.search ?? '');
     const hasFilters = Object.values(filters).some(Boolean);
@@ -144,6 +146,7 @@ export default function ClientsIndex({ clients, users, filters, stats }: Props) 
                                         <SelectItem value="inactive">Inactive</SelectItem>
                                     </SelectContent>
                                 </Select>
+                                {canReassign && (
                                 <Select value={filters.assigned_to ?? ''} onValueChange={(v) => applyFilter('assigned_to', v)}>
                                     <SelectTrigger className="h-9 w-40 text-sm"><SelectValue placeholder="Assigned to" /></SelectTrigger>
                                     <SelectContent>
@@ -153,6 +156,7 @@ export default function ClientsIndex({ clients, users, filters, stats }: Props) 
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                )}
                             </div>
                         )}
 

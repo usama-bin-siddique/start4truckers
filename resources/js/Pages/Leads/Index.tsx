@@ -59,6 +59,7 @@ export default function LeadsIndex({ leads, users, statuses, filters, stats }: P
     const [search, setSearch] = useState(filters.search ?? '');
 
     const isAdmin = auth.user.role === 'admin';
+    const canReassign = auth.user.role !== 'sales';
     const hasFilters = Object.values(filters).some(Boolean);
 
     useEffect(() => {
@@ -192,6 +193,7 @@ export default function LeadsIndex({ leads, users, statuses, filters, stats }: P
                                     </SelectContent>
                                 </Select>
 
+                                {canReassign && (
                                 <Select value={filters.assigned_to ?? ''} onValueChange={(v) => applyFilter('assigned_to', v)}>
                                     <SelectTrigger className="h-9 w-40 text-sm"><SelectValue placeholder="Assigned to" /></SelectTrigger>
                                     <SelectContent>
@@ -201,6 +203,7 @@ export default function LeadsIndex({ leads, users, statuses, filters, stats }: P
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                )}
 
                                 <Input
                                     type="date"

@@ -35,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Admin gate — convenience shortcut
         Gate::define('admin', fn ($user) => $user->role === 'admin');
-        Gate::define('sales', fn ($user) => in_array($user->role, ['admin', 'sales']));
+        Gate::define('sales', fn ($user) => in_array($user->role, ['admin', 'sales', 'manager']));
         Gate::define('processing', fn ($user) => in_array($user->role, ['admin', 'processing']));
     }
 }
