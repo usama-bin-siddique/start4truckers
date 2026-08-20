@@ -20,15 +20,17 @@ class Task extends Model
         'status',
         'due_date',
         'reminder_at',
+        'reminder_sent_at',
         'completed_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'due_date'     => 'datetime',
-            'reminder_at'  => 'datetime',
-            'completed_at' => 'datetime',
+            'due_date'         => 'datetime',
+            'reminder_at'      => 'datetime',
+            'reminder_sent_at' => 'datetime',
+            'completed_at'     => 'datetime',
         ];
     }
 

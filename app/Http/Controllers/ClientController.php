@@ -31,6 +31,7 @@ class ClientController extends Controller
                 )->orWhere('client_number', 'like', "%{$v}%")
             )
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
+            ->when($request->compliance_type, fn ($q, $v) => $q->where('compliance_type', $v))
             ->when($request->assigned_to, fn ($q, $v) => $q->where('assigned_to', $v));
 
         $clients = $query->latest()->paginate(20)->withQueryString();
@@ -38,7 +39,7 @@ class ClientController extends Controller
         return Inertia::render('Clients/Index', [
             'clients'  => $clients->through(fn ($c) => $this->formatClientRow($c)),
             'users'    => User::where('is_active', true)->select('id', 'name', 'role')->get(),
-            'filters'  => $request->only(['search', 'status', 'assigned_to']),
+            'filters'  => $request->only(['search', 'status', 'assigned_to', 'compliance_type']),
             'stats'    => [
                 'total'     => Client::count(),
                 'active'    => Client::where('status', 'active')->count(),
@@ -89,12 +90,13 @@ class ClientController extends Controller
         $this->authorize('update', $client);
 
         $data = $request->validate([
-            'notes'       => ['nullable', 'string'],
-            'assigned_to' => ['nullable', 'exists:users,id'],
-            'status'      => ['required', 'in:active,completed,inactive'],
+            'notes'           => ['nullable', 'string'],
+            'assigned_to'     => ['nullable', 'exists:users,id'],
+            'status'          => ['required', 'in:active,completed,inactive'],
+            'compliance_type' => ['nullable', 'in:project,monthly'],
         ]);
 
-        $old = $client->only(['status', 'assigned_to']);
+        $old = $client->only(['status', 'assigned_to', 'compliance_type']);
         $client->update($data);
 
         if ($old['status'] !== $data['status']) {
@@ -104,16 +106,27 @@ class ClientController extends Controller
             );
         }
 
+        if (($old['compliance_type'] ?? null) !== ($data['compliance_type'] ?? null)) {
+            $from = $old['compliance_type'] ?: 'unset';
+            $to = $data['compliance_type'] ?: 'unset';
+            $this->activity->log($client, 'compliance_changed',
+                "Compliance changed from \"{$from}\" to \"{$to}\"",
+                ['compliance_type' => $old['compliance_type']],
+                ['compliance_type' => $data['compliance_type']]
+            );
+        }
+
         return back()->with('success', 'Client updated.');
     }
 
     private function formatClientRow(Client $client): array
     {
         return [
-            'id'             => $client->id,
-            'client_number'  => $client->client_number,
-            'status'         => $client->status,
-            'assigned_user'  => $client->assignedUser ? ['name' => $client->assignedUser->name] : null,
+            'id'               => $client->id,
+            'client_number'    => $client->client_number,
+            'status'           => $client->status,
+            'compliance_type'  => $client->compliance_type,
+            'assigned_user'    => $client->assignedUser ? ['name' => $client->assignedUser->name] : null,
             'lead'           => $client->lead ? [
                 'name'             => $client->lead->name,
                 'email'            => $client->lead->email,
@@ -129,10 +142,11 @@ class ClientController extends Controller
     private function formatClientFull(Client $client): array
     {
         return [
-            'id'             => $client->id,
-            'client_number'  => $client->client_number,
-            'status'         => $client->status,
-            'notes'          => $client->notes,
+            'id'               => $client->id,
+            'client_number'    => $client->client_number,
+            'status'           => $client->status,
+            'compliance_type'  => $client->compliance_type,
+            'notes'            => $client->notes,
             'assigned_to'    => $client->assigned_to,
             'assigned_user'  => $client->assignedUser ? ['id' => $client->assignedUser->id, 'name' => $client->assignedUser->name] : null,
             'created_at'     => $client->created_at->toDateTimeString(),
@@ -190,7 +204,8 @@ class ClientController extends Controller
                 'priority'      => $t->priority,
                 'status'        => $t->status,
                 'assigned_user' => $t->assignedUser ? ['name' => $t->assignedUser->name] : null,
-                'due_date'      => $t->due_date?->toDateString(),
+                'due_date'      => $t->due_date?->format('Y-m-d\\TH:i'),
+                'reminder_at'   => $t->reminder_at?->format('Y-m-d\\TH:i'),
                 'is_overdue'    => $t->isOverdue(),
             ])->toArray(),
             'activities'     => $client->activities->map(fn ($a) => [

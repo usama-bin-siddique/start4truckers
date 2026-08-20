@@ -28,7 +28,7 @@ interface Document { id: number; category: string; category_label: string; origi
 interface Task { id: number; title: string; description: string | null; priority: string; status: string; assigned_user: { name: string } | null; due_date: string | null; is_overdue: boolean }
 interface Activity { id: number; action: string; description: string; causer: string; old_value: Record<string, string> | null; new_value: Record<string, string> | null; created_at: string }
 interface Client {
-    id: number; client_number: string; status: string; notes: string | null;
+    id: number; client_number: string; status: string; compliance_type: 'project' | 'monthly' | null; notes: string | null;
     assigned_to: number | null; assigned_user: { id: number; name: string } | null;
     created_at: string; total_invoiced: number; total_received: number; balance_due: number;
     lead: Lead | null; payments: Payment[]; client_services: ClientService[];
@@ -52,8 +52,10 @@ const serviceStatusIcon: Record<string, React.ReactNode> = {
     completed:   <CheckCircle2 size={14} className="text-green-500" />,
 };
 
-function fmt(n: number) {
-    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function complianceLabel(type: string | null): string {
+    if (type === 'project') return 'Project based';
+    if (type === 'monthly') return 'Monthly';
+    return 'Not set';
 }
 
 function ClientTab({
@@ -102,9 +104,10 @@ export default function ClientShow({ client, users, services, doc_categories }: 
     const canEdit = ['admin', 'sales', 'processing'].includes(auth.user.role);
 
     const editForm = useForm({
-        notes:       client.notes ?? '',
-        assigned_to: client.assigned_to ? String(client.assigned_to) : '',
-        status:      client.status,
+        notes:            client.notes ?? '',
+        assigned_to:      client.assigned_to ? String(client.assigned_to) : '',
+        status:           client.status,
+        compliance_type:  client.compliance_type ?? '',
     });
 
     function submitEdit(e: React.FormEvent) {
@@ -138,6 +141,9 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                 </h2>
                                 <span className="font-mono text-sm text-amber-700">{client.client_number}</span>
                                 <ClientStatusBadge status={client.status} />
+                                <Badge variant={client.compliance_type === 'monthly' ? 'default' : client.compliance_type === 'project' ? 'warning' : 'secondary'}>
+                                    {complianceLabel(client.compliance_type)}
+                                </Badge>
                             </div>
                             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                                 {client.lead?.company && <span className="inline-flex items-center gap-1.5"><Building size={14} />{client.lead.company}</span>}
@@ -231,6 +237,10 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                     <h3 className="text-base font-semibold text-gray-950">Assignment & notes</h3>
                                     <div className="mt-4 space-y-4">
                                         <div>
+                                            <p className="text-xs text-gray-400">Compliance</p>
+                                            <p className="mt-0.5 text-sm text-gray-800">{complianceLabel(client.compliance_type)}</p>
+                                        </div>
+                                        <div>
                                             <p className="text-xs text-gray-400">Assigned to</p>
                                             <p className="mt-0.5 text-sm text-gray-800">
                                                 {client.assigned_user?.name ?? <span className="italic text-gray-400">Unassigned</span>}
@@ -313,6 +323,17 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                         {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs">Compliance</Label>
+                                <Select value={editForm.data.compliance_type} onValueChange={(v) => editForm.setData('compliance_type', v)}>
+                                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="project">Project based</SelectItem>
+                                        <SelectItem value="monthly">Monthly</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {editForm.errors.compliance_type && <p className="text-xs text-red-500">{editForm.errors.compliance_type}</p>}
                             </div>
                             <div className="space-y-1">
                                 <Label className="text-xs">Internal Notes</Label>
@@ -774,7 +795,7 @@ function TasksTab({ clientId, tasks, users }: { clientId: number; tasks: Task[];
                                     )}
                                     <p className="mt-0.5 text-xs text-gray-400">
                                         {t.assigned_user?.name ?? 'Unassigned'}
-                                        {t.due_date && ` · Due ${t.due_date}`}
+                                        {t.due_date && ` · Due ${new Date(t.due_date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
                                         {t.is_overdue && <span className="ml-1 text-red-500">Overdue</span>}
                                     </p>
                                 </div>
@@ -812,11 +833,12 @@ function TasksTab({ clientId, tasks, users }: { clientId: number; tasks: Task[];
                                     </SelectContent>
                                 </Select>
                             </Field>
-                            <Field label="Due Date" error={form.errors.due_date}>
-                                <Input type="date" value={form.data.due_date} onChange={(e) => form.setData('due_date', e.target.value)} />
+                            <Field label="Due Date & Time" error={form.errors.due_date}>
+                                <Input type="datetime-local" value={form.data.due_date} onChange={(e) => form.setData('due_date', e.target.value)} />
                             </Field>
                             <Field label="Reminder" error={form.errors.reminder_at}>
                                 <Input type="datetime-local" value={form.data.reminder_at} onChange={(e) => form.setData('reminder_at', e.target.value)} />
+                                <p className="text-[11px] text-gray-400">Leave blank to remind at the due date & time.</p>
                             </Field>
                         </div>
                         <DialogFooter>

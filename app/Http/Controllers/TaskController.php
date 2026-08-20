@@ -48,7 +48,8 @@ class TaskController extends Controller
                 'client_id'     => $t->client_id,
                 'client_name'   => $t->client?->lead?->name,
                 'client_number' => $t->client?->client_number,
-                'due_date'      => $t->due_date?->toDateString(),
+                'due_date'      => $t->due_date?->format('Y-m-d\\TH:i'),
+                'reminder_at'   => $t->reminder_at?->format('Y-m-d\\TH:i'),
                 'is_overdue'    => $t->isOverdue(),
                 'created_at'    => $t->created_at->toDateString(),
             ]),
@@ -75,6 +76,7 @@ class TaskController extends Controller
             'reminder_at' => ['nullable', 'date'],
         ]);
 
+        $data = $this->normalizeDates($data);
         $data['created_by'] = Auth::id();
         $task = Task::create($data);
 
@@ -101,8 +103,14 @@ class TaskController extends Controller
             'reminder_at' => ['nullable', 'date'],
         ]);
 
+        $data = $this->normalizeDates($data);
+
         if ($data['status'] === 'completed' && $task->status !== 'completed') {
             $data['completed_at'] = now();
+        }
+
+        if (array_key_exists('reminder_at', $data) && $data['reminder_at'] && $data['reminder_at']->isFuture()) {
+            $data['reminder_sent_at'] = null;
         }
 
         $task->update($data);
@@ -127,5 +135,26 @@ class TaskController extends Controller
         $this->authorize('delete', $task);
         $task->delete();
         return back()->with('success', 'Task deleted.');
+    }
+
+    private function normalizeDates(array $data): array
+    {
+        foreach (['due_date', 'reminder_at', 'assigned_to', 'client_id'] as $key) {
+            if (($data[$key] ?? null) === '') {
+                $data[$key] = null;
+            }
+        }
+
+        if (empty($data['reminder_at']) && ! empty($data['due_date'])) {
+            $data['reminder_at'] = $data['due_date'];
+        }
+
+        foreach (['due_date', 'reminder_at'] as $key) {
+            if (! empty($data[$key]) && is_string($data[$key])) {
+                $data[$key] = \Illuminate\Support\Carbon::parse($data[$key]);
+            }
+        }
+
+        return $data;
     }
 }

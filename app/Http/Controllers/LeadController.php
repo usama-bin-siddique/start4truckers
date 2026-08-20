@@ -323,7 +323,7 @@ class LeadController extends Controller
         return back()->with('success', "Lead assigned to {$assignee->name}.");
     }
 
-    public function convert(Lead $lead): RedirectResponse
+    public function convert(Request $request, Lead $lead): RedirectResponse
     {
         $this->authorize('convert', $lead);
 
@@ -331,13 +331,18 @@ class LeadController extends Controller
             return back()->with('error', 'Lead is already converted to a client.');
         }
 
+        $data = $request->validate([
+            'compliance_type' => ['required', 'in:project,monthly'],
+        ]);
+
         $lead->load('invoices');
 
-        DB::transaction(function () use ($lead) {
+        DB::transaction(function () use ($lead, $data) {
             $client = Client::create([
-                'lead_id'     => $lead->id,
-                'assigned_to' => $lead->assigned_to,
-                'status'      => Client::STATUS_ACTIVE,
+                'lead_id'          => $lead->id,
+                'assigned_to'      => $lead->assigned_to,
+                'status'           => Client::STATUS_ACTIVE,
+                'compliance_type'  => $data['compliance_type'],
             ]);
 
             $lead->update([

@@ -9,6 +9,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperationController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RequestLogController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\Api\Web3FormsController;
@@ -94,6 +95,8 @@ Route::middleware(['auth'])->group(function () {
     // Reports — admin only
     Route::middleware('role:admin')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/request-logs', [RequestLogController::class, 'index'])->name('request-logs.index');
+        Route::get('/request-logs/{requestLog}', [RequestLogController::class, 'show'])->name('request-logs.show');
     });
 
     // Notifications — all roles

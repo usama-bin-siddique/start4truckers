@@ -10,7 +10,11 @@ import {
     TrendingUp,
     AlertCircle,
     Activity,
-    ArrowUpRight,
+    Plus,
+    KeyRound,
+    Upload,
+    FilePenLine,
+    ScrollText,
 } from 'lucide-react';
 import {
     AreaChart, Area, PieChart, Pie, Cell,
@@ -64,9 +68,29 @@ function getGreeting(): string {
     return 'Good evening';
 }
 
+function formatDashboardDate(): string {
+    return new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
+
+const quickActions = [
+    { label: 'New Lead', href: '/leads/create', icon: Plus, roles: ['admin', 'sales'] },
+    { label: 'Record Payment', href: '/payments', icon: DollarSign, roles: ['admin', 'sales'] },
+    { label: 'Assign Service', href: '/operations', icon: KeyRound, roles: ['admin', 'processing'] },
+    { label: 'Upload Document', href: '/documents', icon: Upload, roles: ['admin', 'sales', 'processing'] },
+    { label: 'New Task', href: '/tasks', icon: FilePenLine },
+    { label: 'Activity logs', href: '/request-logs', icon: ScrollText, roles: ['admin'] },
+];
+
 export default function Dashboard({ stats, monthly_revenue, lead_conversion, recent_activities, tasks_due_today }: Props) {
     const { auth } = usePage<Props>().props;
     const firstName = auth?.user?.name?.split(' ')[0] ?? 'there';
+    const role = auth?.user?.role;
+    const actions = quickActions.filter((a) => !a.roles || (role && a.roles.includes(role)));
 
     return (
         <>
@@ -74,33 +98,33 @@ export default function Dashboard({ stats, monthly_revenue, lead_conversion, rec
             <AppLayout title="Dashboard">
                 <div className="space-y-6">
 
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                        <div>
-                            <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-amber-600">
-                                # LIVE OVERVIEW
-                            </span>
-                            <h2 className="mt-3 text-[32px] leading-none font-semibold tracking-tight text-gray-950">
-                                {getGreeting()}, {firstName}
-                            </h2>
-                            <p className="mt-2 text-sm text-gray-500">
-                                Your pipeline, cash flow, and operations — focused in one view.
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2.5">
-                            <Link
-                                href="/leads"
-                                className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
-                            >
-                                View leads
-                                <ArrowUpRight className="h-4 w-4" />
-                            </Link>
-                            <Link
-                                href="/tasks"
-                                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
-                            >
-                                Open tasks
-                            </Link>
-                        </div>
+                    <div>
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-amber-600">
+                            # LIVE OVERVIEW
+                        </span>
+                        <h2 className="mt-3 text-[32px] leading-none font-semibold tracking-tight text-gray-950">
+                            {getGreeting()}, {firstName}
+                        </h2>
+                        <p className="mt-2 text-sm text-gray-500">
+                            {formatDashboardDate()} · Here's what's moving across Start4Truckers today.
+                        </p>
+                        {actions.length > 0 && (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                {actions.map((action) => {
+                                    const Icon = action.icon;
+                                    return (
+                                        <Link
+                                            key={action.href}
+                                            href={action.href}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-800 shadow-sm transition-colors hover:border-amber-300 hover:bg-amber-50/60"
+                                        >
+                                            <Icon className="h-4 w-4 text-amber-700" />
+                                            {action.label}
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">

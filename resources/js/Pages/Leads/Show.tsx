@@ -13,11 +13,6 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import {
-    AlertDialog, AlertDialogAction, AlertDialogCancel,
-    AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-    AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import LeadStatusBadge from '@/components/LeadStatusBadge';
 import ActivityTimeline from '@/components/ActivityTimeline';
 import CategoryDropzones, { queuedFileCount } from '@/components/CategoryDropzones';
@@ -89,6 +84,7 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
     const noteForm   = useForm({ note: '' });
     const followForm = useForm({ notes: '' });
     const invoiceForm = useForm({ amount: '', notes: '' });
+    const convertForm = useForm({ compliance_type: '' });
 
     function submitEdit(e: React.FormEvent) {
         e.preventDefault();
@@ -107,8 +103,9 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
         });
     }
 
-    function submitConvert() {
-        router.post(`/leads/${lead.id}/convert`);
+    function submitConvert(e: React.FormEvent) {
+        e.preventDefault();
+        convertForm.post(`/leads/${lead.id}/convert`, { onSuccess: () => setConvertOpen(false) });
     }
 
     const statusLocked = lead.status === 'won' || lead.status === 'lost';
@@ -528,23 +525,37 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                 </Dialog>
 
                 {/* Convert confirmation */}
-                <AlertDialog open={convertOpen} onOpenChange={setConvertOpen}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Convert to Client</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will create a new client profile for <strong>{lead.name}</strong> and mark this lead as Won.
-                                The complete lead history will be preserved.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={submitConvert} className="bg-green-600 hover:bg-green-700">
-                                Convert to Client
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <Dialog open={convertOpen} onOpenChange={setConvertOpen}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Convert to Client</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={submitConvert} className="space-y-4">
+                            <p className="text-sm text-gray-500">
+                                This will create a client profile for <strong>{lead.name}</strong> and mark this lead as Won.
+                            </p>
+                            <div className="space-y-1">
+                                <Label className="text-xs">Compliance *</Label>
+                                <Select value={convertForm.data.compliance_type} onValueChange={(v) => convertForm.setData('compliance_type', v)}>
+                                    <SelectTrigger><SelectValue placeholder="Project based or monthly?" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="project">Project based</SelectItem>
+                                        <SelectItem value="monthly">Monthly</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {convertForm.errors.compliance_type && (
+                                    <p className="text-xs text-red-500">{convertForm.errors.compliance_type}</p>
+                                )}
+                            </div>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setConvertOpen(false)}>Cancel</Button>
+                                <Button type="submit" disabled={convertForm.processing} className="bg-green-600 hover:bg-green-700">
+                                    Convert to Client
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
 
             </AppLayout>
         </>

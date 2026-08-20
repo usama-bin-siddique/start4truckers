@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('leads:check-sla')->everyMinute();
+Schedule::command('tasks:send-reminders')->everyMinute();

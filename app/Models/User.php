@@ -81,4 +81,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Activity::class, 'causer_id');
     }
+
+    public function requestLogs(): HasMany
+    {
+        return $this->hasMany(RequestLog::class);
+    }
 }
