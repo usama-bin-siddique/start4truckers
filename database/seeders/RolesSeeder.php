@@ -19,6 +19,13 @@ class RolesSeeder extends Seeder
                 'is_active'=> true,
             ],
             [
+                'name'     => 'Manager User',
+                'email'    => 'manager@start4truckers.com',
+                'password' => Hash::make('password'),
+                'role'     => 'manager',
+                'is_active'=> true,
+            ],
+            [
                 'name'     => 'Sales User',
                 'email'    => 'sales@start4truckers.com',
                 'password' => Hash::make('password'),

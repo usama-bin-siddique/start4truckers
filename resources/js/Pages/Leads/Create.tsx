@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,10 +19,12 @@ const US_STATES = [
 ];
 
 export default function LeadCreate({ users, services = [] }: { users: User[]; services?: CatalogService[] }) {
+    const { auth } = usePage<{ auth: { user: { id: number; role: string } } }>().props;
+    const isSales = auth.user.role === 'sales';
     const { data, setData, post, processing, errors } = useForm({
         name: '', phone: '', email: '', state: '',
         company: '', service_required: '', notes: '',
-        source: 'manual', assigned_to: '',
+        source: 'manual', assigned_to: isSales ? String(auth.user.id) : '',
     });
     const serviceOptions = services.length > 0 ? services.map((s) => s.name) : [
         'LLC', 'EIN', 'USDOT', 'MC Authority', 'BOC-3', 'UCR', 'IFTA', 'IRP', '2290', 'MCS-150',
@@ -132,17 +134,19 @@ export default function LeadCreate({ users, services = [] }: { users: User[]; se
                                     </SelectContent>
                                 </Select>
                             </Field>
+                            {!isSales && (
                             <Field label="Assign to" error={errors.assigned_to}>
                                 <Select value={data.assigned_to} onValueChange={(v) => setData('assigned_to', v)}>
                                     <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="">Unassigned</SelectItem>
-                                        {users.filter((u) => ['admin', 'sales'].includes(u.role)).map((u) => (
+                                        {users.filter((u) => ['admin', 'sales', 'manager'].includes(u.role)).map((u) => (
                                             <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </Field>
+                            )}
                             <Field label="Notes" error={errors.notes} className="md:col-span-2 xl:col-span-4">
                                 <Textarea
                                     rows={5}

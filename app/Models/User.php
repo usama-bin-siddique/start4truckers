@@ -41,9 +41,19 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
+    public function isManager(): bool
+    {
+        return $this->role === 'manager';
+    }
+
+    public function isSalesRep(): bool
+    {
+        return $this->role === 'sales';
+    }
+
     public function isSales(): bool
     {
-        return in_array($this->role, ['admin', 'sales']);
+        return in_array($this->role, ['admin', 'sales', 'manager']);
     }
 
     public function isProcessing(): bool

@@ -41,7 +41,7 @@ class SettingsController extends Controller
             'name'     => ['required', 'string', 'max:255'],
             'email'    => ['required', 'email', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
-            'role'     => ['required', 'in:admin,sales,processing'],
+            'role'     => ['required', 'in:admin,sales,manager,processing'],
         ]);
 
         User::create([
@@ -62,7 +62,7 @@ class SettingsController extends Controller
         $data = $request->validate([
             'name'      => ['required', 'string', 'max:255'],
             'email'     => ['required', 'email', Rule::unique('users')->ignore($user->id)],
-            'role'      => ['required', 'in:admin,sales,processing'],
+            'role'      => ['required', 'in:admin,sales,manager,processing'],
             'is_active' => ['required', 'boolean'],
             'password'  => ['nullable', 'string', 'min:8'],
         ]);

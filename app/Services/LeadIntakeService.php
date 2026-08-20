@@ -41,7 +41,7 @@ class LeadIntakeService
             $this->documents->storeCategoryUploads($lead, $uploads);
         }
 
-        $recipients = User::whereIn('role', ['admin', 'sales'])
+        $recipients = User::whereIn('role', ['admin', 'manager'])
             ->where('is_active', true)
             ->pluck('id')
             ->all();
