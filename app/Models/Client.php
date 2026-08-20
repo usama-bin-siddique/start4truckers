@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -44,6 +45,20 @@ class Client extends Model
         $lastId   = self::withTrashed()->whereYear('created_at', $year)->count();
         $sequence = str_pad($lastId + 1, 5, '0', STR_PAD_LEFT);
         return "S4T-{$year}-{$sequence}";
+    }
+
+    public function isAssignedTo(User $user): bool
+    {
+        return (int) $this->assigned_to === (int) $user->id;
+    }
+
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->isSalesRep()) {
+            $query->where('assigned_to', $user->id);
+        }
+
+        return $query;
     }
 
     // Relationships

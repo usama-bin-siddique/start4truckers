@@ -21,7 +21,10 @@ class PaymentController extends Controller
     {
         $this->authorize('viewAny', Payment::class);
 
+        $user = Auth::user();
+
         $query = Payment::with(['client.lead', 'createdBy'])
+            ->visibleTo($user)
             ->when($request->search, fn ($q, $v) =>
                 $q->whereHas('client.lead', fn ($q) =>
                     $q->where('name', 'like', "%{$v}%")
@@ -36,7 +39,7 @@ class PaymentController extends Controller
 
         $payments = $query->latest()->paginate(25)->withQueryString();
 
-        $totals = Payment::selectRaw('
+        $totals = Payment::query()->visibleTo($user)->selectRaw('
             SUM(invoice_amount) as total_invoiced,
             SUM(amount_received) as total_received,
             SUM(invoice_amount - amount_received) as total_balance
@@ -85,11 +88,13 @@ class PaymentController extends Controller
         $receipt = $request->file('receipt');
         unset($data['receipt']);
 
+        $client = Client::findOrFail($data['client_id']);
+        $this->authorize('view', $client);
+
         $data['created_by']      = Auth::id();
         $data['amount_received'] = $data['amount_received'] ?? 0;
 
         $payment = Payment::create($data);
-        $client  = Client::find($data['client_id']);
 
         if ($receipt) {
             $payment->update([

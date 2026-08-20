@@ -14,21 +14,29 @@ class ClientPolicy
 
     public function view(User $user, Client $client): bool
     {
-        return true; // all roles
+        if ($user->isSalesRep()) {
+            return $client->isAssignedTo($user);
+        }
+
+        return true;
     }
 
     public function create(User $user): bool
     {
-        return in_array($user->role, ['admin', 'sales']);
+        return in_array($user->role, ['admin', 'sales', 'manager'], true);
     }
 
     public function update(User $user, Client $client): bool
     {
-        return in_array($user->role, ['admin', 'sales', 'processing']);
+        if ($user->isSalesRep()) {
+            return $client->isAssignedTo($user);
+        }
+
+        return in_array($user->role, ['admin', 'sales', 'processing', 'manager'], true);
     }
 
     public function delete(User $user, Client $client): bool
     {
-        return $user->role === 'admin';
+        return $user->isAdmin();
     }
 }

@@ -29,7 +29,10 @@ class DocumentController extends Controller
     {
         $this->authorize('viewAny', Document::class);
 
+        $user = auth()->user();
+
         $query = Document::with(['client.lead', 'lead', 'uploadedBy'])
+            ->visibleTo($user)
             ->when($request->search, fn ($q, $v) =>
                 $q->where(fn ($q) =>
                     $q->where('original_filename', 'like', "%{$v}%")
@@ -41,6 +44,8 @@ class DocumentController extends Controller
             ->when($request->client_id, fn ($q, $v) => $q->where('client_id', $v));
 
         $documents = $query->latest()->paginate(25)->withQueryString();
+
+        $stats = Document::query()->visibleTo($user);
 
         return Inertia::render('Documents/Index', [
             'documents'  => $documents->through(fn ($d) => [
@@ -59,12 +64,12 @@ class DocumentController extends Controller
             'categories' => Document::CATEGORIES,
             'filters'    => $request->only(['search', 'category', 'client_id']),
             'stats'      => [
-                'total'      => Document::count(),
-                'this_month' => Document::whereYear('created_at', now()->year)
+                'total'      => (clone $stats)->count(),
+                'this_month' => (clone $stats)->whereYear('created_at', now()->year)
                     ->whereMonth('created_at', now()->month)
                     ->count(),
-                'clients'    => Document::distinct('client_id')->count('client_id'),
-                'categories' => Document::distinct('category')->count('category'),
+                'clients'    => (clone $stats)->distinct('client_id')->count('client_id'),
+                'categories' => (clone $stats)->distinct('category')->count('category'),
             ],
         ]);
     }
@@ -87,6 +92,8 @@ class DocumentController extends Controller
         $owner = $request->filled('lead_id')
             ? Lead::findOrFail($request->lead_id)
             : Client::findOrFail($request->client_id);
+
+        $this->authorize('view', $owner);
 
         $this->documents->storeFor($owner, $request->input('category'), $request->file('file'));
 
@@ -112,6 +119,8 @@ class DocumentController extends Controller
         $owner = $request->filled('lead_id')
             ? Lead::findOrFail($request->lead_id)
             : Client::findOrFail($request->client_id);
+
+        $this->authorize('view', $owner);
 
         $stored = [];
         DB::transaction(function () use ($request, $owner, &$stored) {

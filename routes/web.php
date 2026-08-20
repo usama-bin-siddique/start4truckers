@@ -35,8 +35,8 @@ Route::middleware(['auth'])->group(function () {
     // Dashboard — all roles
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Leads — admin + sales
-    Route::middleware('role:admin,sales')->group(function () {
+    // Leads — admin + sales + manager
+    Route::middleware('role:admin,sales,manager')->group(function () {
         Route::get('/leads',                [LeadController::class, 'index'])->name('leads.index');
         Route::get('/leads/create', function () {
             return Inertia::render('Leads/Create', [

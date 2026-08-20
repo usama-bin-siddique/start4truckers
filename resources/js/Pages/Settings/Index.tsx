@@ -26,6 +26,7 @@ interface Props {
 
 const ROLES = [
     { value: 'admin',      label: 'Admin',      color: 'bg-red-100 text-red-800' },
+    { value: 'manager',    label: 'Manager',    color: 'bg-purple-100 text-purple-800' },
     { value: 'sales',      label: 'Sales',      color: 'bg-blue-100 text-blue-800' },
     { value: 'processing', label: 'Processing', color: 'bg-green-100 text-green-800' },
 ];

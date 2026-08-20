@@ -14,16 +14,16 @@ class DocumentPolicy
 
     public function view(User $user, Document $document): bool
     {
-        return true;
+        return $document->isVisibleTo($user);
     }
 
     public function create(User $user): bool
     {
-        return in_array($user->role, ['admin', 'sales', 'processing']);
+        return in_array($user->role, ['admin', 'sales', 'manager', 'processing'], true);
     }
 
     public function delete(User $user, Document $document): bool
     {
-        return in_array($user->role, ['admin', 'processing']);
+        return in_array($user->role, ['admin', 'processing'], true);
     }
 }

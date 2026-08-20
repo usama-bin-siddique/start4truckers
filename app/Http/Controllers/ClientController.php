@@ -21,7 +21,10 @@ class ClientController extends Controller
     {
         $this->authorize('viewAny', Client::class);
 
+        $user = auth()->user();
+
         $query = Client::with(['lead', 'assignedUser'])
+            ->visibleTo($user)
             ->when($request->search, fn ($q, $v) =>
                 $q->whereHas('lead', fn ($q) =>
                     $q->where('name', 'like', "%{$v}%")
@@ -36,15 +39,17 @@ class ClientController extends Controller
 
         $clients = $query->latest()->paginate(20)->withQueryString();
 
+        $stats = Client::query()->visibleTo($user);
+
         return Inertia::render('Clients/Index', [
             'clients'  => $clients->through(fn ($c) => $this->formatClientRow($c)),
             'users'    => User::where('is_active', true)->select('id', 'name', 'role')->get(),
             'filters'  => $request->only(['search', 'status', 'assigned_to', 'compliance_type']),
             'stats'    => [
-                'total'     => Client::count(),
-                'active'    => Client::where('status', 'active')->count(),
-                'completed' => Client::where('status', 'completed')->count(),
-                'inactive'  => Client::where('status', 'inactive')->count(),
+                'total'     => (clone $stats)->count(),
+                'active'    => (clone $stats)->where('status', 'active')->count(),
+                'completed' => (clone $stats)->where('status', 'completed')->count(),
+                'inactive'  => (clone $stats)->where('status', 'inactive')->count(),
             ],
         ]);
     }
@@ -95,6 +100,10 @@ class ClientController extends Controller
             'status'          => ['required', 'in:active,completed,inactive'],
             'compliance_type' => ['nullable', 'in:project,monthly'],
         ]);
+
+        if (auth()->user()->isSalesRep()) {
+            unset($data['assigned_to']);
+        }
 
         $old = $client->only(['status', 'assigned_to', 'compliance_type']);
         $client->update($data);
