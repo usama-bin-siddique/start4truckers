@@ -52,6 +52,10 @@ const serviceStatusIcon: Record<string, React.ReactNode> = {
     completed:   <CheckCircle2 size={14} className="text-green-500" />,
 };
 
+function fmt(n: number) {
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function complianceLabel(type: string | null): string {
     if (type === 'project') return 'Project based';
     if (type === 'monthly') return 'Monthly';
