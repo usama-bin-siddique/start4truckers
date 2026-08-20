@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 
 interface Lead { name: string; email: string | null; phone: string | null; company: string | null; service_required: string | null }
 interface Client {
-    id: number; client_number: string; status: string;
+    id: number; client_number: string; status: string; compliance_type: 'project' | 'monthly' | null;
     assigned_user: { name: string } | null;
     lead: Lead | null; balance_due: number; created_at: string;
 }
@@ -20,7 +20,7 @@ interface Paginator<T> {
     links: { url: string | null; label: string; active: boolean }[];
 }
 interface Stats { total: number; active: number; completed: number; inactive?: number }
-interface Filters { search?: string; status?: string; assigned_to?: string }
+interface Filters { search?: string; status?: string; assigned_to?: string; compliance_type?: string }
 
 interface Props {
     clients: Paginator<Client>;
@@ -28,6 +28,11 @@ interface Props {
     filters: Filters;
     stats: Stats;
 }
+
+const complianceLabel: Record<string, string> = {
+    project: 'Project based',
+    monthly: 'Monthly',
+};
 
 const statusConfig: Record<string, { label: string; badge: 'success' | 'secondary' | 'outline' }> = {
     active:    { label: 'Active',    badge: 'success' },
@@ -153,6 +158,14 @@ export default function ClientsIndex({ clients, users, filters, stats }: Props) 
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                <Select value={filters.compliance_type ?? ''} onValueChange={(v) => applyFilter('compliance_type', v)}>
+                                    <SelectTrigger className="h-9 w-40 text-sm"><SelectValue placeholder="Compliance" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="">All compliance</SelectItem>
+                                        <SelectItem value="project">Project based</SelectItem>
+                                        <SelectItem value="monthly">Monthly</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         )}
 
@@ -164,6 +177,7 @@ export default function ClientsIndex({ clients, users, filters, stats }: Props) 
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Name</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Contact</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Service</TableHead>
+                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Compliance</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Status</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Balance Due</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Assigned</TableHead>
@@ -174,7 +188,7 @@ export default function ClientsIndex({ clients, users, filters, stats }: Props) 
                                 <TableBody>
                                     {clients.data.length === 0 ? (
                                         <TableRow className="hover:bg-transparent">
-                                            <TableCell colSpan={9} className="h-56 text-center text-sm text-gray-400">
+                                            <TableCell colSpan={10} className="h-56 text-center text-sm text-gray-400">
                                                 No clients found
                                             </TableCell>
                                         </TableRow>
@@ -205,6 +219,13 @@ export default function ClientsIndex({ clients, users, filters, stats }: Props) 
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className="text-sm text-gray-700">{client.lead?.service_required ?? '—'}</span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {client.compliance_type ? (
+                                                        <Badge variant={client.compliance_type === 'monthly' ? 'default' : 'warning'}>
+                                                            {complianceLabel[client.compliance_type]}
+                                                        </Badge>
+                                                    ) : <span className="text-xs text-gray-300">—</span>}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant={sc.badge}>{sc.label}</Badge>

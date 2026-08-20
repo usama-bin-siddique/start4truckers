@@ -42,7 +42,7 @@ function getNotificationMessage(notification: Notification): string {
         case 'lead_assigned':
             return `You've been assigned lead: ${data.lead_name || 'Unknown'}`;
         case 'task_due':
-            return `Task due: ${data.task_title || 'Untitled'}`;
+            return (data.message as string) || `Task due: ${data.task_title || 'Untitled'}${data.due_date ? ` — ${data.due_date}` : ''}`;
         case 'payment_received':
             return `Payment received: $${data.amount || '0'} from ${data.client_name || 'client'}`;
         case 'document_uploaded':

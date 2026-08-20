@@ -17,13 +17,16 @@ class Client extends Model
         'lead_id',
         'assigned_to',
         'status',
+        'compliance_type',
         'notes',
     ];
 
-    // Status constants
     const STATUS_ACTIVE    = 'active';
     const STATUS_COMPLETED = 'completed';
     const STATUS_INACTIVE  = 'inactive';
+
+    const COMPLIANCE_PROJECT = 'project';
+    const COMPLIANCE_MONTHLY = 'monthly';
 
     // Auto-generate client number on creation
     protected static function booted(): void

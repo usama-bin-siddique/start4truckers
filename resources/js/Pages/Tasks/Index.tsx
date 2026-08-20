@@ -20,7 +20,7 @@ interface Task {
     id: number; title: string; description: string | null; priority: string; status: string;
     assigned_user: { id: number; name: string } | null; created_by: string | null;
     client_id: number | null; client_name: string | null; client_number: string | null;
-    due_date: string | null; is_overdue: boolean; created_at: string;
+    due_date: string | null; reminder_at: string | null; is_overdue: boolean; created_at: string;
 }
 interface Paginator<T> { data: T[]; total: number; last_page: number; links: { url: string | null; label: string; active: boolean }[] }
 interface Stats { pending: number; in_progress: number; completed: number; overdue: number }
@@ -29,6 +29,13 @@ interface Filters { search?: string; status?: string; priority?: string; assigne
 const priorityVariant: Record<string, 'secondary' | 'default' | 'warning' | 'destructive'> = {
     low: 'secondary', medium: 'default', high: 'warning', urgent: 'destructive',
 };
+
+function formatDateTime(value: string | null): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
 
 const statusIcon: Record<string, React.ReactNode> = {
     pending:     <Circle size={14} className="text-gray-400" />,
@@ -84,7 +91,7 @@ export default function TasksIndex({ tasks, users, filters, stats }: {
             priority: t.priority,
             status: t.status,
             due_date: t.due_date ?? '',
-            reminder_at: '',
+            reminder_at: t.reminder_at ?? '',
         });
         setEditTarget(t);
     }
@@ -260,7 +267,7 @@ export default function TasksIndex({ tasks, users, filters, stats }: {
                                                 {t.due_date ? (
                                                     <span className={cn('text-xs', t.is_overdue ? 'font-medium text-red-600' : 'text-gray-500')}>
                                                         {t.is_overdue && <AlertCircle size={11} className="mr-1 inline" />}
-                                                        {t.due_date}
+                                                        {formatDateTime(t.due_date)}
                                                     </span>
                                                 ) : <span className="text-xs text-gray-300">—</span>}
                                             </TableCell>
@@ -339,10 +346,15 @@ export default function TasksIndex({ tasks, users, filters, stats }: {
                                     </Select>
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-xs">Due Date</Label>
-                                    <Input type="date" value={createForm.data.due_date} onChange={(e) => createForm.setData('due_date', e.target.value)} />
+                                    <Label className="text-xs">Due Date & Time</Label>
+                                    <Input type="datetime-local" value={createForm.data.due_date} onChange={(e) => createForm.setData('due_date', e.target.value)} />
                                 </div>
                                 <div className="space-y-1">
+                                    <Label className="text-xs">Reminder</Label>
+                                    <Input type="datetime-local" value={createForm.data.reminder_at} onChange={(e) => createForm.setData('reminder_at', e.target.value)} />
+                                    <p className="text-[11px] text-gray-400">Leave blank to remind at the due date & time.</p>
+                                </div>
+                                <div className="space-y-1 col-span-2">
                                     <Label className="text-xs">Client ID (optional)</Label>
                                     <Input placeholder="Client ID" value={createForm.data.client_id} onChange={(e) => createForm.setData('client_id', e.target.value)} />
                                 </div>
@@ -401,8 +413,12 @@ export default function TasksIndex({ tasks, users, filters, stats }: {
                                     </Select>
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-xs">Due Date</Label>
-                                    <Input type="date" value={editForm.data.due_date} onChange={(e) => editForm.setData('due_date', e.target.value)} />
+                                    <Label className="text-xs">Due Date & Time</Label>
+                                    <Input type="datetime-local" value={editForm.data.due_date} onChange={(e) => editForm.setData('due_date', e.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs">Reminder</Label>
+                                    <Input type="datetime-local" value={editForm.data.reminder_at} onChange={(e) => editForm.setData('reminder_at', e.target.value)} />
                                 </div>
                             </div>
                             <DialogFooter>

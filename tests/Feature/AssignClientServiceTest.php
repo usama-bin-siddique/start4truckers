@@ -65,12 +65,15 @@ class AssignClientServiceTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->post("/leads/{$lead->id}/convert")
+            ->post("/leads/{$lead->id}/convert", [
+                'compliance_type' => 'project',
+            ])
             ->assertRedirect();
 
         $client = $lead->fresh()->client;
 
         $this->assertNotNull($client);
+        $this->assertSame('project', $client->compliance_type);
         $this->assertDatabaseHas('client_services', [
             'client_id'  => $client->id,
             'service_id' => $service->id,

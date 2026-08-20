@@ -15,6 +15,7 @@ import {
     FolderOpen,
     X,
     Columns2,
+    ScrollText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -87,6 +88,7 @@ const navGroups: NavGroup[] = [
         label: 'System',
         items: [
             { label: 'Notifications', href: '/notifications', icon: <Bell size={18} /> },
+            { label: 'Activity logs', href: '/request-logs', icon: <ScrollText size={18} />, roles: ['admin'] },
             { label: 'Reports', href: '/reports', icon: <BarChart3 size={18} />, roles: ['admin'] },
             { label: 'Settings', href: '/settings', icon: <Settings size={18} />, roles: ['admin'] },
         ],
