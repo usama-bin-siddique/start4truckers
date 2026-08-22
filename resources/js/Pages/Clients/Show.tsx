@@ -19,6 +19,7 @@ import {
     DollarSign, FileText, CheckSquare, Clock, AlertCircle, CheckCircle2, Circle, GitBranch,
     LayoutDashboard, Upload, X, Download,
 } from 'lucide-react';
+import PrintInvoiceLink from '@/components/PrintInvoiceLink';
 import { cn } from '@/lib/utils';
 
 interface Lead { id: number; name: string; email: string | null; phone: string | null; state: string | null; company: string | null; service_required: string | null; source: string; status: string; created_at: string }
@@ -63,7 +64,7 @@ function fmt(n: number) {
 }
 
 function complianceLabel(type: string | null): string {
-    if (type === 'project') return 'Project based';
+    if (type === 'project') return 'One time';
     if (type === 'monthly') return 'Monthly';
     return 'Not set';
 }
@@ -110,6 +111,8 @@ function ClientTab({
 
 export default function ClientShow({ client, users, services, doc_categories }: Props) {
     const { auth } = usePage<Props>().props;
+    const { url } = usePage();
+    const addPayment = url.includes('add_payment=1');
     const [editOpen, setEditOpen] = useState(false);
     const canEdit = ['admin', 'sales', 'processing', 'manager'].includes(auth.user.role);
     const canReassign = ['admin', 'manager'].includes(auth.user.role);
@@ -205,7 +208,7 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                         <KpiCard label="Services" value={`${completedServices}/${totalServices}`} icon={<Briefcase className="h-4 w-4 text-amber-700" />} iconClass="bg-amber-100" />
                     </div>
 
-                    <Tabs defaultValue="overview">
+                    <Tabs defaultValue={addPayment ? 'payments' : 'overview'}>
                         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-2xl border border-gray-200/80 bg-white p-1.5 text-gray-400 shadow-sm sm:grid-cols-3 lg:grid-cols-6">
                             <ClientTab value="overview" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
                             <ClientTab
@@ -310,7 +313,7 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                         </TabsContent>
 
                         <TabsContent value="payments" className="mt-5">
-                            <PaymentsTab clientId={client.id} payments={client.payments} canEdit={['admin', 'sales'].includes(auth.user.role)} />
+                            <PaymentsTab clientId={client.id} payments={client.payments} canEdit={['admin', 'sales'].includes(auth.user.role)} autoOpen={addPayment} />
                         </TabsContent>
                         <TabsContent value="operations" className="mt-5">
                             <OperationsTab clientId={client.id} assigned={client.client_services} catalog={services} users={users} canEdit={['admin', 'processing'].includes(auth.user.role)} />
@@ -386,7 +389,7 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                 <Select value={editForm.data.compliance_type} onValueChange={(v) => editForm.setData('compliance_type', v)}>
                                     <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="project">Project based</SelectItem>
+                                        <SelectItem value="project">One time</SelectItem>
                                         <SelectItem value="monthly">Monthly</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -408,8 +411,8 @@ export default function ClientShow({ client, users, services, doc_categories }: 
     );
 }
 
-function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; payments: Payment[]; canEdit: boolean }) {
-    const [open, setOpen] = useState(false);
+function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { clientId: number; payments: Payment[]; canEdit: boolean; autoOpen?: boolean }) {
+    const [open, setOpen] = useState(autoOpen && canEdit);
     const form = useForm<{
         invoice_amount: string;
         amount_received: string;
@@ -463,12 +466,13 @@ function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; paymen
                             <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Date</TableHead>
                             <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">By</TableHead>
                             <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Proof</TableHead>
+                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Print</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {payments.length === 0 ? (
                             <TableRow className="hover:bg-transparent">
-                                <TableCell colSpan={8} className="h-48 text-center text-sm text-gray-400">No payments recorded</TableCell>
+                                <TableCell colSpan={9} className="h-48 text-center text-sm text-gray-400">No payments recorded</TableCell>
                             </TableRow>
                         ) : payments.map((p) => (
                             <TableRow key={p.id}>
@@ -492,6 +496,9 @@ function PaymentsTab({ clientId, payments, canEdit }: { clientId: number; paymen
                                     ) : (
                                         <span className="text-xs text-gray-300">—</span>
                                     )}
+                                </TableCell>
+                                <TableCell>
+                                    <PrintInvoiceLink paymentId={p.id} />
                                 </TableCell>
                             </TableRow>
                         ))}

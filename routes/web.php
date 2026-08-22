@@ -68,6 +68,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/payments/{payment}/receipt',  [PaymentController::class, 'downloadReceipt'])->name('payments.receipt.download');
     });
 
+    Route::get('/payments/{payment}/invoice', [PaymentController::class, 'invoice'])->name('payments.invoice');
+
     // Operations — admin + processing
     Route::middleware('role:admin,processing')->group(function () {
         Route::get('/operations',              [OperationController::class, 'index'])->name('operations.index');
