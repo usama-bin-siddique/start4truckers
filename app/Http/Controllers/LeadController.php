@@ -36,7 +36,7 @@ class LeadController extends Controller
 
         $this->sla->checkExpired();
 
-        $query = Lead::with('assignedUser')
+        $query = Lead::with(['assignedUser', 'client'])
             ->visibleTo($user)
             ->when($request->search, fn ($q, $v) =>
                 $q->where(fn ($q) =>
@@ -92,9 +92,41 @@ class LeadController extends Controller
         ]);
     }
 
+    public function create(Request $request): Response
+    {
+        $this->authorize('create', Lead::class);
+
+        $user = Auth::user();
+        $clients = Client::query()
+            ->with('lead')
+            ->visibleTo($user)
+            ->latest()
+            ->get()
+            ->map(fn (Client $c) => [
+                'id'             => $c->id,
+                'client_number'  => $c->client_number,
+                'name'           => $c->display_name,
+                'phone'          => $c->phone ?: $c->lead?->phone,
+                'email'          => $c->email ?: $c->lead?->email,
+                'state'          => $c->state ?: $c->lead?->state,
+                'company'        => $c->company ?: $c->lead?->company,
+            ]);
+
+        return Inertia::render('Leads/Create', [
+            'users'              => User::where('is_active', true)->select('id', 'name', 'role')->get(),
+            'services'           => Service::where('is_active', true)->orderBy('order')->get(['id', 'name', 'slug']),
+            'clients'            => $clients,
+            'selected_client_id' => $request->integer('client_id') ?: null,
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $this->authorize('create', Lead::class);
+
+        $request->merge([
+            'client_id' => $request->filled('client_id') ? $request->input('client_id') : null,
+        ]);
 
         $data = $request->validate([
             'name'             => ['required', 'string', 'max:255'],
@@ -106,10 +138,20 @@ class LeadController extends Controller
             'notes'            => ['nullable', 'string'],
             'source'           => ['nullable', 'string', 'max:50'],
             'assigned_to'      => ['nullable', 'exists:users,id'],
+            'client_id'        => ['nullable', 'exists:clients,id'],
         ]);
 
         if (Auth::user()->isSalesRep()) {
             $data['assigned_to'] = Auth::id();
+        }
+
+        $data['client_id'] = $data['client_id'] ?? null;
+        $linkedClient = null;
+
+        if ($data['client_id']) {
+            $linkedClient = Client::query()->visibleTo(Auth::user())->findOrFail($data['client_id']);
+            $this->authorize('view', $linkedClient);
+            $data['client_id'] = $linkedClient->id;
         }
 
         $lead = Lead::create($data);
@@ -117,6 +159,19 @@ class LeadController extends Controller
         $this->activity->log($lead, Activity::ACTION_LEAD_CREATED,
             "Lead created manually by " . Auth::user()->name
         );
+
+        if ($linkedClient) {
+            $this->activity->log(
+                $lead,
+                Activity::ACTION_LEAD_LINKED,
+                "Lead linked to existing client #{$linkedClient->client_number}"
+            );
+            $this->activity->log(
+                $linkedClient,
+                Activity::ACTION_LEAD_LINKED,
+                "Lead \"{$lead->name}\" linked to this client"
+            );
+        }
 
         if ($lead->assigned_to) {
             $this->activity->log($lead, Activity::ACTION_LEAD_ASSIGNED,
@@ -339,24 +394,51 @@ class LeadController extends Controller
             return back()->with('error', 'Lead is already converted to a client.');
         }
 
-        $data = $request->validate([
-            'compliance_type' => ['required', 'in:project,monthly'],
-        ]);
+        $existing = $lead->client_id ? Client::find($lead->client_id) : null;
+
+        if ($existing) {
+            $data = [];
+            if (! $existing->compliance_type) {
+                $data = $request->validate([
+                    'compliance_type' => ['required', 'in:project,monthly'],
+                ]);
+            }
+        } else {
+            $data = $request->validate([
+                'compliance_type' => ['required', 'in:project,monthly'],
+            ]);
+        }
 
         $lead->load('invoices');
 
-        DB::transaction(function () use ($lead, $data) {
-            $client = Client::create([
-                'lead_id'          => $lead->id,
-                'assigned_to'      => $lead->assigned_to,
-                'status'           => Client::STATUS_ACTIVE,
-                'compliance_type'  => $data['compliance_type'],
-            ]);
+        DB::transaction(function () use ($lead, $data, $existing) {
+            $created = false;
+
+            if ($existing) {
+                $client = $existing;
+                if (! empty($data['compliance_type']) && ! $client->compliance_type) {
+                    $client->update(['compliance_type' => $data['compliance_type']]);
+                }
+            } else {
+                $client = Client::create([
+                    'lead_id'         => $lead->id,
+                    'name'            => $lead->name,
+                    'phone'           => $lead->phone,
+                    'email'           => $lead->email,
+                    'state'           => $lead->state,
+                    'company'         => $lead->company,
+                    'assigned_to'     => $lead->assigned_to,
+                    'status'          => Client::STATUS_ACTIVE,
+                    'compliance_type' => $data['compliance_type'],
+                ]);
+                $created = true;
+            }
 
             $lead->update([
                 'status'       => Lead::STATUS_WON,
                 'converted_at' => now(),
                 'converted_by' => Auth::id(),
+                'client_id'    => $client->id,
             ]);
 
             Document::where('lead_id', $lead->id)->whereNull('client_id')->update([
@@ -373,7 +455,7 @@ class LeadController extends Controller
                 ]);
             }
 
-            $assigned = $client->syncServicesFromLead();
+            $assigned = $client->syncServicesFromLead($lead);
             foreach ($assigned as $row) {
                 $this->activity->log(
                     $client,
@@ -384,35 +466,45 @@ class LeadController extends Controller
 
             $this->sla->complete($lead, 'status update');
 
-            // Log on both lead and client
             $this->activity->log($lead, Activity::ACTION_CONVERTED,
-                "Lead converted to client #{$client->client_number} by " . Auth::user()->name
-            );
-            $this->activity->log($client, Activity::ACTION_CLIENT_CREATED,
-                "Client created from lead: {$lead->name}"
+                $created
+                    ? "Lead converted to client #{$client->client_number} by " . Auth::user()->name
+                    : "Lead converted against existing client #{$client->client_number} by " . Auth::user()->name
             );
 
-            // Status changed to won
+            if ($created) {
+                $this->activity->log($client, Activity::ACTION_CLIENT_CREATED,
+                    "Client created from lead: {$lead->name}"
+                );
+            } else {
+                $this->activity->log($client, Activity::ACTION_CONVERTED,
+                    "Linked lead \"{$lead->name}\" converted onto this client"
+                );
+            }
+
             $this->activity->log($lead, Activity::ACTION_STATUS_CHANGED,
                 "Status changed to \"won\" upon client conversion",
                 ['status' => 'won'], ['status' => 'won']
             );
-            
-            // Notify assigned user
+
             if ($lead->assigned_to) {
                 $this->notification->notify($lead->assigned_to, NotificationService::TYPE_LEAD_CONVERTED, [
                     'lead_id'       => $lead->id,
                     'client_id'     => $client->id,
-                    'client_name'   => $lead->name,
+                    'client_name'   => $client->display_name,
                     'client_number' => $client->client_number,
                 ]);
             }
         });
 
-        $client = Client::where('lead_id', $lead->id)->first();
+        $lead->refresh();
+        $client = $lead->client ?? Client::where('lead_id', $lead->id)->first();
 
         return redirect()->route('clients.show', $client)
-            ->with('success', "Lead converted. Client #{$client->client_number} created.");
+            ->with('success', $existing
+                ? "Lead converted onto existing client #{$client->client_number}."
+                : "Lead converted. Client #{$client->client_number} created."
+            );
     }
 
     public function destroy(Lead $lead): RedirectResponse
@@ -441,6 +533,8 @@ class LeadController extends Controller
             'converted_by'     => $lead->convertedByUser?->name,
             'client_id'        => $lead->client?->id,
             'client_number'    => $lead->client?->client_number,
+            'client_name'      => $lead->client?->display_name,
+            'client_compliance_type' => $lead->client?->compliance_type,
             'reviewed_at'      => $lead->reviewed_at?->toIso8601String(),
             'sla_started_at'   => $lead->sla_started_at?->toIso8601String(),
             'sla_expires_at'   => $lead->sla_expires_at?->toIso8601String(),

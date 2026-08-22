@@ -46,6 +46,7 @@ class Activity extends Model
     const ACTION_SERVICE_UPDATED    = 'service_updated';
     const ACTION_SERVICE_ASSIGNED   = 'service_assigned';
     const ACTION_CLIENT_CREATED     = 'client_created';
+    const ACTION_LEAD_LINKED        = 'lead_linked';
 
     public function subject(): MorphTo
     {

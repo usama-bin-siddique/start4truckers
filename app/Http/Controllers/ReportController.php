@@ -142,7 +142,7 @@ class ReportController extends Controller
             ->get()
             ->map(fn ($c) => [
                 'client_number'  => $c->client_number,
-                'client_name'    => $c->lead?->name ?? '—',
+                'client_name'    => $c->display_name,
                 'assigned_to'    => $c->assignedUser?->name ?? '—',
                 'total_invoiced' => $c->total_invoiced,
                 'total_received' => $c->total_received,

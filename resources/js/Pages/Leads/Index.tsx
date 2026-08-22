@@ -34,6 +34,7 @@ interface Lead   {
     status: string; source: string; assigned_to: number | null;
     assigned_user: { id: number; name: string } | null;
     converted_at: string | null; created_at: string;
+    client?: { id: number; client_number: string; name: string | null } | null;
 }
 interface Paginator<T> {
     data: T[]; current_page: number; last_page: number;
@@ -247,6 +248,11 @@ export default function LeadsIndex({ leads, users, statuses, filters, stats }: P
                                                     <Link href={`/leads/${lead.id}`} className="font-medium text-gray-900 transition-colors hover:text-amber-700">
                                                         {lead.name}
                                                     </Link>
+                                                    {lead.client && (
+                                                        <Link href={`/clients/${lead.client.id}`} className="mt-0.5 block text-[11px] text-amber-700 hover:underline">
+                                                            {lead.client.client_number}
+                                                        </Link>
+                                                    )}
                                                     {lead.company && (
                                                         <p className="mt-0.5 text-xs text-gray-400">{lead.company}</p>
                                                     )}

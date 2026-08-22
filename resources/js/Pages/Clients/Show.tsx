@@ -27,11 +27,17 @@ interface ClientService { id: number; service_id: number; service_name: string; 
 interface Document { id: number; category: string; category_label: string; original_filename: string; file_size: string; uploaded_by: string | null; created_at: string }
 interface Task { id: number; title: string; description: string | null; priority: string; status: string; assigned_user: { name: string } | null; due_date: string | null; is_overdue: boolean }
 interface Activity { id: number; action: string; description: string; causer: string; old_value: Record<string, string> | null; new_value: Record<string, string> | null; created_at: string }
+interface RelatedLead {
+    id: number; name: string; status: string; service_required: string | null;
+    source: string; converted_at: string | null; assigned_user: { name: string } | null; created_at: string;
+}
 interface Client {
-    id: number; client_number: string; status: string; compliance_type: 'project' | 'monthly' | null; notes: string | null;
+    id: number; client_number: string; name: string; phone: string | null; email: string | null;
+    state: string | null; company: string | null;
+    status: string; compliance_type: 'project' | 'monthly' | null; notes: string | null;
     assigned_to: number | null; assigned_user: { id: number; name: string } | null;
     created_at: string; total_invoiced: number; total_received: number; balance_due: number;
-    lead: Lead | null; payments: Payment[]; client_services: ClientService[];
+    lead: Lead | null; leads: RelatedLead[]; payments: Payment[]; client_services: ClientService[];
     documents: Document[]; tasks: Task[]; activities: Activity[];
 }
 interface Props {
@@ -107,8 +113,14 @@ export default function ClientShow({ client, users, services, doc_categories }: 
     const [editOpen, setEditOpen] = useState(false);
     const canEdit = ['admin', 'sales', 'processing', 'manager'].includes(auth.user.role);
     const canReassign = ['admin', 'manager'].includes(auth.user.role);
+    const canCreateLead = ['admin', 'sales', 'manager'].includes(auth.user.role);
 
     const editForm = useForm({
+        name:             client.name ?? '',
+        phone:            client.phone ?? '',
+        email:            client.email ?? '',
+        state:            client.state ?? '',
+        company:          client.company ?? '',
         notes:            client.notes ?? '',
         assigned_to:      client.assigned_to ? String(client.assigned_to) : '',
         status:           client.status,
@@ -142,7 +154,7 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                             </div>
                             <div className="mt-3 flex flex-wrap items-center gap-3">
                                 <h2 className="text-[32px] leading-none font-semibold tracking-tight text-gray-950">
-                                    {client.lead?.name ?? 'Unknown client'}
+                                    {client.name || client.lead?.name || 'Unknown client'}
                                 </h2>
                                 <span className="font-mono text-sm text-amber-700">{client.client_number}</span>
                                 <ClientStatusBadge status={client.status} />
@@ -151,19 +163,27 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                 </Badge>
                             </div>
                             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-                                {client.lead?.company && <span className="inline-flex items-center gap-1.5"><Building size={14} />{client.lead.company}</span>}
-                                {client.lead?.phone && <span className="inline-flex items-center gap-1.5"><Phone size={14} />{client.lead.phone}</span>}
-                                {client.lead?.email && <span className="inline-flex items-center gap-1.5"><Mail size={14} />{client.lead.email}</span>}
-                                {client.lead?.state && <span className="inline-flex items-center gap-1.5"><MapPin size={14} />{client.lead.state}</span>}
+                                {(client.company || client.lead?.company) && <span className="inline-flex items-center gap-1.5"><Building size={14} />{client.company || client.lead?.company}</span>}
+                                {(client.phone || client.lead?.phone) && <span className="inline-flex items-center gap-1.5"><Phone size={14} />{client.phone || client.lead?.phone}</span>}
+                                {(client.email || client.lead?.email) && <span className="inline-flex items-center gap-1.5"><Mail size={14} />{client.email || client.lead?.email}</span>}
+                                {(client.state || client.lead?.state) && <span className="inline-flex items-center gap-1.5"><MapPin size={14} />{client.state || client.lead?.state}</span>}
                             </div>
                         </div>
                         <div className="flex items-center gap-2.5">
+                            {canCreateLead && (
+                                <Link
+                                    href={`/leads/create?client_id=${client.id}`}
+                                    className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+                                >
+                                    Add lead
+                                </Link>
+                            )}
                             {client.lead && (
                                 <Link
                                     href={`/leads/${client.lead.id}`}
                                     className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
                                 >
-                                    View lead
+                                    View originating lead
                                 </Link>
                             )}
                             {canEdit && (
@@ -218,23 +238,28 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                         <TabsContent value="overview" className="mt-5">
                             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                                 <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
-                                    <h3 className="text-base font-semibold text-gray-950">Lead information</h3>
-                                    <div className="mt-4 space-y-4">
-                                        <InfoRow icon={<Briefcase size={14} />} label="Service required" value={client.lead?.service_required} />
-                                        <InfoRow icon={<Globe size={14} />} label="Lead source" value={client.lead?.source} />
-                                        <InfoRow icon={<MapPin size={14} />} label="State" value={client.lead?.state} />
-                                        {client.lead && (
-                                            <div className="flex items-start gap-2">
-                                                <span className="mt-0.5 shrink-0 text-gray-400"><FileText size={14} /></span>
+                                    <h3 className="text-base font-semibold text-gray-950">Related leads</h3>
+                                    <div className="mt-4 space-y-3">
+                                        {(client.leads ?? []).length === 0 ? (
+                                            <p className="text-sm text-gray-400">
+                                                No leads linked yet.{canCreateLead ? ' Add a lead to work this account through the pipeline.' : ''}
+                                            </p>
+                                        ) : (client.leads ?? []).map((l) => (
+                                            <Link
+                                                key={l.id}
+                                                href={`/leads/${l.id}`}
+                                                className="flex items-start justify-between gap-3 rounded-xl border border-gray-100 px-3 py-3 transition-colors hover:border-amber-200 hover:bg-amber-50/40"
+                                            >
                                                 <div>
-                                                    <p className="text-xs text-gray-400">Lead status</p>
-                                                    <LeadStatusBadge status={client.lead.status} />
+                                                    <p className="font-medium text-gray-900">{l.name}</p>
+                                                    <p className="mt-0.5 text-xs text-gray-400">
+                                                        {l.service_required || 'No service'} · {l.source} · {l.created_at}
+                                                        {l.assigned_user?.name ? ` · ${l.assigned_user.name}` : ''}
+                                                    </p>
                                                 </div>
-                                            </div>
-                                        )}
-                                        <p className="pt-1 text-xs text-gray-400">
-                                            Lead created {client.lead?.created_at} · Client since {client.created_at.split('T')[0]}
-                                        </p>
+                                                <LeadStatusBadge status={l.status} />
+                                            </Link>
+                                        ))}
                                     </div>
                                 </section>
 
@@ -308,6 +333,31 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                     <DialogContent className="max-w-md">
                         <DialogHeader><DialogTitle>Edit Client</DialogTitle></DialogHeader>
                         <form onSubmit={submitEdit} className="space-y-4">
+                            <div className="space-y-1">
+                                <Label className="text-xs">Name</Label>
+                                <Input value={editForm.data.name} onChange={(e) => editForm.setData('name', e.target.value)} />
+                                {editForm.errors.name && <p className="text-xs text-red-500">{editForm.errors.name}</p>}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <Label className="text-xs">Phone</Label>
+                                    <Input value={editForm.data.phone} onChange={(e) => editForm.setData('phone', e.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs">Email</Label>
+                                    <Input type="email" value={editForm.data.email} onChange={(e) => editForm.setData('email', e.target.value)} />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <Label className="text-xs">Company</Label>
+                                    <Input value={editForm.data.company} onChange={(e) => editForm.setData('company', e.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs">State</Label>
+                                    <Input value={editForm.data.state} onChange={(e) => editForm.setData('state', e.target.value)} />
+                                </div>
+                            </div>
                             <div className="space-y-1">
                                 <Label className="text-xs">Status</Label>
                                 <Select value={editForm.data.status} onValueChange={(v) => editForm.setData('status', v)}>
