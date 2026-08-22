@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Filter, X, DollarSign, TrendingUp, AlertCircle, Download, Receipt, GitBranch } from 'lucide-react';
+import PrintInvoiceLink from '@/components/PrintInvoiceLink';
 import { cn } from '@/lib/utils';
 
 interface Payment {
@@ -154,7 +155,7 @@ export default function PaymentsIndex({ payments, totals, filters }: { payments:
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Reference</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Date</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">By</TableHead>
-                                        <TableHead className="w-12" />
+                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -188,13 +189,14 @@ export default function PaymentsIndex({ payments, totals, filters }: { payments:
                                             <TableCell className="text-xs text-gray-400">{p.paid_at ?? p.created_at}</TableCell>
                                             <TableCell className="text-xs text-gray-500">{p.created_by ?? '—'}</TableCell>
                                             <TableCell>
-                                                {p.has_receipt && (
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                                        <a href={`/payments/${p.id}/receipt`} target="_blank" rel="noreferrer">
-                                                            <Download size={13} />
+                                                <div className="flex items-center gap-3">
+                                                    <PrintInvoiceLink paymentId={p.id} />
+                                                    {p.has_receipt && (
+                                                        <a href={`/payments/${p.id}/receipt`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800" title="View receipt">
+                                                            <Download size={13} /> Receipt
                                                         </a>
-                                                    </Button>
-                                                )}
+                                                    )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}

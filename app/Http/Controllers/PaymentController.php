@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Payment;
+use App\Models\Setting;
 use App\Services\ActivityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class PaymentController extends Controller
 {
@@ -107,7 +109,8 @@ class PaymentController extends Controller
             "Payment of \${$payment->invoice_amount} created (received: \${$payment->amount_received}){$proofNote}"
         );
 
-        return Inertia::flash('success', 'Payment recorded.')->back()->with('success', 'Payment recorded.');
+        return redirect()->route('clients.show', $client)
+            ->with('success', 'Payment recorded.');
     }
 
     public function update(Request $request, Payment $payment): RedirectResponse
@@ -162,6 +165,33 @@ class PaymentController extends Controller
         }
 
         return Storage::disk('private')->download($payment->receipt_path);
+    }
+
+    public function invoice(Payment $payment): HttpResponse
+    {
+        $payment->load(['client.lead', 'createdBy']);
+        $this->authorize('view', $payment->client);
+
+        $methods = [
+            'cash'          => 'Cash',
+            'check'         => 'Check',
+            'zelle'         => 'Zelle',
+            'venmo'         => 'Venmo',
+            'bank_transfer' => 'Bank Transfer',
+            'stripe'        => 'Stripe',
+            'other'         => 'Other',
+        ];
+
+        return response()->view('payments.invoice', [
+            'payment' => $payment,
+            'client'  => $payment->client,
+            'company' => [
+                'name'  => Setting::get('company_name', config('app.name', 'Start4Truckers')),
+                'email' => Setting::get('company_email'),
+                'phone' => Setting::get('company_phone'),
+            ],
+            'method_label' => $methods[$payment->payment_method] ?? $payment->payment_method,
+        ]);
     }
 
     public function destroy(Payment $payment): RedirectResponse

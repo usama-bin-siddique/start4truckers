@@ -106,7 +106,7 @@ export default function ClientCreate({ users }: { users: User[] }) {
                                 <Select value={data.compliance_type} onValueChange={(v) => setData('compliance_type', v)}>
                                     <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="project">Project based</SelectItem>
+                                        <SelectItem value="project">One time</SelectItem>
                                         <SelectItem value="monthly">Monthly</SelectItem>
                                     </SelectContent>
                                 </Select>

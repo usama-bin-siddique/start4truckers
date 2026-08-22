@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Document;
+use App\Models\Payment;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\ActivityService;
@@ -58,6 +59,7 @@ class ClientController extends Controller
             'users'    => User::where('is_active', true)->select('id', 'name', 'role')->get(),
             'filters'  => $request->only(['search', 'status', 'assigned_to', 'compliance_type']),
             'can_create' => $user->can('create', Client::class),
+            'can_add_payment' => $user->can('create', Payment::class),
             'stats'    => [
                 'total'     => (clone $stats)->count(),
                 'active'    => (clone $stats)->where('status', 'active')->count(),

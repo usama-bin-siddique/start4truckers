@@ -18,6 +18,7 @@ import {
     ScrollText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import BrandLogo from '@/components/BrandLogo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -157,17 +158,9 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
 
     const SidebarContent = ({ compact }: { compact: boolean }) => (
         <div className="flex h-full flex-col overflow-hidden rounded-[20px] bg-[#12141D]">
-            <div className={cn('flex h-[72px] items-center px-4', compact ? 'justify-center' : 'gap-3')}>
-                <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.18)]">
-                        <span className="text-[11px] font-bold tracking-wide text-white">S4T</span>
-                    </div>
-                    {!compact && (
-                        <div className="min-w-0">
-                            <p className="truncate text-[15px] font-semibold text-white">Start4Truckers</p>
-                            <p className="text-[11px] text-white/45">Fleet CRM</p>
-                        </div>
-                    )}
+            <div className={cn('flex items-center px-3', compact ? 'h-[72px] justify-center' : 'h-[92px]')}>
+                <Link href="/dashboard" className="flex min-w-0 items-center justify-center">
+                    <BrandLogo className={compact ? 'h-10 w-10' : 'h-[76px] w-auto max-w-full'} />
                 </Link>
             </div>
 

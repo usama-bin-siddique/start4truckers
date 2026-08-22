@@ -6,7 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Eye, Filter, X, UserCheck, Users, CheckCircle, CircleOff, GitBranch, Plus } from 'lucide-react';
+import { Search, Eye, Filter, X, UserCheck, Users, CheckCircle, CircleOff, GitBranch, Plus, MoreHorizontal, DollarSign } from 'lucide-react';
+import {
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 interface Lead { name: string; email: string | null; phone: string | null; company: string | null; service_required: string | null }
@@ -30,10 +33,11 @@ interface Props {
     filters: Filters;
     stats: Stats;
     can_create?: boolean;
+    can_add_payment?: boolean;
 }
 
 const complianceLabel: Record<string, string> = {
-    project: 'Project based',
+    project: 'One time',
     monthly: 'Monthly',
 };
 
@@ -43,7 +47,7 @@ const statusConfig: Record<string, { label: string; badge: 'success' | 'secondar
     inactive:  { label: 'Inactive',  badge: 'outline' },
 };
 
-export default function ClientsIndex({ clients, users, filters, stats, can_create = false }: Props) {
+export default function ClientsIndex({ clients, users, filters, stats, can_create = false, can_add_payment = false }: Props) {
     const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
     const canReassign = auth.user.role !== 'sales';
     const [showFilters, setShowFilters] = useState(false);
@@ -178,7 +182,7 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                                     <SelectTrigger className="h-9 w-40 text-sm"><SelectValue placeholder="Compliance" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="">All compliance</SelectItem>
-                                        <SelectItem value="project">Project based</SelectItem>
+                                        <SelectItem value="project">One time</SelectItem>
                                         <SelectItem value="monthly">Monthly</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -198,7 +202,7 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Balance Due</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Assigned</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Since</TableHead>
-                                        <TableHead className="w-12" />
+                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -260,9 +264,27 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                                                     <span className="text-xs text-gray-400">{client.created_at}</span>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                                        <Link href={`/clients/${client.id}`}><Eye size={14} /></Link>
-                                                    </Button>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                                <MoreHorizontal size={15} />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem asChild>
+                                                                <Link href={`/clients/${client.id}`} className="cursor-pointer">
+                                                                    <Eye size={13} /> View
+                                                                </Link>
+                                                            </DropdownMenuItem>
+                                                            {can_add_payment && (
+                                                                <DropdownMenuItem asChild>
+                                                                    <Link href={`/clients/${client.id}?add_payment=1`} className="cursor-pointer">
+                                                                        <DollarSign size={13} /> Add Payment
+                                                                    </Link>
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </TableCell>
                                             </TableRow>
                                         );

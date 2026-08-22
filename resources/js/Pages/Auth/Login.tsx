@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import BrandLogo from '@/components/BrandLogo';
+import { beginLoginSplash, cancelLoginSplash, finishLoginSplash } from '@/lib/loginSplash';
 
 export default function Login() {
     const [showPassword, setShowPassword] = useState(false);
@@ -13,7 +15,12 @@ export default function Login() {
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        post('/login');
+        beginLoginSplash();
+        post('/login', {
+            onError: () => cancelLoginSplash(),
+            onSuccess: () => finishLoginSplash(),
+            onCancel: () => cancelLoginSplash(),
+        });
     }
 
     return (
@@ -34,12 +41,8 @@ export default function Login() {
 
                 <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-16">
                     <div className="mb-8 text-center">
-                        <div className="mx-auto mb-5 flex h-11 w-11 items-center justify-center rounded-[10px] bg-amber-500 text-[13px] font-bold tracking-wide text-white shadow-[0_0_28px_rgba(245,158,11,0.55)]">
-                            S4T
-                        </div>
-                        <h1 className="text-[40px] leading-none font-semibold tracking-tight text-white">
-                            Start4Truckers
-                        </h1>
+                        <BrandLogo className="mx-auto mb-5 h-[148px] w-auto drop-shadow-[0_0_28px_rgba(245,158,11,0.35)]" />
+                        <h1 className="sr-only">Start4Truckers</h1>
                         <p className="mt-3 text-[15px] text-white/45">
                             Sign in to your fleet workspace
                         </p>
