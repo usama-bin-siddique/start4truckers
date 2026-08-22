@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
     Bell, BellOff, Check, CheckCheck, Users, DollarSign, ClipboardCheck,
-    FileText, UserCheck, TrendingUp, Inbox,
+    FileText, UserCheck, TrendingUp, Inbox, ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,7 @@ interface Notification {
     id: number;
     type: string;
     data: Record<string, unknown>;
+    url?: string | null;
     is_read: boolean;
     created_at: string;
 }
@@ -23,14 +24,16 @@ interface Props {
 }
 
 const typeConfig: Record<string, { icon: React.ReactNode; label: string; color: string; bg: string }> = {
-    new_lead:          { icon: <Users size={16} />,          label: 'New Lead',          color: 'text-sky-700',     bg: 'bg-sky-100' },
-    lead_assigned:     { icon: <UserCheck size={16} />,      label: 'Lead Assigned',     color: 'text-indigo-700',  bg: 'bg-indigo-100' },
-    task_due:          { icon: <Bell size={16} />,           label: 'Task Due',          color: 'text-amber-700',   bg: 'bg-amber-100' },
-    payment_received:  { icon: <DollarSign size={16} />,     label: 'Payment Received',  color: 'text-emerald-700', bg: 'bg-emerald-100' },
-    document_uploaded: { icon: <FileText size={16} />,       label: 'Document Uploaded', color: 'text-violet-700',  bg: 'bg-violet-100' },
-    service_completed: { icon: <ClipboardCheck size={16} />, label: 'Service Completed', color: 'text-teal-700',    bg: 'bg-teal-100' },
-    lead_converted:    { icon: <TrendingUp size={16} />,     label: 'Lead Converted',    color: 'text-emerald-700', bg: 'bg-emerald-100' },
-    sla_breached:      { icon: <Bell size={16} />,           label: 'SLA Missed',        color: 'text-red-700',     bg: 'bg-red-100' },
+    new_lead:            { icon: <Users size={16} />,          label: 'New Lead',            color: 'text-sky-700',     bg: 'bg-sky-100' },
+    lead_assigned:       { icon: <UserCheck size={16} />,      label: 'Lead Assigned',       color: 'text-indigo-700',  bg: 'bg-indigo-100' },
+    task_due:            { icon: <Bell size={16} />,           label: 'Task Due',            color: 'text-amber-700',   bg: 'bg-amber-100' },
+    payment_received:    { icon: <DollarSign size={16} />,     label: 'Payment Received',    color: 'text-emerald-700', bg: 'bg-emerald-100' },
+    document_uploaded:   { icon: <FileText size={16} />,       label: 'Document Uploaded',   color: 'text-violet-700',  bg: 'bg-violet-100' },
+    service_completed:   { icon: <ClipboardCheck size={16} />, label: 'Service Completed',   color: 'text-teal-700',    bg: 'bg-teal-100' },
+    lead_converted:      { icon: <TrendingUp size={16} />,     label: 'Lead Converted',      color: 'text-emerald-700', bg: 'bg-emerald-100' },
+    sla_breached:        { icon: <Bell size={16} />,           label: 'SLA Missed',          color: 'text-red-700',     bg: 'bg-red-100' },
+    compliance_due:      { icon: <ShieldCheck size={16} />,    label: 'Compliance Due',      color: 'text-amber-700',   bg: 'bg-amber-100' },
+    compliance_started:  { icon: <ShieldCheck size={16} />,    label: 'Monthly Compliance',  color: 'text-indigo-700',  bg: 'bg-indigo-100' },
 };
 
 function getNotificationMessage(notification: Notification): string {
@@ -46,16 +49,26 @@ function getNotificationMessage(notification: Notification): string {
         case 'payment_received':
             return `Payment received: $${data.amount || '0'} from ${data.client_name || 'client'}`;
         case 'document_uploaded':
-            return `Document uploaded for ${data.client_name || 'client'}: ${data.filename || 'document'}`;
+            return `Document uploaded for ${data.client_name || data.lead_name || 'client'}: ${data.filename || 'document'}`;
         case 'service_completed':
             return `Service completed for ${data.client_name || 'client'}: ${data.service_name || 'service'}`;
         case 'lead_converted':
             return `Lead converted to client: ${data.client_name || 'Unknown'}`;
         case 'sla_breached':
             return `SLA missed for lead: ${data.lead_name || 'Unknown'}. No action was taken in time.`;
+        case 'compliance_due':
+            return (data.message as string) || `Client ${data.client_name || 'Unknown'} has a compliance task due.`;
+        case 'compliance_started':
+            return (data.message as string) || `Client ${data.client_name || 'Unknown'} is now a Monthly Compliance Client.`;
         default:
             return (data.message as string) || 'New notification';
     }
+}
+
+function notificationUrl(notification: Notification): string | null {
+    const fromData = typeof notification.data?.url === 'string' ? notification.data.url : null;
+
+    return notification.url || fromData;
 }
 
 export default function NotificationsIndex({ notifications, unread_count }: Props) {
@@ -63,6 +76,10 @@ export default function NotificationsIndex({ notifications, unread_count }: Prop
 
     function markAsRead(id: number) {
         router.post(`/notifications/${id}/read`, {}, { preserveState: true });
+    }
+
+    function openNotification(notification: Notification) {
+        router.visit(`/notifications/${notification.id}/open`);
     }
 
     function markAllAsRead() {
@@ -137,6 +154,7 @@ export default function NotificationsIndex({ notifications, unread_count }: Prop
                             <div className="divide-y divide-gray-100 border-t border-gray-100">
                                 {notifications.map((notif) => {
                                     const config = typeConfig[notif.type] || typeConfig.new_lead;
+                                    const href = notificationUrl(notif);
                                     return (
                                         <div
                                             key={notif.id}
@@ -144,7 +162,7 @@ export default function NotificationsIndex({ notifications, unread_count }: Prop
                                                 'flex cursor-pointer items-start gap-3 px-5 py-4 transition-colors hover:bg-gray-50/80',
                                                 !notif.is_read && 'border-l-[3px] border-l-[#C4A035] bg-amber-50/40'
                                             )}
-                                            onClick={() => !notif.is_read && markAsRead(notif.id)}
+                                            onClick={() => openNotification(notif)}
                                         >
                                             <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', config.bg)}>
                                                 <span className={config.color}>{config.icon}</span>
@@ -156,7 +174,10 @@ export default function NotificationsIndex({ notifications, unread_count }: Prop
                                                             {config.label}
                                                         </Badge>
                                                         <p className="text-sm text-gray-800">{getNotificationMessage(notif)}</p>
-                                                        <p className="mt-1 text-xs text-gray-400">{notif.created_at}</p>
+                                                        <p className="mt-1 text-xs text-gray-400">
+                                                            {notif.created_at}
+                                                            {href ? ' · Open related record' : ''}
+                                                        </p>
                                                     </div>
                                                     {!notif.is_read && (
                                                         <Button

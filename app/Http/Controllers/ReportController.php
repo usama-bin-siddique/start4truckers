@@ -31,6 +31,7 @@ class ReportController extends Controller
             'outstanding'      => $this->outstandingBalances(),
             'employee_perf'    => $this->employeePerformance($dateFrom, $dateTo),
             'monthly_trends'   => $this->monthlyTrends(),
+            'compliance'       => $this->complianceBreakdown(),
             'users'            => User::where('is_active', true)->select('id', 'name', 'role')->get(),
             'services'         => Service::where('is_active', true)->orderBy('order')->get(['id', 'name']),
             'filters'          => compact('dateFrom', 'dateTo', 'userId', 'serviceId'),
@@ -138,7 +139,7 @@ class ReportController extends Controller
     private function outstandingBalances(): array
     {
         $clients = Client::with(['lead', 'assignedUser'])
-            ->where('status', 'active')
+            ->whereIn('status', \App\Support\ClientProfile::OPEN_STATUSES)
             ->get()
             ->map(fn ($c) => [
                 'client_number'  => $c->client_number,
@@ -207,6 +208,19 @@ class ReportController extends Controller
                 'services' => ClientService::where('status', 'completed')->whereYear('completion_date', $year)->whereMonth('completion_date', $month)->count(),
             ];
         })->values()->toArray();
+    }
+
+    private function complianceBreakdown(): array
+    {
+        return [
+            'one_time' => Client::where('compliance_type', Client::COMPLIANCE_PROJECT)->count(),
+            'monthly'  => Client::where('compliance_type', Client::COMPLIANCE_MONTHLY)->count(),
+            'unset'    => Client::whereNull('compliance_type')->count(),
+            'due_soon' => Client::where('compliance_type', Client::COMPLIANCE_MONTHLY)
+                ->whereNotNull('next_compliance_due_at')
+                ->whereDate('next_compliance_due_at', '<=', now()->addDays(7))
+                ->count(),
+        ];
     }
 
     private function serviceColor(int $id): string

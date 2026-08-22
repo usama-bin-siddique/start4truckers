@@ -19,20 +19,38 @@ class Document extends Model
         'stored_path',
         'mime_type',
         'file_size',
+        'expires_at',
+        'status',
         'uploaded_by',
     ];
 
     // Category constants
     const CATEGORIES = [
-        'driver_license'    => 'Driver License',
-        'passport'          => 'Passport',
-        'llc_articles'      => 'LLC Articles',
-        'ein_letter'        => 'EIN Letter',
-        'utility_bill'      => 'Utility Bill',
-        'insurance'         => 'Insurance',
-        'truck_registration'=> 'Truck Registration',
-        'other'             => 'Other',
+        'driver_license'       => 'Driver License',
+        'passport'             => 'Passport',
+        'ein_letter'           => 'SS-4 / EIN Letter',
+        'llc_articles'         => 'Articles of Organization',
+        'operating_agreement'  => 'Operating Agreement',
+        'utility_bill'         => 'Utility Bill',
+        'w9'                   => 'W-9',
+        'insurance'            => 'Insurance Certificate',
+        'boc3'                 => 'BOC-3 Confirmation',
+        'dot_confirmation'     => 'DOT Confirmation',
+        'mc_confirmation'      => 'MC Confirmation',
+        'vehicle_title'        => 'Vehicle Title',
+        'truck_registration'   => 'Registration',
+        'form_2290'            => 'Form 2290',
+        'ifta'                 => 'IFTA Documents',
+        'irp'                  => 'IRP Documents',
+        'other'                => 'Other Documents',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'expires_at' => 'date',
+        ];
+    }
 
     public function isVisibleTo(User $user): bool
     {

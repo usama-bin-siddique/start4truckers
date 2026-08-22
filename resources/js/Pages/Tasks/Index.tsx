@@ -20,6 +20,7 @@ interface Task {
     id: number; title: string; description: string | null; priority: string; status: string;
     assigned_user: { id: number; name: string } | null; created_by: string | null;
     client_id: number | null; client_name: string | null; client_number: string | null;
+    kind?: string | null;
     due_date: string | null; reminder_at: string | null; is_overdue: boolean; created_at: string;
 }
 interface Paginator<T> { data: T[]; total: number; last_page: number; links: { url: string | null; label: string; active: boolean }[] }
@@ -249,6 +250,9 @@ export default function TasksIndex({ tasks, users, filters, stats }: {
                                                 <p className={cn('text-sm font-medium text-gray-900', t.status === 'completed' && 'text-gray-400 line-through')}>
                                                     {t.title}
                                                 </p>
+                                                {t.kind === 'monthly_compliance' && (
+                                                    <p className="mt-0.5 text-[10px] font-semibold tracking-wide text-amber-700 uppercase">Monthly compliance</p>
+                                                )}
                                                 {t.description && <p className="mt-0.5 max-w-[200px] truncate text-xs text-gray-400">{t.description}</p>}
                                             </TableCell>
                                             <TableCell>

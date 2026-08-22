@@ -11,7 +11,9 @@ class TaskReminderService
     public function sendDue(): int
     {
         $tasks = Task::query()
+            ->with('client')
             ->where('status', '!=', Task::STATUS_COMPLETED)
+            ->where(fn ($q) => $q->whereNull('kind')->orWhere('kind', '!=', Task::KIND_MONTHLY_COMPLIANCE))
             ->whereNull('reminder_sent_at')
             ->whereNotNull('reminder_at')
             ->where('reminder_at', '<=', now())
@@ -41,10 +43,13 @@ class TaskReminderService
         $due = $task->due_date?->format('M j, Y g:i A');
 
         $this->notification->notify($userId, NotificationService::TYPE_TASK_DUE, [
-            'task_id'    => $task->id,
-            'task_title' => $task->title,
-            'due_date'   => $due,
-            'message'    => $due
+            'task_id'     => $task->id,
+            'task_title'  => $task->title,
+            'task_kind'   => $task->kind,
+            'client_id'   => $task->client_id,
+            'client_name' => $task->client?->display_name,
+            'due_date'    => $due,
+            'message'     => $due
                 ? "Deadline for \"{$task->title}\" is {$due}. Please review it."
                 : "Please review your task: \"{$task->title}\".",
         ]);

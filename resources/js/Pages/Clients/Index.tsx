@@ -15,7 +15,8 @@ import { cn } from '@/lib/utils';
 interface Lead { name: string; email: string | null; phone: string | null; company: string | null; service_required: string | null }
 interface Client {
     id: number; client_number: string; name: string; email: string | null; phone: string | null;
-    company: string | null; status: string; compliance_type: 'project' | 'monthly' | null;
+    company: string | null; status: string; status_label?: string; compliance_type: 'project' | 'monthly' | null;
+    assigned_user: { name: string } | null;
     assigned_user: { name: string } | null;
     leads_count?: number;
     lead: Lead | null; balance_due: number; created_at: string;
@@ -34,20 +35,28 @@ interface Props {
     stats: Stats;
     can_create?: boolean;
     can_add_payment?: boolean;
+    profile_options?: { statuses: Record<string, string> };
 }
 
 const complianceLabel: Record<string, string> = {
-    project: 'One time',
+    project: 'One-Time',
     monthly: 'Monthly',
 };
 
-const statusConfig: Record<string, { label: string; badge: 'success' | 'secondary' | 'outline' }> = {
-    active:    { label: 'Active',    badge: 'success' },
-    completed: { label: 'Completed', badge: 'secondary' },
-    inactive:  { label: 'Inactive',  badge: 'outline' },
+const statusConfig: Record<string, { label: string; badge: 'success' | 'secondary' | 'outline' | 'warning' | 'default' }> = {
+    lead:               { label: 'Lead',               badge: 'secondary' },
+    onboarding:         { label: 'Onboarding',         badge: 'default' },
+    documents_pending:  { label: 'Documents Pending',  badge: 'warning' },
+    payment_pending:    { label: 'Payment Pending',    badge: 'warning' },
+    in_progress:        { label: 'In Progress',        badge: 'success' },
+    government_review:  { label: 'Government Review',  badge: 'default' },
+    completed:          { label: 'Completed',          badge: 'secondary' },
+    compliance:         { label: 'Compliance',         badge: 'success' },
+    inactive:           { label: 'Inactive',           badge: 'outline' },
+    active:             { label: 'In Progress',        badge: 'success' },
 };
 
-export default function ClientsIndex({ clients, users, filters, stats, can_create = false, can_add_payment = false }: Props) {
+export default function ClientsIndex({ clients, users, filters, stats, can_create = false, can_add_payment = false, profile_options }: Props) {
     const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
     const canReassign = auth.user.role !== 'sales';
     const [showFilters, setShowFilters] = useState(false);
@@ -162,9 +171,9 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                                     <SelectTrigger className="h-9 w-36 text-sm"><SelectValue placeholder="Status" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="">All statuses</SelectItem>
-                                        <SelectItem value="active">Active</SelectItem>
-                                        <SelectItem value="completed">Completed</SelectItem>
-                                        <SelectItem value="inactive">Inactive</SelectItem>
+                                        {Object.entries(profile_options?.statuses ?? statusConfig).map(([value, label]) => (
+                                            <SelectItem key={value} value={value}>{typeof label === 'string' ? label : label.label}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                                 {canReassign && (
@@ -182,7 +191,7 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                                     <SelectTrigger className="h-9 w-40 text-sm"><SelectValue placeholder="Compliance" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="">All compliance</SelectItem>
-                                        <SelectItem value="project">One time</SelectItem>
+                                        <SelectItem value="project">One-Time</SelectItem>
                                         <SelectItem value="monthly">Monthly</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -213,7 +222,7 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                                             </TableCell>
                                         </TableRow>
                                     ) : clients.data.map((client) => {
-                                        const sc = statusConfig[client.status] ?? statusConfig.active;
+                                        const sc = statusConfig[client.status] ?? { label: client.status_label ?? client.status.replaceAll('_', ' '), badge: 'secondary' as const };
                                         return (
                                             <TableRow key={client.id}>
                                                 <TableCell className="px-5">

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ClientVehicleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\LeadController;
@@ -57,6 +58,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/clients',         [ClientController::class, 'store'])->name('clients.store');
     Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
     Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
+    Route::post('/clients/{client}/compliance', [ClientController::class, 'updateCompliance'])->name('clients.compliance');
+    Route::post('/clients/{client}/vehicles', [ClientVehicleController::class, 'store'])->name('clients.vehicles.store');
+    Route::put('/clients/{client}/vehicles/{vehicle}', [ClientVehicleController::class, 'update'])->name('clients.vehicles.update');
+    Route::delete('/clients/{client}/vehicles/{vehicle}', [ClientVehicleController::class, 'destroy'])->name('clients.vehicles.destroy');
 
     // Payments — admin + sales
     Route::middleware('role:admin,sales')->group(function () {
@@ -99,6 +104,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Notifications — all roles
     Route::get('/notifications',                     [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/{id}/open',           [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/{id}/read',          [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/mark-all-read',      [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllRead');
     Route::get('/api/notifications/unread-count',    [NotificationController::class, 'getUnreadCount'])->name('notifications.unreadCount');

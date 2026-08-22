@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -17,16 +17,17 @@ import CategoryDropzones, { queuedFileCount } from '@/components/CategoryDropzon
 import {
     ChevronLeft, Phone, Mail, Building, MapPin, Briefcase, Globe, Edit,
     DollarSign, FileText, CheckSquare, Clock, AlertCircle, CheckCircle2, Circle, GitBranch,
-    LayoutDashboard, Upload, X, Download,
+    LayoutDashboard, Upload, X, Download, Truck, ShieldCheck, UserCheck, UserRound,
 } from 'lucide-react';
 import PrintInvoiceLink from '@/components/PrintInvoiceLink';
+import { ProfileTab, FleetTab, ComplianceTab, type ProfileOptions } from '@/Pages/Clients/ClientProfileForms';
 import { cn } from '@/lib/utils';
 
 interface Lead { id: number; name: string; email: string | null; phone: string | null; state: string | null; company: string | null; service_required: string | null; source: string; status: string; created_at: string }
 interface Payment { id: number; invoice_amount: number; amount_received: number; balance_due: number; payment_method: string | null; transaction_reference: string | null; notes: string | null; paid_at: string | null; created_by: string | null; has_receipt: boolean; created_at: string }
 interface ClientService { id: number; service_id: number; service_name: string; status: string; assigned_to: number | null; assigned_user: { name: string } | null; completion_date: string | null; notes: string | null }
 interface Document { id: number; category: string; category_label: string; original_filename: string; file_size: string; uploaded_by: string | null; created_at: string }
-interface Task { id: number; title: string; description: string | null; priority: string; status: string; assigned_user: { name: string } | null; due_date: string | null; is_overdue: boolean }
+interface Task { id: number; title: string; description: string | null; priority: string; status: string; kind?: string | null; assigned_user: { name: string } | null; due_date: string | null; is_overdue: boolean }
 interface Activity { id: number; action: string; description: string; causer: string; old_value: Record<string, string> | null; new_value: Record<string, string> | null; created_at: string }
 interface RelatedLead {
     id: number; name: string; status: string; service_required: string | null;
@@ -35,17 +36,25 @@ interface RelatedLead {
 interface Client {
     id: number; client_number: string; name: string; phone: string | null; email: string | null;
     state: string | null; company: string | null;
-    status: string; compliance_type: 'project' | 'monthly' | null; notes: string | null;
+    status: string; status_label?: string; compliance_type: 'project' | 'monthly' | null; notes: string | null;
+    client_notes: string | null;
+    monthly_compliance_started_at?: string | null;
+    next_compliance_due_at?: string | null;
     assigned_to: number | null; assigned_user: { id: number; name: string } | null;
-    created_at: string; total_invoiced: number; total_received: number; balance_due: number;
+    created_at: string; customer_since: string; total_invoiced: number; total_received: number; balance_due: number;
+    current_package: string; overall_service_status: string; computed_next_due_date: string | null;
+    next_action: string | null; next_action_due_at: string | null; truck_count: number;
+    ssn_masked: string | null;
     lead: Lead | null; leads: RelatedLead[]; payments: Payment[]; client_services: ClientService[];
-    documents: Document[]; tasks: Task[]; activities: Activity[];
+    documents: Document[]; tasks: Task[]; activities: Activity[]; vehicles: import('./ClientProfileForms').Vehicle[];
+    [key: string]: unknown;
 }
 interface Props {
     client: Client;
     users: { id: number; name: string; role: string }[];
     services: { id: number; name: string; slug: string }[];
     doc_categories: Record<string, string>;
+    profile_options: ProfileOptions;
     auth: { user: { role: string; id: number } };
 }
 
@@ -64,7 +73,7 @@ function fmt(n: number) {
 }
 
 function complianceLabel(type: string | null): string {
-    if (type === 'project') return 'One time';
+    if (type === 'project') return 'One-Time';
     if (type === 'monthly') return 'Monthly';
     return 'Not set';
 }
@@ -86,7 +95,7 @@ function ClientTab({
         <TabsTrigger
             value={value}
             className={cn(
-                'group flex h-auto w-full flex-col gap-2 rounded-xl border border-transparent px-2 py-3.5 text-[13px] font-medium text-gray-400 shadow-none',
+                'group flex h-auto min-w-[108px] flex-1 flex-col gap-2 rounded-xl border border-transparent px-2 py-3.5 text-[13px] font-medium text-gray-400 shadow-none',
                 'hover:bg-gray-50 hover:text-gray-600',
                 'data-[state=active]:border-[#C4A035]/40 data-[state=active]:bg-[#12141D] data-[state=active]:text-white data-[state=active]:shadow-md',
             )}
@@ -109,11 +118,15 @@ function ClientTab({
     );
 }
 
-export default function ClientShow({ client, users, services, doc_categories }: Props) {
+export default function ClientShow({ client, users, services, doc_categories, profile_options }: Props) {
     const { auth } = usePage<Props>().props;
     const { url } = usePage();
     const addPayment = url.includes('add_payment=1');
+    const requestedTab = new URLSearchParams(url.split('?')[1] ?? '').get('tab');
+    const [tab, setTab] = useState(addPayment ? 'payments' : (requestedTab || 'overview'));
+    const [forcePayment, setForcePayment] = useState(addPayment);
     const [editOpen, setEditOpen] = useState(false);
+    const [complianceOpen, setComplianceOpen] = useState(false);
     const canEdit = ['admin', 'sales', 'processing', 'manager'].includes(auth.user.role);
     const canReassign = ['admin', 'manager'].includes(auth.user.role);
     const canCreateLead = ['admin', 'sales', 'manager'].includes(auth.user.role);
@@ -129,6 +142,14 @@ export default function ClientShow({ client, users, services, doc_categories }: 
         status:           client.status,
         compliance_type:  client.compliance_type ?? '',
     });
+    const complianceForm = useForm({
+        compliance_type: client.compliance_type ?? 'project',
+    });
+
+    useEffect(() => {
+        const nextTab = addPayment ? 'payments' : (requestedTab || null);
+        if (nextTab) setTab(nextTab);
+    }, [url]);
 
     function submitEdit(e: React.FormEvent) {
         e.preventDefault();
@@ -160,7 +181,7 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                     {client.name || client.lead?.name || 'Unknown client'}
                                 </h2>
                                 <span className="font-mono text-sm text-amber-700">{client.client_number}</span>
-                                <ClientStatusBadge status={client.status} />
+                                <ClientStatusBadge status={client.status} label={client.status_label} />
                                 <Badge variant={client.compliance_type === 'monthly' ? 'default' : client.compliance_type === 'project' ? 'warning' : 'secondary'}>
                                     {complianceLabel(client.compliance_type)}
                                 </Badge>
@@ -192,6 +213,18 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                             {canEdit && (
                                 <button
                                     type="button"
+                                    onClick={() => {
+                                        complianceForm.setData('compliance_type', client.compliance_type ?? 'project');
+                                        setComplianceOpen(true);
+                                    }}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+                                >
+                                    <ShieldCheck className="h-4 w-4" /> Change compliance
+                                </button>
+                            )}
+                            {canEdit && (
+                                <button
+                                    type="button"
                                     onClick={() => setEditOpen(true)}
                                     className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
                                 >
@@ -201,16 +234,39 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                        <KpiCard label="Invoiced" value={fmt(client.total_invoiced)} icon={<DollarSign className="h-4 w-4 text-sky-700" />} iconClass="bg-sky-100" />
-                        <KpiCard label="Received" value={fmt(client.total_received)} icon={<CheckCircle2 className="h-4 w-4 text-emerald-700" />} iconClass="bg-emerald-100" />
-                        <KpiCard label="Balance due" value={fmt(client.balance_due)} icon={<AlertCircle className="h-4 w-4 text-red-600" />} iconClass="bg-red-100" />
-                        <KpiCard label="Services" value={`${completedServices}/${totalServices}`} icon={<Briefcase className="h-4 w-4 text-amber-700" />} iconClass="bg-amber-100" />
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+                        <KpiCard label="Client Status" value={client.status_label ?? client.status} icon={<UserCheck className="h-4 w-4 text-amber-700" />} iconClass="bg-amber-100" />
+                        <KpiCard label="Assigned Employee" value={client.assigned_user?.name ?? 'Unassigned'} icon={<UserRound className="h-4 w-4 text-sky-700" />} iconClass="bg-sky-100" />
+                        <KpiCard label="Customer Since" value={client.customer_since ?? client.created_at?.slice(0, 10)} icon={<Clock className="h-4 w-4 text-gray-600" />} iconClass="bg-gray-100" />
+                        <KpiCard label="Total Revenue" value={fmt(client.total_received)} icon={<CheckCircle2 className="h-4 w-4 text-emerald-700" />} iconClass="bg-emerald-100" />
+                        <KpiCard label="Outstanding Balance" value={fmt(client.balance_due)} icon={<AlertCircle className="h-4 w-4 text-red-600" />} iconClass="bg-red-100" />
+                        <KpiCard label="Current Package" value={client.current_package} icon={<Briefcase className="h-4 w-4 text-amber-700" />} iconClass="bg-amber-100" />
+                        <KpiCard label="Overall Service Status" value={client.overall_service_status} icon={<CheckSquare className="h-4 w-4 text-blue-700" />} iconClass="bg-blue-100" />
+                        <KpiCard label="Next Action" value={client.next_action || '—'} icon={<GitBranch className="h-4 w-4 text-gray-600" />} iconClass="bg-gray-100" />
+                        <KpiCard label="Next Due Date" value={client.computed_next_due_date || client.next_action_due_at || '—'} icon={<Clock className="h-4 w-4 text-red-600" />} iconClass="bg-red-50" />
                     </div>
 
-                    <Tabs defaultValue={addPayment ? 'payments' : 'overview'}>
-                        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-2xl border border-gray-200/80 bg-white p-1.5 text-gray-400 shadow-sm sm:grid-cols-3 lg:grid-cols-6">
+                    <div className="flex flex-wrap gap-2">
+                        {['admin', 'processing'].includes(auth.user.role) && (
+                            <Button type="button" variant="outline" size="sm" onClick={() => setTab('operations')}>Add Service</Button>
+                        )}
+                        {canEdit && <Button type="button" variant="outline" size="sm" onClick={() => setTab('fleet')}>Add Vehicle</Button>}
+                        {['admin', 'processing'].includes(auth.user.role) && (
+                            <Button type="button" variant="outline" size="sm" onClick={() => setTab('documents')}>Upload Document</Button>
+                        )}
+                        {['admin', 'sales'].includes(auth.user.role) && (
+                            <Button type="button" variant="outline" size="sm" onClick={() => { setTab('payments'); setForcePayment(true); }}>Record Payment</Button>
+                        )}
+                        {canEdit && <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)}>Add Note</Button>}
+                        <Button type="button" variant="outline" size="sm" onClick={() => setTab('tasks')}>Create Task</Button>
+                    </div>
+
+                    <Tabs value={tab} onValueChange={setTab}>
+                        <TabsList className="flex h-auto w-full flex-wrap gap-1 rounded-2xl border border-gray-200/80 bg-white p-1.5 text-gray-400 shadow-sm">
                             <ClientTab value="overview" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
+                            <ClientTab value="profile" label="Profile" icon={<UserRound className="h-4 w-4" />} />
+                            <ClientTab value="fleet" label="Fleet" icon={<Truck className="h-4 w-4" />} badge={client.truck_count || undefined} />
+                            <ClientTab value="compliance" label="Compliance" icon={<ShieldCheck className="h-4 w-4" />} />
                             <ClientTab
                                 value="payments"
                                 label="Payments"
@@ -219,7 +275,7 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                             />
                             <ClientTab
                                 value="operations"
-                                label="Operations"
+                                label="Services"
                                 icon={<Briefcase className="h-4 w-4" />}
                                 badge={totalServices > 0 ? `${completedServices}/${totalServices}` : undefined}
                             />
@@ -272,6 +328,12 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                         <div>
                                             <p className="text-xs text-gray-400">Compliance</p>
                                             <p className="mt-0.5 text-sm text-gray-800">{complianceLabel(client.compliance_type)}</p>
+                                            {client.compliance_type === 'monthly' && (
+                                                <p className="mt-1 text-xs text-gray-400">
+                                                    Started {client.monthly_compliance_started_at || '—'}
+                                                    {client.next_compliance_due_at ? ` · Next due ${client.next_compliance_due_at}` : ''}
+                                                </p>
+                                            )}
                                         </div>
                                         <div>
                                             <p className="text-xs text-gray-400">Assigned to</p>
@@ -285,7 +347,31 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                                 <p className="mt-0.5 whitespace-pre-wrap text-sm text-gray-700">{client.notes}</p>
                                             </div>
                                         )}
+                                        {client.client_notes && (
+                                            <div>
+                                                <p className="text-xs text-gray-400">Client notes</p>
+                                                <p className="mt-0.5 whitespace-pre-wrap text-sm text-gray-700">{client.client_notes}</p>
+                                            </div>
+                                        )}
                                     </div>
+                                </section>
+
+                                <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+                                    <h3 className="text-base font-semibold text-gray-950">Payments & invoices</h3>
+                                    <p className="mt-3 text-sm text-gray-600">{client.payments.length} payment{client.payments.length === 1 ? '' : 's'} · Invoiced {fmt(client.total_invoiced)}</p>
+                                    <button type="button" className="mt-3 text-sm font-medium text-amber-700" onClick={() => setTab('payments')}>View payments</button>
+                                </section>
+                                <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+                                    <h3 className="text-base font-semibold text-gray-950">Documents</h3>
+                                    <p className="mt-3 text-sm text-gray-600">{client.documents.length} file{client.documents.length === 1 ? '' : 's'} on file</p>
+                                    <button type="button" className="mt-3 text-sm font-medium text-amber-700" onClick={() => setTab('documents')}>View documents</button>
+                                </section>
+                                <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm lg:col-span-2">
+                                    <h3 className="text-base font-semibold text-gray-950">Recent activity</h3>
+                                    <div className="mt-3">
+                                        <ActivityTimeline activities={client.activities.slice(0, 5)} />
+                                    </div>
+                                    <button type="button" className="mt-3 text-sm font-medium text-amber-700" onClick={() => setTab('timeline')}>Open timeline</button>
                                 </section>
 
                                 {client.client_services.length > 0 && (
@@ -312,8 +398,18 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                             </div>
                         </TabsContent>
 
+                        <TabsContent value="profile" className="mt-5">
+                            <ProfileTab client={client as never} options={profile_options} canEdit={canEdit} />
+                        </TabsContent>
+                        <TabsContent value="fleet" className="mt-5">
+                            <FleetTab clientId={client.id} vehicles={client.vehicles ?? []} options={profile_options} canEdit={canEdit} />
+                        </TabsContent>
+                        <TabsContent value="compliance" className="mt-5">
+                            <ComplianceTab client={client as never} options={profile_options} canEdit={canEdit} tasks={client.tasks} />
+                        </TabsContent>
+
                         <TabsContent value="payments" className="mt-5">
-                            <PaymentsTab clientId={client.id} payments={client.payments} canEdit={['admin', 'sales'].includes(auth.user.role)} autoOpen={addPayment} />
+                            <PaymentsTab clientId={client.id} payments={client.payments} canEdit={['admin', 'sales'].includes(auth.user.role)} autoOpen={forcePayment} />
                         </TabsContent>
                         <TabsContent value="operations" className="mt-5">
                             <OperationsTab clientId={client.id} assigned={client.client_services} catalog={services} users={users} canEdit={['admin', 'processing'].includes(auth.user.role)} />
@@ -366,9 +462,9 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                 <Select value={editForm.data.status} onValueChange={(v) => editForm.setData('status', v)}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="active">Active</SelectItem>
-                                        <SelectItem value="completed">Completed</SelectItem>
-                                        <SelectItem value="inactive">Inactive</SelectItem>
+                                        {Object.entries(profile_options.statuses).map(([value, label]) => (
+                                            <SelectItem key={value} value={value}>{label}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -389,7 +485,7 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                                 <Select value={editForm.data.compliance_type} onValueChange={(v) => editForm.setData('compliance_type', v)}>
                                     <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="project">One time</SelectItem>
+                                        <SelectItem value="project">One-Time</SelectItem>
                                         <SelectItem value="monthly">Monthly</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -402,6 +498,51 @@ export default function ClientShow({ client, users, services, doc_categories }: 
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
                                 <Button type="submit" disabled={editForm.processing}>Save</Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={complianceOpen} onOpenChange={setComplianceOpen}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Change compliance</DialogTitle>
+                        </DialogHeader>
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                complianceForm.post(`/clients/${client.id}/compliance`, {
+                                    onSuccess: () => setComplianceOpen(false),
+                                });
+                            }}
+                            className="space-y-4"
+                        >
+                            <p className="text-sm text-gray-500">
+                                Convert this client from a regular account to Monthly, or switch back to One-Time.
+                                Choosing Monthly records today&apos;s date, sets the next compliance date 30 days later,
+                                and creates an automatic reminder for the assigned user and admins.
+                            </p>
+                            <div className="space-y-1">
+                                <Label className="text-xs">Compliance type</Label>
+                                <Select value={complianceForm.data.compliance_type} onValueChange={(v) => complianceForm.setData('compliance_type', v)}>
+                                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="project">One-Time</SelectItem>
+                                        <SelectItem value="monthly">Monthly</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {complianceForm.errors.compliance_type && (
+                                    <p className="text-xs text-red-500">{complianceForm.errors.compliance_type}</p>
+                                )}
+                            </div>
+                            {complianceForm.data.compliance_type === 'monthly' && (
+                                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                    Completing the monthly compliance task will automatically schedule the next 30-day reminder.
+                                </p>
+                            )}
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setComplianceOpen(false)}>Cancel</Button>
+                                <Button type="submit" disabled={complianceForm.processing}>Save compliance</Button>
                             </DialogFooter>
                         </form>
                     </DialogContent>
@@ -866,6 +1007,13 @@ function TasksTab({ clientId, tasks, users }: { clientId: number; tasks: Task[];
                             </div>
                             <Badge variant={priorityVariant[t.priority] ?? 'secondary'} className="text-[10px] capitalize">{t.priority}</Badge>
                         </div>
+                        {t.status !== 'completed' && (
+                            <div className="mt-3 flex justify-end">
+                                <Button type="button" size="sm" variant="outline" onClick={() => router.patch(`/tasks/${t.id}/complete`)}>
+                                    Mark complete
+                                </Button>
+                            </div>
+                        )}
                     </section>
                 ))}
             </div>
@@ -923,7 +1071,7 @@ function KpiCard({ label, value, icon, iconClass }: { label: string; value: stri
                 <p className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">{label}</p>
                 <div className={cn('flex h-9 w-9 items-center justify-center rounded-full', iconClass)}>{icon}</div>
             </div>
-            <p className="mt-4 text-[28px] leading-none font-semibold tracking-tight text-gray-950">{value}</p>
+            <p className="mt-4 truncate text-[22px] leading-tight font-semibold tracking-tight text-gray-950" title={String(value)}>{value}</p>
         </div>
     );
 }
@@ -1040,9 +1188,20 @@ function PaymentProofField({
     );
 }
 
-function ClientStatusBadge({ status }: { status: string }) {
-    const map: Record<string, 'success' | 'secondary' | 'outline'> = { active: 'success', completed: 'secondary', inactive: 'outline' };
-    return <Badge variant={map[status] ?? 'secondary'} className="capitalize">{status}</Badge>;
+function ClientStatusBadge({ status, label }: { status: string; label?: string }) {
+    const map: Record<string, 'success' | 'secondary' | 'outline' | 'warning' | 'default'> = {
+        lead: 'secondary',
+        onboarding: 'info' as never,
+        documents_pending: 'warning',
+        payment_pending: 'warning',
+        in_progress: 'success',
+        government_review: 'default',
+        completed: 'secondary',
+        compliance: 'success',
+        inactive: 'outline',
+        active: 'success',
+    };
+    return <Badge variant={map[status] ?? 'secondary'}>{label ?? status.replaceAll('_', ' ')}</Badge>;
 }
 
 function ServiceStatusBadge({ status }: { status: string }) {

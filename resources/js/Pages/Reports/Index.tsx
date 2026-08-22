@@ -13,7 +13,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, Legend,
 } from 'recharts';
-import { DollarSign, TrendingUp, AlertCircle, Filter, BarChart3, Receipt } from 'lucide-react';
+import { DollarSign, TrendingUp, AlertCircle, Filter, BarChart3, Receipt, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RevenueReport {
@@ -38,6 +38,7 @@ interface EmployeePerf {
     tasks_completed: number; services_completed: number; conversion_rate: number;
 }
 interface MonthlyTrend  { month: string; revenue: number; leads: number; clients: number; services: number }
+interface ComplianceBreakdown { one_time: number; monthly: number; unset: number; due_soon: number }
 interface Filters { dateFrom: string; dateTo: string; userId?: string; serviceId?: string }
 
 interface Props {
@@ -47,6 +48,7 @@ interface Props {
     outstanding:      Outstanding;
     employee_perf:    EmployeePerf[];
     monthly_trends:   MonthlyTrend[];
+    compliance:       ComplianceBreakdown;
     users:            { id: number; name: string; role: string }[];
     services:         { id: number; name: string }[];
     filters:          Filters;
@@ -88,7 +90,7 @@ function EmptyChart({ label }: { label: string }) {
 }
 
 export default function ReportsIndex({
-    revenue, sales_by_service, lead_conversion, outstanding, employee_perf, monthly_trends, users, filters,
+    revenue, sales_by_service, lead_conversion, outstanding, employee_perf, monthly_trends, compliance, users, filters,
 }: Props) {
     const [localFilters, setLocalFilters] = useState(filters);
 
@@ -178,6 +180,7 @@ export default function ReportsIndex({
                             <TabsTrigger value="outstanding">Outstanding Balances</TabsTrigger>
                             <TabsTrigger value="employees">Employee Performance</TabsTrigger>
                             <TabsTrigger value="trends">Monthly Trends</TabsTrigger>
+                            <TabsTrigger value="compliance">Compliance</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="revenue" className="mt-5 space-y-4">
@@ -428,6 +431,32 @@ export default function ReportsIndex({
                                             <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
                                             <Tooltip />
                                             <Bar dataKey="services" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Services Completed" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </Panel>
+                        </TabsContent>
+
+                        <TabsContent value="compliance" className="mt-5 space-y-4">
+                            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                                <KpiCard label="One-Time" value={compliance?.one_time ?? 0} icon={<ShieldCheck className="h-4 w-4 text-amber-700" />} iconClass="bg-amber-100" />
+                                <KpiCard label="Monthly" value={compliance?.monthly ?? 0} icon={<ShieldCheck className="h-4 w-4 text-indigo-700" />} iconClass="bg-indigo-100" />
+                                <KpiCard label="Not set" value={compliance?.unset ?? 0} icon={<AlertCircle className="h-4 w-4 text-gray-600" />} iconClass="bg-gray-100" />
+                                <KpiCard label="Due within 7 days" value={compliance?.due_soon ?? 0} icon={<AlertCircle className="h-4 w-4 text-red-600" />} iconClass="bg-red-50" />
+                            </div>
+                            <Panel title="Compliance mix">
+                                <div className="p-5">
+                                    <ResponsiveContainer width="100%" height={260}>
+                                        <BarChart data={[
+                                            { type: 'One-Time', count: compliance?.one_time ?? 0 },
+                                            { type: 'Monthly', count: compliance?.monthly ?? 0 },
+                                            { type: 'Not set', count: compliance?.unset ?? 0 },
+                                        ]}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis dataKey="type" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+                                            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+                                            <Tooltip />
+                                            <Bar dataKey="count" fill="#C4A035" radius={[4, 4, 0, 0]} name="Clients" />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>

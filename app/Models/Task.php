@@ -18,6 +18,7 @@ class Task extends Model
         'created_by',
         'priority',
         'status',
+        'kind',
         'due_date',
         'reminder_at',
         'reminder_sent_at',
@@ -43,6 +44,8 @@ class Task extends Model
     const STATUS_PENDING     = 'pending';
     const STATUS_IN_PROGRESS = 'in_progress';
     const STATUS_COMPLETED   = 'completed';
+
+    const KIND_MONTHLY_COMPLIANCE = 'monthly_compliance';
 
     public function client(): BelongsTo
     {

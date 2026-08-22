@@ -10,9 +10,16 @@ class ClientService extends Model
     protected $fillable = [
         'client_id',
         'service_id',
+        'package',
+        'purchase_date',
+        'service_price',
+        'government_fee',
+        'payment_status',
         'status',
         'assigned_to',
+        'start_date',
         'completion_date',
+        'renewal_date',
         'notes',
     ];
 
@@ -20,6 +27,11 @@ class ClientService extends Model
     {
         return [
             'completion_date' => 'datetime',
+            'purchase_date'   => 'date',
+            'start_date'      => 'date',
+            'renewal_date'    => 'date',
+            'service_price'   => 'decimal:2',
+            'government_fee'  => 'decimal:2',
         ];
     }
 

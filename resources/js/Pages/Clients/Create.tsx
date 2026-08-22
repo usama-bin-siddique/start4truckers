@@ -17,12 +17,18 @@ const US_STATES = [
     'VA','WA','WV','WI','WY','DC',
 ];
 
-export default function ClientCreate({ users }: { users: User[] }) {
+export default function ClientCreate({ users, profile_options }: { users: User[]; profile_options: {
+    statuses: Record<string, string>;
+    us_states: string[];
+    entity_types: Record<string, string>;
+    contact_methods: Record<string, string>;
+} }) {
     const { auth } = usePage<{ auth: { user: { id: number; role: string } } }>().props;
     const isSales = auth.user.role === 'sales';
     const { data, setData, post, processing, errors } = useForm({
-        name: '', phone: '', email: '', state: '',
-        company: '', notes: '', compliance_type: '',
+        name: '', phone: '', email: '', state: '', address: '',
+        company: '', ein: '', usdot_number: '', mc_number: '',
+        notes: '', compliance_type: '', status: 'onboarding',
         assigned_to: isSales ? String(auth.user.id) : '',
     });
 
@@ -84,6 +90,9 @@ export default function ClientCreate({ users }: { users: User[] }) {
                             <Field label="Email" error={errors.email}>
                                 <Input type="email" placeholder="john@example.com" value={data.email} onChange={(e) => setData('email', e.target.value)} />
                             </Field>
+                            <Field label="Address" error={errors.address} className="md:col-span-2 xl:col-span-4">
+                                <Input placeholder="Street, city, ZIP" value={data.address} onChange={(e) => setData('address', e.target.value)} />
+                            </Field>
                         </div>
                     </section>
 
@@ -98,7 +107,26 @@ export default function ClientCreate({ users }: { users: User[] }) {
                                 <Select value={data.state} onValueChange={(v) => setData('state', v)}>
                                     <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
                                     <SelectContent>
-                                        {US_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                        {(profile_options?.us_states ?? US_STATES).map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                            <Field label="EIN #" error={errors.ein}>
+                                <Input placeholder="12-3456789" value={data.ein} onChange={(e) => setData('ein', e.target.value)} />
+                            </Field>
+                            <Field label="USDOT #" error={errors.usdot_number}>
+                                <Input value={data.usdot_number} onChange={(e) => setData('usdot_number', e.target.value)} />
+                            </Field>
+                            <Field label="MC #" error={errors.mc_number}>
+                                <Input value={data.mc_number} onChange={(e) => setData('mc_number', e.target.value)} />
+                            </Field>
+                            <Field label="Client status" error={errors.status}>
+                                <Select value={data.status} onValueChange={(v) => setData('status', v)}>
+                                    <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(profile_options?.statuses ?? { onboarding: 'Onboarding' }).map(([value, label]) => (
+                                            <SelectItem key={value} value={value}>{label}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </Field>
@@ -106,7 +134,7 @@ export default function ClientCreate({ users }: { users: User[] }) {
                                 <Select value={data.compliance_type} onValueChange={(v) => setData('compliance_type', v)}>
                                     <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="project">One time</SelectItem>
+                                        <SelectItem value="project">One-Time</SelectItem>
                                         <SelectItem value="monthly">Monthly</SelectItem>
                                     </SelectContent>
                                 </Select>
