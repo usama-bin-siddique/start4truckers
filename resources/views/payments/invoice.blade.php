@@ -126,7 +126,7 @@
                 </div>
             </div>
             <div class="meta">
-                <div><strong>Invoice #</strong> INV-{{ str_pad((string) $payment->id, 5, '0', STR_PAD_LEFT) }}</div>
+                <div><strong>Invoice #</strong> {{ $payment->invoice_number }}</div>
                 <div><strong>Date</strong> {{ optional($payment->paid_at ?? $payment->created_at)->format('M j, Y') }}</div>
                 <div><strong>Client #</strong> {{ $client->client_number }}</div>
             </div>

@@ -25,16 +25,26 @@ class PaymentController extends Controller
 
         $user = Auth::user();
 
-        $query = Payment::with(['client.lead', 'createdBy'])
+        $query = Payment::with(['client.lead', 'client.assignedUser', 'client.clientServices.service', 'createdBy'])
             ->visibleTo($user)
-            ->when($request->search, fn ($q, $v) =>
-                $q->whereHas('client.lead', fn ($q) =>
-                    $q->where('name', 'like', "%{$v}%")
-                      ->orWhere('company', 'like', "%{$v}%")
-                )->orWhereHas('client', fn ($q) =>
-                    $q->where('client_number', 'like', "%{$v}%")
-                )
-            )
+            ->when($request->search, function ($q, $v) {
+                $term = trim((string) $v);
+                $idTerm = preg_replace('/^INV-/i', '', $term) ?? $term;
+
+                $q->where(function ($q) use ($term, $idTerm) {
+                    $q->where('id', $idTerm)
+                        ->orWhere('transaction_reference', 'like', "%{$term}%")
+                        ->orWhereHas('client', function ($q) use ($term) {
+                            $q->where('client_number', 'like', "%{$term}%")
+                                ->orWhere('name', 'like', "%{$term}%")
+                                ->orWhere('company', 'like', "%{$term}%");
+                        })
+                        ->orWhereHas('client.lead', function ($q) use ($term) {
+                            $q->where('name', 'like', "%{$term}%")
+                                ->orWhere('company', 'like', "%{$term}%");
+                        });
+                });
+            })
             ->when($request->method, fn ($q, $v) => $q->where('payment_method', $v))
             ->when($request->date_from, fn ($q, $v) => $q->whereDate('paid_at', '>=', $v))
             ->when($request->date_to, fn ($q, $v) => $q->whereDate('paid_at', '<=', $v));
@@ -50,17 +60,27 @@ class PaymentController extends Controller
         return Inertia::render('Payments/Index', [
             'payments' => $payments->through(fn ($p) => [
                 'id'                    => $p->id,
+                'invoice_number'        => $p->invoice_number,
                 'client_id'             => $p->client_id,
-                'client_number'         => $p->client->client_number,
-                'client_name'           => $p->client->display_name,
+                'client_number'         => $p->client?->client_number,
+                'customer_name'         => $p->client?->display_name ?? 'Unknown client',
+                'company_name'          => $p->client?->company ?: $p->client?->lead?->company,
                 'invoice_amount'        => (float) $p->invoice_amount,
                 'amount_received'       => (float) $p->amount_received,
                 'balance_due'           => $p->balance_due,
                 'payment_method'        => $p->payment_method,
+                'status'                => $p->payment_status,
+                'services'              => ($p->client?->clientServices ?? collect())
+                    ->map(fn ($s) => $s->service?->name)
+                    ->filter()
+                    ->values()
+                    ->all(),
+                'assigned_user'         => $p->client?->assignedUser?->name,
                 'transaction_reference' => $p->transaction_reference,
+                'notes'                 => $p->notes,
                 'paid_at'               => $p->paid_at?->toDateString(),
                 'created_by'            => $p->createdBy?->name,
-                'has_receipt'           => !empty($p->receipt_path),
+                'has_receipt'           => ! empty($p->receipt_path),
                 'created_at'            => $p->created_at->toDateString(),
             ]),
             'totals'   => [
