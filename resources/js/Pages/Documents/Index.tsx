@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { FormEvent, useEffect, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -7,22 +7,35 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Filter, X, Download, Trash2, FileText, FolderOpen, Users, CalendarDays, Layers } from 'lucide-react';
+import { Search, Filter, X, Download, Trash2, FileText, FolderOpen, Users, CalendarDays, Layers, Eye, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Doc {
-    id: number; client_id: number | null; lead_id: number | null; client_number: string | null; client_name: string;
-    category: string; category_label: string; original_filename: string;
-    file_size: string; uploaded_by: string | null; created_at: string;
+    id: number;
+    client_id: number | null;
+    lead_id: number | null;
+    client_number: string | null;
+    client_name: string;
+    category: string;
+    category_label: string;
+    original_filename: string;
+    mime_type: string | null;
+    file_size: string;
+    uploaded_by: string | null;
+    created_at: string;
+    view_url: string;
+    download_url: string;
 }
 interface Paginator<T> { data: T[]; total: number; last_page: number; links: { url: string | null; label: string; active: boolean }[] }
-interface Filters { search?: string; category?: string }
+interface Filters { search?: string; category?: string; client_id?: string | number }
+interface FocusedClient { id: number; name: string; client_number: string | null; profile_url: string }
 interface Stats { total: number; this_month: number; clients: number; categories: number }
 
-export default function DocumentsIndex({ documents, categories, filters, stats }: {
+export default function DocumentsIndex({ documents, categories, filters, focused_client, stats }: {
     documents: Paginator<Doc>;
     categories: Record<string, string>;
     filters: Filters;
+    focused_client: FocusedClient | null;
     stats: Stats;
 }) {
     const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
@@ -33,19 +46,45 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
     const hasFilters = Object.values(filters).some(Boolean);
 
     useEffect(() => {
+        setSearch(filters.search ?? '');
+    }, [filters.search]);
+
+    useEffect(() => {
         const t = setTimeout(() => {
-            if (search !== (filters.search ?? '')) applyFilter('search', search);
-        }, 350);
+            if (search !== (filters.search ?? '')) submitSearch(search);
+        }, 250);
         return () => clearTimeout(t);
     }, [search]);
 
+    function submitSearch(value: string, extra: Record<string, string | number | undefined> = {}) {
+        router.get('/documents', {
+            category: filters.category || undefined,
+            search: value || undefined,
+            ...extra,
+        }, { preserveState: true, replace: true });
+    }
+
     function applyFilter(key: string, value: string) {
-        router.get('/documents', { ...filters, [key]: value || undefined }, { preserveState: true, replace: true });
+        router.get('/documents', {
+            ...filters,
+            search: search || undefined,
+            [key]: value || undefined,
+        }, { preserveState: true, replace: true });
+    }
+
+    function showClientDocuments(clientId: number) {
+        setSearch('');
+        router.get('/documents', { client_id: clientId }, { preserveState: true, replace: true });
     }
 
     function clearFilters() {
         setSearch('');
         router.get('/documents', {}, { preserveState: true, replace: true });
+    }
+
+    function onSearchSubmit(e: FormEvent) {
+        e.preventDefault();
+        submitSearch(search);
     }
 
     function confirmDelete() {
@@ -76,7 +115,7 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
                                 Documents
                             </h2>
                             <p className="mt-2 text-sm text-gray-500">
-                                Store, search, and share files across client accounts.
+                                Search by client ID or name to open every file on that account.
                             </p>
                         </div>
                     </div>
@@ -96,18 +135,21 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
                     </div>
 
                     <section className="rounded-2xl border border-gray-200/80 bg-white shadow-sm">
-                        <div className="flex flex-wrap items-center gap-3 px-5 py-4">
-                            <div className="relative min-w-[220px] flex-1 max-w-md">
+                        <form onSubmit={onSearchSubmit} className="flex flex-wrap items-center gap-3 px-5 py-4">
+                            <div className="relative min-w-[260px] flex-1 max-w-xl">
                                 <Search size={15} className="absolute top-1/2 left-3.5 -translate-y-1/2 text-gray-400" />
                                 <Input
-                                    placeholder="Search documents.."
+                                    type="search"
+                                    placeholder="Search by client ID or name…"
                                     className="h-10 rounded-full border-gray-200 bg-[#F7F7F5] pl-10 text-sm shadow-none"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
+                                    aria-label="Search documents by client ID or name"
                                 />
                             </div>
 
                             <Button
+                                type="button"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setShowFilters(!showFilters)}
@@ -122,13 +164,30 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
                             </Button>
 
                             {hasFilters && (
-                                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-10 text-gray-400">
+                                <Button type="button" variant="ghost" size="sm" onClick={clearFilters} className="h-10 text-gray-400">
                                     <X size={13} /> Clear
                                 </Button>
                             )}
 
                             <p className="ml-auto text-sm text-gray-400">{documents.total} documents</p>
-                        </div>
+                        </form>
+
+                        {focused_client && (
+                            <div className="flex flex-wrap items-center gap-3 border-t border-amber-100 bg-amber-50/70 px-5 py-3">
+                                <p className="text-sm text-gray-800">
+                                    Showing all documents for{' '}
+                                    <span className="font-semibold">{focused_client.name}</span>
+                                    <span className="ml-2 font-mono text-xs text-amber-700">
+                                        ID {focused_client.id}
+                                        {focused_client.client_number ? ` · ${focused_client.client_number}` : ''}
+                                    </span>
+                                </p>
+                                <Link href={focused_client.profile_url} className="inline-flex items-center gap-1 text-sm font-medium text-amber-800 hover:underline">
+                                    <ExternalLink size={13} />
+                                    Client documents
+                                </Link>
+                            </div>
+                        )}
 
                         {showFilters && (
                             <div className="flex flex-wrap gap-3 border-t border-gray-100 px-5 py-4">
@@ -154,7 +213,7 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Size</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Uploaded By</TableHead>
                                         <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Date</TableHead>
-                                        <TableHead className="w-20" />
+                                        <TableHead className="w-28" />
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -168,14 +227,28 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
                                         <TableRow key={doc.id}>
                                             <TableCell className="px-5">
                                                 {doc.client_id ? (
-                                                    <Link href={`/clients/${doc.client_id}`} className="hover:text-amber-700">
-                                                        <p className="text-sm font-medium text-gray-900">{doc.client_name}</p>
-                                                        <p className="font-mono text-xs text-amber-700">{doc.client_number}</p>
-                                                    </Link>
+                                                    <div>
+                                                        <Link href={`/clients/${doc.client_id}`} className="hover:text-amber-700">
+                                                            <p className="text-sm font-medium text-gray-900">{doc.client_name}</p>
+                                                            <p className="font-mono text-xs text-amber-700">
+                                                                Client ID {doc.client_id}
+                                                                {doc.client_number ? ` · ${doc.client_number}` : ''}
+                                                            </p>
+                                                        </Link>
+                                                        {focused_client?.id !== doc.client_id && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => showClientDocuments(doc.client_id!)}
+                                                                className="mt-1 text-xs font-medium text-gray-500 hover:text-amber-700 hover:underline"
+                                                            >
+                                                                All documents
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 ) : doc.lead_id ? (
                                                     <Link href={`/leads/${doc.lead_id}`} className="hover:text-amber-700">
                                                         <p className="text-sm font-medium text-gray-900">{doc.client_name}</p>
-                                                        <p className="text-xs text-gray-400">Lead</p>
+                                                        <p className="text-xs text-gray-400">Lead ID {doc.lead_id}</p>
                                                     </Link>
                                                 ) : (
                                                     <p className="text-sm font-medium text-gray-900">{doc.client_name}</p>
@@ -185,10 +258,16 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
                                                 <Badge variant="secondary" className="text-xs">{doc.category_label}</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <div className="flex items-center gap-1.5">
+                                                <a
+                                                    href={doc.view_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="flex max-w-[260px] items-center gap-1.5 text-sm text-gray-800 hover:text-amber-700 hover:underline"
+                                                    title={`View ${doc.original_filename}`}
+                                                >
                                                     <FileText size={13} className="shrink-0 text-gray-400" />
-                                                    <span className="max-w-[200px] truncate text-sm text-gray-800">{doc.original_filename}</span>
-                                                </div>
+                                                    <span className="truncate">{doc.original_filename}</span>
+                                                </a>
                                             </TableCell>
                                             <TableCell className="text-xs text-gray-500">{doc.file_size}</TableCell>
                                             <TableCell className="text-xs text-gray-500">{doc.uploaded_by ?? '—'}</TableCell>
@@ -196,7 +275,12 @@ export default function DocumentsIndex({ documents, categories, filters, stats }
                                             <TableCell>
                                                 <div className="flex gap-1">
                                                     <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                                        <a href={`/documents/${doc.id}/download`} target="_blank" rel="noreferrer">
+                                                        <a href={doc.view_url} target="_blank" rel="noreferrer" title="View document">
+                                                            <Eye size={13} />
+                                                        </a>
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                                                        <a href={doc.download_url} target="_blank" rel="noreferrer" title="Download">
                                                             <Download size={13} />
                                                         </a>
                                                     </Button>

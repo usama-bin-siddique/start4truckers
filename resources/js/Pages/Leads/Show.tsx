@@ -344,11 +344,13 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                                         <div key={doc.id} className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
                                             <div className="min-w-0">
                                                 <p className="text-[11px] font-semibold tracking-wide text-amber-700 uppercase">{doc.category_label}</p>
-                                                <p className="truncate text-sm text-gray-800">{doc.original_filename}</p>
+                                                <a href={`/documents/${doc.id}/view`} target="_blank" rel="noreferrer" className="truncate text-sm text-gray-800 hover:text-amber-700 hover:underline">
+                                                    {doc.original_filename}
+                                                </a>
                                                 <p className="text-xs text-gray-400">{doc.file_size} · {doc.created_at}</p>
                                             </div>
-                                            <a href={`/documents/${doc.id}/download`} target="_blank" rel="noreferrer" className="text-xs text-amber-700 hover:underline">
-                                                Download
+                                            <a href={`/documents/${doc.id}/view`} target="_blank" rel="noreferrer" className="text-xs text-amber-700 hover:underline">
+                                                View
                                             </a>
                                         </div>
                                     ))}
