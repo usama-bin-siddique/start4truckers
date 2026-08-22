@@ -37,7 +37,7 @@ class DashboardService
         return [
             'leads_today'       => (clone $leadsQuery)->whereDate('created_at', $today)->count(),
             'leads_this_week'   => (clone $leadsQuery)->whereDate('created_at', '>=', $startOfWeek)->count(),
-            'active_clients'    => (clone $clientsQuery)->where('status', 'active')->count(),
+            'active_clients'    => (clone $clientsQuery)->whereIn('status', \App\Support\ClientProfile::OPEN_STATUSES)->count(),
             'revenue_today'     => (clone $paymentsQuery)->whereDate('paid_at', $today)->sum('amount_received'),
             'revenue_month'     => (clone $paymentsQuery)->whereDate('paid_at', '>=', $startOfMonth)->sum('amount_received'),
             'revenue_year'      => (clone $paymentsQuery)->whereDate('paid_at', '>=', $startOfYear)->sum('amount_received'),

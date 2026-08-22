@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\ClientService;
 use App\Models\Service;
 use App\Services\ActivityService;
+use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,7 +17,10 @@ use Inertia\Response;
 
 class OperationController extends Controller
 {
-    public function __construct(private ActivityService $activity) {}
+    public function __construct(
+        private ActivityService $activity,
+        private NotificationService $notification
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -119,10 +123,18 @@ class OperationController extends Controller
             ['status' => $data['status']]
         );
 
-        // Auto-complete client if all services done
         $client = $operation->client;
+
+        if ($old !== ClientService::STATUS_COMPLETED && $data['status'] === ClientService::STATUS_COMPLETED) {
+            $this->notification->notifyClientStakeholders($client, NotificationService::TYPE_SERVICE_COMPLETED, [
+                'client_id'     => $client->id,
+                'client_name'   => $client->display_name,
+                'client_number' => $client->client_number,
+                'service_name'  => $operation->service->name,
+            ]);
+        }
         $allDone = $client->clientServices()->where('status', '!=', 'completed')->doesntExist();
-        if ($allDone && $client->status === 'active') {
+        if ($allDone && in_array($client->status, \App\Support\ClientProfile::OPEN_STATUSES, true)) {
             $client->update(['status' => Client::STATUS_COMPLETED]);
             $this->activity->log($client, 'status_changed',
                 'All services completed — client status set to Completed'

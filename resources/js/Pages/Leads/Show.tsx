@@ -564,9 +564,9 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                             <div className="space-y-1">
                                 <Label className="text-xs">Compliance *</Label>
                                 <Select value={convertForm.data.compliance_type} onValueChange={(v) => convertForm.setData('compliance_type', v)}>
-                                    <SelectTrigger><SelectValue placeholder="One time or monthly?" /></SelectTrigger>
+                                    <SelectTrigger><SelectValue placeholder="One-Time or Monthly?" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="project">One time</SelectItem>
+                                        <SelectItem value="project">One-Time</SelectItem>
                                         <SelectItem value="monthly">Monthly</SelectItem>
                                     </SelectContent>
                                 </Select>

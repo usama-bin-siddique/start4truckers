@@ -12,6 +12,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\ActivityService;
 use App\Services\LeadSlaService;
+use App\Services\MonthlyComplianceService;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,7 +26,8 @@ class LeadController extends Controller
     public function __construct(
         private ActivityService $activity,
         private NotificationService $notification,
-        private LeadSlaService $sla
+        private LeadSlaService $sla,
+        private MonthlyComplianceService $monthlyCompliance
     ) {}
 
     public function index(Request $request): Response
@@ -428,7 +430,7 @@ class LeadController extends Controller
                     'state'           => $lead->state,
                     'company'         => $lead->company,
                     'assigned_to'     => $lead->assigned_to,
-                    'status'          => Client::STATUS_ACTIVE,
+                    'status'          => Client::STATUS_ONBOARDING,
                     'compliance_type' => $data['compliance_type'],
                 ]);
                 $created = true;
@@ -499,6 +501,10 @@ class LeadController extends Controller
 
         $lead->refresh();
         $client = $lead->client ?? Client::where('lead_id', $lead->id)->first();
+
+        if ($client && $client->compliance_type === Client::COMPLIANCE_MONTHLY) {
+            $this->monthlyCompliance->enroll($client);
+        }
 
         return redirect()->route('clients.show', $client)
             ->with('success', $existing

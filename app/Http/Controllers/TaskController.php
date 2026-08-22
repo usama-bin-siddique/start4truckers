@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use App\Models\Task;
 use App\Services\ActivityService;
+use App\Services\MonthlyComplianceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +14,10 @@ use Inertia\Response;
 
 class TaskController extends Controller
 {
-    public function __construct(private ActivityService $activity) {}
+    public function __construct(
+        private ActivityService $activity,
+        private MonthlyComplianceService $monthlyCompliance
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -48,6 +52,7 @@ class TaskController extends Controller
                 'client_id'     => $t->client_id,
                 'client_name'   => $t->client?->display_name,
                 'client_number' => $t->client?->client_number,
+                'kind'          => $t->kind,
                 'due_date'      => $t->due_date?->format('Y-m-d\\TH:i'),
                 'reminder_at'   => $t->reminder_at?->format('Y-m-d\\TH:i'),
                 'is_overdue'    => $t->isOverdue(),
@@ -113,7 +118,13 @@ class TaskController extends Controller
             $data['reminder_sent_at'] = null;
         }
 
+        $wasOpen = $task->status !== Task::STATUS_COMPLETED;
+
         $task->update($data);
+
+        if ($wasOpen && $task->fresh()->status === Task::STATUS_COMPLETED) {
+            $this->advanceMonthlyCompliance($task);
+        }
 
         return back()->with('success', 'Task updated.');
     }
@@ -122,10 +133,16 @@ class TaskController extends Controller
     {
         $this->authorize('update', $task);
 
+        $wasOpen = $task->status !== Task::STATUS_COMPLETED;
+
         $task->update([
             'status'       => Task::STATUS_COMPLETED,
             'completed_at' => now(),
         ]);
+
+        if ($wasOpen) {
+            $this->advanceMonthlyCompliance($task);
+        }
 
         return back()->with('success', 'Task marked as complete.');
     }
@@ -156,5 +173,17 @@ class TaskController extends Controller
         }
 
         return $data;
+    }
+
+    private function advanceMonthlyCompliance(Task $task): void
+    {
+        if ($task->kind !== Task::KIND_MONTHLY_COMPLIANCE) {
+            return;
+        }
+
+        $client = $task->client ?? $task->client()->first();
+        if ($client) {
+            $this->monthlyCompliance->completeCycle($client, $task);
+        }
     }
 }

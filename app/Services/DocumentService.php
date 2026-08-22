@@ -6,13 +6,17 @@ use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Document;
 use App\Models\Lead;
+use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
 class DocumentService
 {
-    public function __construct(private ActivityService $activity) {}
+    public function __construct(
+        private ActivityService $activity,
+        private NotificationService $notification
+    ) {}
 
     public function storeFor(Lead|Client $owner, string $category, UploadedFile $file, ?int $uploadedBy = null): Document
     {
@@ -38,6 +42,33 @@ class DocumentService
             Activity::ACTION_DOCUMENT_UPLOADED,
             "Document \"{$document->original_filename}\" uploaded ({$document->category_label})"
         );
+
+        $payload = [
+            'document_id' => $document->id,
+            'filename'    => $document->original_filename,
+            'category'    => $document->category_label,
+        ];
+
+        if ($owner instanceof Client) {
+            $this->notification->notifyClientStakeholders($owner, NotificationService::TYPE_DOCUMENT_UPLOADED, array_merge($payload, [
+                'client_id'     => $owner->id,
+                'client_name'   => $owner->display_name,
+                'client_number' => $owner->client_number,
+            ]));
+        } else {
+            $recipients = User::query()
+                ->where('is_active', true)
+                ->where('role', 'admin')
+                ->pluck('id')
+                ->all();
+            if ($owner->assigned_to) {
+                $recipients[] = (int) $owner->assigned_to;
+            }
+            $this->notification->notifyMultiple($recipients, NotificationService::TYPE_DOCUMENT_UPLOADED, array_merge($payload, [
+                'lead_id'   => $owner->id,
+                'lead_name' => $owner->name,
+            ]));
+        }
 
         return $document;
     }

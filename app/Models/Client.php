@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ClientProfile;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,16 +21,82 @@ class Client extends Model
         'phone',
         'email',
         'state',
+        'address',
+        'ssn',
+        'date_of_birth',
+        'citizenship_status',
+        'dl_number',
+        'dl_state',
+        'dl_expiration',
+        'preferred_contact_method',
+        'emergency_contact_name',
+        'emergency_contact_phone',
+        'emergency_contact_relation',
         'company',
+        'business_phone',
+        'business_email',
+        'company_address',
+        'entity_type',
+        'state_of_formation',
+        'llc_formed_at',
+        'registered_agent',
+        'mailing_address',
+        'ein',
+        'usdot_number',
+        'usdot_status',
+        'mc_number',
+        'mc_status',
+        'fmcsa_authority_type',
+        'ff_number',
+        'ucr_number',
+        'ucr_status',
+        'boc3_status',
+        'insurance_status',
+        'insurance_company',
+        'insurance_policy_number',
+        'insurance_expires_at',
+        'operating_authority_status',
+        'mcs150_status',
+        'mcs150_due_at',
+        'ucr_due_at',
+        'ifta_status',
+        'ifta_due_at',
+        'irp_status',
+        'irp_due_at',
+        'form_2290_status',
+        'form_2290_due_at',
+        'annual_updates_status',
+        'compliance_package',
+        'next_compliance_due_at',
+        'last_compliance_completed_at',
+        'overall_compliance_status',
+        'next_action',
+        'next_action_due_at',
+        'login_gov_email',
+        'motus_account_email',
+        'fmcsa_account_email',
+        'portal_username',
+        'account_status',
+        'account_last_verified_at',
         'assigned_to',
         'status',
         'compliance_type',
+        'monthly_compliance_started_at',
+        'compliance_reminder_sent_for',
         'notes',
+        'client_notes',
     ];
 
-    const STATUS_ACTIVE    = 'active';
-    const STATUS_COMPLETED = 'completed';
-    const STATUS_INACTIVE  = 'inactive';
+    const STATUS_LEAD              = 'lead';
+    const STATUS_ONBOARDING        = 'onboarding';
+    const STATUS_DOCUMENTS_PENDING = 'documents_pending';
+    const STATUS_PAYMENT_PENDING   = 'payment_pending';
+    const STATUS_IN_PROGRESS       = 'in_progress';
+    const STATUS_GOVERNMENT_REVIEW = 'government_review';
+    const STATUS_COMPLETED         = 'completed';
+    const STATUS_COMPLIANCE        = 'compliance';
+    const STATUS_INACTIVE          = 'inactive';
+    const STATUS_ACTIVE            = 'in_progress';
 
     const COMPLIANCE_PROJECT = 'project';
     const COMPLIANCE_MONTHLY = 'monthly';
@@ -40,6 +107,13 @@ class Client extends Model
         static::creating(function (Client $client) {
             if (empty($client->client_number)) {
                 $client->client_number = self::generateClientNumber();
+            }
+            $client->status = ClientProfile::normalizeStatus($client->status, self::STATUS_ONBOARDING);
+        });
+
+        static::saving(function (Client $client) {
+            if ($client->status === 'active') {
+                $client->status = self::STATUS_IN_PROGRESS;
             }
         });
 
@@ -58,6 +132,28 @@ class Client extends Model
         $lastId   = self::withTrashed()->whereYear('created_at', $year)->count();
         $sequence = str_pad($lastId + 1, 5, '0', STR_PAD_LEFT);
         return "S4T-{$year}-{$sequence}";
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'ssn'                          => 'encrypted',
+            'date_of_birth'                => 'date',
+            'dl_expiration'                => 'date',
+            'llc_formed_at'                => 'date',
+            'insurance_expires_at'         => 'date',
+            'mcs150_due_at'                => 'date',
+            'ucr_due_at'                   => 'date',
+            'ifta_due_at'                  => 'date',
+            'irp_due_at'                   => 'date',
+            'form_2290_due_at'             => 'date',
+            'next_compliance_due_at'       => 'date',
+            'last_compliance_completed_at' => 'date',
+            'monthly_compliance_started_at' => 'date',
+            'compliance_reminder_sent_for' => 'date',
+            'next_action_due_at'           => 'date',
+            'account_last_verified_at'     => 'date',
+        ];
     }
 
     public function isAssignedTo(User $user): bool
@@ -93,6 +189,80 @@ class Client extends Model
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function vehicles(): HasMany
+    {
+        return $this->hasMany(ClientVehicle::class)->latest();
+    }
+
+    public function getStatusLabelAttribute(): string
+    {
+        return ClientProfile::statusLabel($this->status);
+    }
+
+    public function getSsnMaskedAttribute(): ?string
+    {
+        $ssn = preg_replace('/\D/', '', (string) $this->ssn);
+        if ($ssn === '') {
+            return null;
+        }
+        if (strlen($ssn) < 4) {
+            return '***';
+        }
+
+        return '***-**-'.substr($ssn, -4);
+    }
+
+    public function getOverallServiceStatusAttribute(): string
+    {
+        $services = $this->relationLoaded('clientServices')
+            ? $this->clientServices
+            : $this->clientServices()->get();
+
+        if ($services->isEmpty()) {
+            return 'Not started';
+        }
+        if ($services->every(fn ($s) => $s->status === ClientService::STATUS_COMPLETED)) {
+            return 'Completed';
+        }
+        if ($services->contains(fn ($s) => $s->status === ClientService::STATUS_IN_PROGRESS)) {
+            return 'In progress';
+        }
+
+        return 'Pending';
+    }
+
+    public function getCurrentPackageAttribute(): string
+    {
+        $type = ClientProfile::complianceLabel($this->compliance_type, null);
+
+        $names = ($this->relationLoaded('clientServices') ? $this->clientServices : $this->clientServices()->with('service')->get())
+            ->map(fn ($s) => $s->service?->name)
+            ->filter()
+            ->unique()
+            ->values();
+
+        $package = $names->implode(', ');
+
+        return collect([$type, $package ?: null])->filter()->implode(' · ') ?: '—';
+    }
+
+    public function getComputedNextDueDateAttribute(): ?string
+    {
+        $dates = collect([
+            $this->next_action_due_at,
+            $this->next_compliance_due_at,
+            $this->insurance_expires_at,
+            $this->dl_expiration,
+            $this->mcs150_due_at,
+            $this->ucr_due_at,
+            $this->ifta_due_at,
+            $this->irp_due_at,
+            $this->form_2290_due_at,
+        ])->filter()->sort()->values();
+
+        return $dates->first()?->toDateString();
     }
 
     public function payments(): HasMany
