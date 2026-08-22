@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Eye, EyeOff, CheckCircle, XCircle, Settings, Copy, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, CheckCircle, XCircle, Settings, Copy, RefreshCw, Users, Briefcase, Mail, KeyRound, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface User { id: number; name: string; email: string; role: string; is_active: boolean }
@@ -55,31 +55,40 @@ export default function SettingsIndex({ users, services, templates, settings }: 
                         </p>
                     </div>
 
-                    <Tabs defaultValue="users">
-                        <TabsList className="mb-5 h-auto flex-wrap gap-1 rounded-xl bg-white p-1 shadow-sm">
-                            <TabsTrigger value="users" className="data-[state=active]:bg-[#12141D] data-[state=active]:text-white">Users</TabsTrigger>
-                            <TabsTrigger value="services" className="data-[state=active]:bg-[#12141D] data-[state=active]:text-white">Services & Pricing</TabsTrigger>
-                            <TabsTrigger value="templates" className="data-[state=active]:bg-[#12141D] data-[state=active]:text-white">Email Templates</TabsTrigger>
-                            <TabsTrigger value="api" className="data-[state=active]:bg-[#12141D] data-[state=active]:text-white">API Settings</TabsTrigger>
-                            <TabsTrigger value="general" className="data-[state=active]:bg-[#12141D] data-[state=active]:text-white">General</TabsTrigger>
-                        </TabsList>
+                    <Tabs defaultValue="users" orientation="vertical" className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-6">
+                        <aside className="w-full shrink-0 lg:sticky lg:top-6 lg:w-60">
+                            <div className="rounded-2xl border border-gray-200/80 bg-white p-2 shadow-sm">
+                                <p className="px-3 pb-1 pt-2 text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">
+                                    Categories
+                                </p>
+                                <TabsList className="flex h-auto w-full flex-col items-stretch gap-1 bg-transparent p-0">
+                                    <SettingsCategoryTrigger value="users" icon={<Users className="h-4 w-4" />}>Users</SettingsCategoryTrigger>
+                                    <SettingsCategoryTrigger value="services" icon={<Briefcase className="h-4 w-4" />}>Services & Pricing</SettingsCategoryTrigger>
+                                    <SettingsCategoryTrigger value="templates" icon={<Mail className="h-4 w-4" />}>Email Templates</SettingsCategoryTrigger>
+                                    <SettingsCategoryTrigger value="api" icon={<KeyRound className="h-4 w-4" />}>API Settings</SettingsCategoryTrigger>
+                                    <SettingsCategoryTrigger value="general" icon={<Building2 className="h-4 w-4" />}>General</SettingsCategoryTrigger>
+                                </TabsList>
+                            </div>
+                        </aside>
 
-                    <TabsContent value="users">
-                        <UsersTab users={users} />
-                    </TabsContent>
-                    <TabsContent value="services">
-                        <ServicesTab services={services} />
-                    </TabsContent>
-                    <TabsContent value="templates">
-                        <TemplatesTab templates={templates} />
-                    </TabsContent>
-                    <TabsContent value="api">
-                        <ApiTab settings={settings} />
-                    </TabsContent>
-                    <TabsContent value="general">
-                        <GeneralTab settings={settings} />
-                    </TabsContent>
-                </Tabs>
+                        <div className="min-w-0 flex-1">
+                            <TabsContent value="users" className="mt-0">
+                                <UsersTab users={users} />
+                            </TabsContent>
+                            <TabsContent value="services" className="mt-0">
+                                <ServicesTab services={services} />
+                            </TabsContent>
+                            <TabsContent value="templates" className="mt-0">
+                                <TemplatesTab templates={templates} />
+                            </TabsContent>
+                            <TabsContent value="api" className="mt-0">
+                                <ApiTab settings={settings} />
+                            </TabsContent>
+                            <TabsContent value="general" className="mt-0">
+                                <GeneralTab settings={settings} />
+                            </TabsContent>
+                        </div>
+                    </Tabs>
                 </div>
             </AppLayout>
         </>
@@ -718,6 +727,31 @@ function GeneralTab({ settings }: { settings: Record<string, string> }) {
 }
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
+function SettingsCategoryTrigger({
+    value,
+    icon,
+    children,
+}: {
+    value: string;
+    icon: React.ReactNode;
+    children: React.ReactNode;
+}) {
+    return (
+        <TabsTrigger
+            value={value}
+            className={cn(
+                'group h-auto w-full justify-start gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-gray-600 shadow-none',
+                'hover:bg-gray-50 hover:text-gray-900',
+                'data-[state=active]:bg-[#12141D] data-[state=active]:text-white data-[state=active]:shadow-sm',
+            )}
+        >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 group-data-[state=active]:bg-[#C4A035]/20 group-data-[state=active]:text-[#E0B63C]">
+                {icon}
+            </span>
+            <span className="min-w-0 flex-1 truncate">{children}</span>
+        </TabsTrigger>
+    );
+}
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
     return (
         <div className="space-y-1">

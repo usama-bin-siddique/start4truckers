@@ -13,7 +13,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, Legend,
 } from 'recharts';
-import { DollarSign, TrendingUp, AlertCircle, Filter, BarChart3, Receipt, ShieldCheck } from 'lucide-react';
+import { DollarSign, TrendingUp, AlertCircle, Filter, BarChart3, Receipt, ShieldCheck, FileDown, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RevenueReport {
@@ -114,6 +114,15 @@ export default function ReportsIndex({
         router.get('/reports', {}, { preserveState: true, replace: true });
     }
 
+    function exportUrl(format: 'pdf' | 'xlsx') {
+        const params = new URLSearchParams();
+        if (filters.dateFrom) params.set('date_from', filters.dateFrom);
+        if (filters.dateTo) params.set('date_to', filters.dateTo);
+        if (filters.userId) params.set('user_id', filters.userId);
+        if (filters.serviceId) params.set('service_id', filters.serviceId);
+        return `/reports/export/${format}?${params.toString()}`;
+    }
+
     return (
         <>
             <Head title="Reports" />
@@ -132,6 +141,20 @@ export default function ReportsIndex({
                             <p className="mt-2 text-sm text-gray-500">
                                 Revenue, conversion, and team performance in one place.
                             </p>
+                        </div>
+                        <div className="flex items-center gap-2.5">
+                            <a
+                                href={exportUrl('pdf')}
+                                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+                            >
+                                <FileDown className="h-4 w-4" /> Export PDF
+                            </a>
+                            <a
+                                href={exportUrl('xlsx')}
+                                className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
+                            >
+                                <FileSpreadsheet className="h-4 w-4" /> Export Excel
+                            </a>
                         </div>
                     </div>
 

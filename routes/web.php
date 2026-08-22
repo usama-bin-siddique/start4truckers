@@ -98,6 +98,8 @@ Route::middleware(['auth'])->group(function () {
     // Reports — admin only
     Route::middleware('role:admin')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/export/xlsx', [ReportController::class, 'exportExcel'])->name('reports.export.xlsx');
+        Route::get('/reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
         Route::get('/request-logs', [RequestLogController::class, 'index'])->name('request-logs.index');
         Route::get('/request-logs/{requestLog}', [RequestLogController::class, 'show'])->name('request-logs.show');
     });
