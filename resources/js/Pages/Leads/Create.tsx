@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,10 @@ import { ChevronLeft, GitBranch } from 'lucide-react';
 
 interface User { id: number; name: string; role: string }
 interface CatalogService { id: number; name: string; slug: string }
+interface ExistingClient {
+    id: number; client_number: string; name: string;
+    phone: string | null; email: string | null; state: string | null; company: string | null;
+}
 
 const US_STATES = [
     'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
@@ -18,17 +22,58 @@ const US_STATES = [
     'VA','WA','WV','WI','WY','DC',
 ];
 
-export default function LeadCreate({ users, services = [] }: { users: User[]; services?: CatalogService[] }) {
+export default function LeadCreate({
+    users,
+    services = [],
+    clients = [],
+    selected_client_id = null,
+}: {
+    users: User[];
+    services?: CatalogService[];
+    clients?: ExistingClient[];
+    selected_client_id?: number | null;
+}) {
     const { auth } = usePage<{ auth: { user: { id: number; role: string } } }>().props;
     const isSales = auth.user.role === 'sales';
+    const preselected = selected_client_id ? String(selected_client_id) : '';
     const { data, setData, post, processing, errors } = useForm({
         name: '', phone: '', email: '', state: '',
         company: '', service_required: '', notes: '',
         source: 'manual', assigned_to: isSales ? String(auth.user.id) : '',
+        client_id: preselected,
     });
     const serviceOptions = services.length > 0 ? services.map((s) => s.name) : [
         'LLC', 'EIN', 'USDOT', 'MC Authority', 'BOC-3', 'UCR', 'IFTA', 'IRP', '2290', 'MCS-150',
     ];
+
+    function applyClient(id: string) {
+        const client = clients.find((c) => String(c.id) === id);
+        setData({
+            ...data,
+            client_id: id,
+            name: data.name || client?.name || '',
+            phone: data.phone || client?.phone || '',
+            email: data.email || client?.email || '',
+            state: data.state || client?.state || '',
+            company: data.company || client?.company || '',
+        });
+    }
+
+    useEffect(() => {
+        if (!preselected) return;
+        const client = clients.find((c) => String(c.id) === preselected);
+        if (!client) return;
+        setData({
+            ...data,
+            client_id: preselected,
+            name: client.name || '',
+            phone: client.phone || '',
+            email: client.email || '',
+            state: client.state || '',
+            company: client.company || '',
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [preselected]);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -75,6 +120,26 @@ export default function LeadCreate({ users, services = [] }: { users: User[]; se
                             </button>
                         </div>
                     </div>
+
+                    <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
+                        <h3 className="text-base font-semibold text-gray-950">Link to existing client</h3>
+                        <p className="mt-1 text-sm text-gray-400">Optional. Skip this to create a standalone lead that can later convert into a new client.</p>
+                        <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+                            <Field label="Existing client" error={errors.client_id}>
+                                <Select value={data.client_id} onValueChange={(v) => applyClient(v)}>
+                                    <SelectTrigger><SelectValue placeholder="None — new pipeline lead" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="">None — new pipeline lead</SelectItem>
+                                        {clients.map((c) => (
+                                            <SelectItem key={c.id} value={String(c.id)}>
+                                                {c.client_number} — {c.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                        </div>
+                    </section>
 
                     <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
                         <h3 className="text-base font-semibold text-gray-950">Contact</h3>

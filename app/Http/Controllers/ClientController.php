@@ -23,15 +23,27 @@ class ClientController extends Controller
 
         $user = auth()->user();
 
-        $query = Client::with(['lead', 'assignedUser'])
+        $query = Client::with(['lead', 'assignedUser', 'leads'])
             ->visibleTo($user)
             ->when($request->search, fn ($q, $v) =>
-                $q->whereHas('lead', fn ($q) =>
-                    $q->where('name', 'like', "%{$v}%")
+                $q->where(fn ($q) =>
+                    $q->where('client_number', 'like', "%{$v}%")
+                      ->orWhere('name', 'like', "%{$v}%")
                       ->orWhere('email', 'like', "%{$v}%")
                       ->orWhere('company', 'like', "%{$v}%")
                       ->orWhere('phone', 'like', "%{$v}%")
-                )->orWhere('client_number', 'like', "%{$v}%")
+                      ->orWhereHas('lead', fn ($q) =>
+                          $q->where('name', 'like', "%{$v}%")
+                            ->orWhere('email', 'like', "%{$v}%")
+                            ->orWhere('company', 'like', "%{$v}%")
+                            ->orWhere('phone', 'like', "%{$v}%")
+                      )
+                      ->orWhereHas('leads', fn ($q) =>
+                          $q->where('name', 'like', "%{$v}%")
+                            ->orWhere('email', 'like', "%{$v}%")
+                            ->orWhere('company', 'like', "%{$v}%")
+                      )
+                )
             )
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
             ->when($request->compliance_type, fn ($q, $v) => $q->where('compliance_type', $v))
@@ -45,6 +57,7 @@ class ClientController extends Controller
             'clients'  => $clients->through(fn ($c) => $this->formatClientRow($c)),
             'users'    => User::where('is_active', true)->select('id', 'name', 'role')->get(),
             'filters'  => $request->only(['search', 'status', 'assigned_to', 'compliance_type']),
+            'can_create' => $user->can('create', Client::class),
             'stats'    => [
                 'total'     => (clone $stats)->count(),
                 'active'    => (clone $stats)->where('status', 'active')->count(),
@@ -54,12 +67,65 @@ class ClientController extends Controller
         ]);
     }
 
+    public function create(): Response
+    {
+        $this->authorize('create', Client::class);
+
+        return Inertia::render('Clients/Create', [
+            'users' => User::where('is_active', true)->select('id', 'name', 'role')->get(),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $this->authorize('create', Client::class);
+
+        $data = $request->validate([
+            'name'             => ['required', 'string', 'max:255'],
+            'phone'            => ['nullable', 'string', 'max:30'],
+            'email'            => ['nullable', 'email', 'max:255'],
+            'state'            => ['nullable', 'string', 'max:100'],
+            'company'          => ['nullable', 'string', 'max:255'],
+            'notes'            => ['nullable', 'string'],
+            'assigned_to'      => ['nullable', 'exists:users,id'],
+            'compliance_type'  => ['nullable', 'in:project,monthly'],
+            'status'           => ['nullable', 'in:active,completed,inactive'],
+        ]);
+
+        if (auth()->user()->isSalesRep()) {
+            $data['assigned_to'] = auth()->id();
+        }
+
+        $data['status'] = $data['status'] ?? Client::STATUS_ACTIVE;
+        $data['compliance_type'] = $data['compliance_type'] ?: null;
+
+        $client = Client::create($data);
+
+        $this->activity->log(
+            $client,
+            Activity::ACTION_CLIENT_CREATED,
+            'Client created directly by '.auth()->user()->name
+        );
+
+        if ($client->assigned_to) {
+            $this->activity->log(
+                $client,
+                Activity::ACTION_LEAD_ASSIGNED,
+                'Client assigned to '.$client->assignedUser?->name
+            );
+        }
+
+        return redirect()->route('clients.show', $client)
+            ->with('success', "Client #{$client->client_number} created.");
+    }
+
     public function show(Client $client): Response
     {
         $this->authorize('view', $client);
 
         $client->load([
             'lead',
+            'leads.assignedUser',
             'assignedUser',
             'payments.createdBy',
             'clientServices.service',
@@ -95,6 +161,11 @@ class ClientController extends Controller
         $this->authorize('update', $client);
 
         $data = $request->validate([
+            'name'            => ['sometimes', 'required', 'string', 'max:255'],
+            'phone'           => ['nullable', 'string', 'max:30'],
+            'email'           => ['nullable', 'email', 'max:255'],
+            'state'           => ['nullable', 'string', 'max:100'],
+            'company'         => ['nullable', 'string', 'max:255'],
             'notes'           => ['nullable', 'string'],
             'assigned_to'     => ['nullable', 'exists:users,id'],
             'status'          => ['required', 'in:active,completed,inactive'],
@@ -103,6 +174,10 @@ class ClientController extends Controller
 
         if (auth()->user()->isSalesRep()) {
             unset($data['assigned_to']);
+        }
+
+        if (array_key_exists('compliance_type', $data)) {
+            $data['compliance_type'] = $data['compliance_type'] ?: null;
         }
 
         $old = $client->only(['status', 'assigned_to', 'compliance_type']);
@@ -133,9 +208,14 @@ class ClientController extends Controller
         return [
             'id'               => $client->id,
             'client_number'    => $client->client_number,
+            'name'             => $client->display_name,
+            'email'            => $client->email ?: $client->lead?->email,
+            'phone'            => $client->phone ?: $client->lead?->phone,
+            'company'          => $client->company ?: $client->lead?->company,
             'status'           => $client->status,
             'compliance_type'  => $client->compliance_type,
             'assigned_user'    => $client->assignedUser ? ['name' => $client->assignedUser->name] : null,
+            'leads_count'      => $client->leads->count(),
             'lead'           => $client->lead ? [
                 'name'             => $client->lead->name,
                 'email'            => $client->lead->email,
@@ -153,6 +233,11 @@ class ClientController extends Controller
         return [
             'id'               => $client->id,
             'client_number'    => $client->client_number,
+            'name'             => $client->display_name,
+            'phone'            => $client->phone ?: $client->lead?->phone,
+            'email'            => $client->email ?: $client->lead?->email,
+            'state'            => $client->state ?: $client->lead?->state,
+            'company'          => $client->company ?: $client->lead?->company,
             'status'           => $client->status,
             'compliance_type'  => $client->compliance_type,
             'notes'            => $client->notes,
@@ -174,6 +259,16 @@ class ClientController extends Controller
                 'status'           => $client->lead->status,
                 'created_at'       => $client->lead->created_at->toDateString(),
             ] : null,
+            'leads'          => $client->leads->map(fn ($l) => [
+                'id'               => $l->id,
+                'name'             => $l->name,
+                'status'           => $l->status,
+                'service_required' => $l->service_required,
+                'source'           => $l->source,
+                'converted_at'     => $l->converted_at?->toDateTimeString(),
+                'assigned_user'    => $l->assignedUser ? ['name' => $l->assignedUser->name] : null,
+                'created_at'       => $l->created_at->toDateString(),
+            ])->values()->toArray(),
             'payments'       => $client->payments->map(fn ($p) => [
                 'id'                    => $p->id,
                 'invoice_amount'        => (float) $p->invoice_amount,

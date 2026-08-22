@@ -50,7 +50,7 @@ class PaymentController extends Controller
                 'id'                    => $p->id,
                 'client_id'             => $p->client_id,
                 'client_number'         => $p->client->client_number,
-                'client_name'           => $p->client->lead?->name ?? '—',
+                'client_name'           => $p->client->display_name,
                 'invoice_amount'        => (float) $p->invoice_amount,
                 'amount_received'       => (float) $p->amount_received,
                 'balance_due'           => $p->balance_due,

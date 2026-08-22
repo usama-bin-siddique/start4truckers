@@ -40,7 +40,8 @@ interface Lead {
     notes: string | null; source: string; status: string; assigned_to: number | null;
     assigned_user: { id: number; name: string } | null;
     converted_at: string | null; converted_by: string | null;
-    client_id: number | null; client_number: string | null;
+    client_id: number | null; client_number: string | null; client_name: string | null;
+    client_compliance_type: 'project' | 'monthly' | null;
     reviewed_at: string | null; sla_started_at: string | null; sla_expires_at: string | null;
     sla_completed_at: string | null; sla_breached_at: string | null;
     created_at: string; updated_at: string; activities: Activity[];
@@ -286,8 +287,26 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                                     <p className="text-sm text-gray-700">
                                         {lead.assigned_user?.name ?? <span className="text-gray-400 italic">Unassigned</span>}
                                     </p>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader className="pb-2"><CardTitle className="text-sm">Related client</CardTitle></CardHeader>
+                                <CardContent>
+                                    {lead.client_id ? (
+                                        <div className="space-y-1">
+                                            <Link href={`/clients/${lead.client_id}`} className="font-medium text-amber-700 hover:underline">
+                                                {lead.client_number} {lead.client_name ? `· ${lead.client_name}` : ''}
+                                            </Link>
+                                            <p className="text-xs text-gray-400">
+                                                {lead.converted_at ? 'Converted onto this client' : 'Linked to this client. Converting will not create a duplicate.'}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-400 italic">Not linked. Convert to create a new client.</p>
+                                    )}
                                     {lead.converted_by && (
-                                        <p className="text-xs text-gray-400 mt-1">Converted by {lead.converted_by}</p>
+                                        <p className="text-xs text-gray-400 mt-2">Converted by {lead.converted_by}</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -537,8 +556,11 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                         </DialogHeader>
                         <form onSubmit={submitConvert} className="space-y-4">
                             <p className="text-sm text-gray-500">
-                                This will create a client profile for <strong>{lead.name}</strong> and mark this lead as Won.
+                                {lead.client_id
+                                    ? <>This lead is already linked to <strong>{lead.client_number}</strong>{lead.client_name ? ` (${lead.client_name})` : ''}. Converting will mark it as Won and attach invoices, documents, and services to that client — a new client will not be created.</>
+                                    : <>This will create a client profile for <strong>{lead.name}</strong> and mark this lead as Won.</>}
                             </p>
+                            {(!lead.client_id || !lead.client_compliance_type) && (
                             <div className="space-y-1">
                                 <Label className="text-xs">Compliance *</Label>
                                 <Select value={convertForm.data.compliance_type} onValueChange={(v) => convertForm.setData('compliance_type', v)}>
@@ -552,6 +574,7 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                                     <p className="text-xs text-red-500">{convertForm.errors.compliance_type}</p>
                                 )}
                             </div>
+                            )}
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setConvertOpen(false)}>Cancel</Button>
                                 <Button type="submit" disabled={convertForm.processing} className="bg-green-600 hover:bg-green-700">
