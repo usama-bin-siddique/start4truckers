@@ -38,6 +38,27 @@ class Payment extends Model
         return (float) $this->invoice_amount - (float) $this->amount_received;
     }
 
+    public function getInvoiceNumberAttribute(): string
+    {
+        return 'INV-'.str_pad((string) $this->id, 5, '0', STR_PAD_LEFT);
+    }
+
+    public function getPaymentStatusAttribute(): string
+    {
+        $received = (float) $this->amount_received;
+        $invoice = (float) $this->invoice_amount;
+
+        if ($received <= 0) {
+            return 'unpaid';
+        }
+
+        if ($received < $invoice) {
+            return 'partial';
+        }
+
+        return 'paid';
+    }
+
     public function isVisibleTo(User $user): bool
     {
         if (! $user->isSalesRep()) {

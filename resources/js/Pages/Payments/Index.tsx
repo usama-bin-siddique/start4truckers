@@ -6,15 +6,31 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, Filter, X, DollarSign, TrendingUp, AlertCircle, Download, Receipt, GitBranch } from 'lucide-react';
 import PrintInvoiceLink from '@/components/PrintInvoiceLink';
 import { cn } from '@/lib/utils';
 
 interface Payment {
-    id: number; client_id: number; client_number: string; client_name: string;
-    invoice_amount: number; amount_received: number; balance_due: number;
-    payment_method: string | null; transaction_reference: string | null;
-    paid_at: string | null; created_by: string | null; has_receipt: boolean; created_at: string;
+    id: number;
+    invoice_number: string;
+    client_id: number;
+    client_number: string;
+    customer_name: string;
+    company_name: string | null;
+    invoice_amount: number;
+    amount_received: number;
+    balance_due: number;
+    payment_method: string | null;
+    status: 'paid' | 'partial' | 'unpaid';
+    services: string[];
+    assigned_user: string | null;
+    transaction_reference: string | null;
+    notes: string | null;
+    paid_at: string | null;
+    created_by: string | null;
+    has_receipt: boolean;
+    created_at: string;
 }
 interface Paginator<T> { data: T[]; total: number; last_page: number; links: { url: string | null; label: string; active: boolean }[] }
 interface Totals { invoiced: number; received: number; balance: number }
@@ -25,13 +41,106 @@ const METHOD_LABELS: Record<string, string> = {
     bank_transfer: 'Bank Transfer', stripe: 'Stripe', other: 'Other',
 };
 
+const STATUS_LABELS: Record<Payment['status'], string> = {
+    paid: 'Paid',
+    partial: 'Partial',
+    unpaid: 'Unpaid',
+};
+
 function fmt(n: number): string {
     return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatDate(value: string | null): string {
+    if (!value) return '—';
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function StatusBadge({ status }: { status: Payment['status'] }) {
+    const variant = status === 'paid' ? 'success' : status === 'partial' ? 'warning' : 'secondary';
+    return <Badge variant={variant}>{STATUS_LABELS[status]}</Badge>;
+}
+
+function PaymentDetail({
+    payment,
+    onClose,
+}: {
+    payment: Payment | null;
+    onClose: () => void;
+}) {
+    return (
+        <Dialog open={payment !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Payment {payment ? `#${payment.id}` : ''}</DialogTitle>
+                </DialogHeader>
+                {payment && (
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                        <DetailField label="Payment ID" value={`#${payment.id}`} />
+                        <DetailField label="Invoice #" value={payment.invoice_number} />
+                        <div>
+                            <p className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Client ID</p>
+                            <Link href={`/clients/${payment.client_id}`} className="mt-0.5 inline-block font-mono text-sm font-medium text-amber-700 hover:text-amber-800 hover:underline">
+                                {payment.client_number}
+                            </Link>
+                        </div>
+                        <DetailField label="Payment Date" value={formatDate(payment.paid_at ?? payment.created_at)} />
+                        <DetailField label="Customer Name" value={payment.customer_name} />
+                        <DetailField label="Company Name" value={payment.company_name || '—'} />
+                        <DetailField label="Payment Amount" value={fmt(payment.amount_received)} />
+                        <DetailField label="Invoice Amount" value={fmt(payment.invoice_amount)} />
+                        <DetailField label="Balance Due" value={fmt(payment.balance_due)} />
+                        <div>
+                            <p className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Payment Status</p>
+                            <div className="mt-1"><StatusBadge status={payment.status} /></div>
+                        </div>
+                        <DetailField label="Payment Method" value={METHOD_LABELS[payment.payment_method ?? ''] ?? payment.payment_method ?? '—'} />
+                        <DetailField label="Assigned User" value={payment.assigned_user || '—'} />
+                        <div className="col-span-2">
+                            <DetailField label="Service / Package" value={payment.services.length ? payment.services.join(', ') : '—'} />
+                        </div>
+                        <DetailField label="Reference" value={payment.transaction_reference || '—'} />
+                        <DetailField label="Recorded by" value={payment.created_by || '—'} />
+                        {payment.notes && (
+                            <div className="col-span-2">
+                                <DetailField label="Notes" value={payment.notes} />
+                            </div>
+                        )}
+                    </div>
+                )}
+                {payment && (
+                    <DialogFooter className="gap-2 sm:justify-between">
+                        <div className="flex items-center gap-3">
+                            <PrintInvoiceLink paymentId={payment.id} />
+                            {payment.has_receipt && (
+                                <a href={`/payments/${payment.id}/receipt`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800">
+                                    <Download size={13} /> Receipt
+                                </a>
+                            )}
+                        </div>
+                        <Button type="button" variant="outline" onClick={onClose}>Close</Button>
+                    </DialogFooter>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function DetailField({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <p className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">{label}</p>
+            <p className="mt-0.5 text-sm text-gray-900">{value}</p>
+        </div>
+    );
 }
 
 export default function PaymentsIndex({ payments, totals, filters }: { payments: Paginator<Payment>; totals: Totals; filters: Filters }) {
     const [showFilters, setShowFilters] = useState(false);
     const [search, setSearch] = useState(filters.search ?? '');
+    const [selected, setSelected] = useState<Payment | null>(null);
     const hasFilters = Object.values(filters).some(Boolean);
 
     useEffect(() => {
@@ -56,6 +165,8 @@ export default function PaymentsIndex({ payments, totals, filters }: { payments:
         { label: 'Outstanding', value: fmt(totals.balance), icon: <AlertCircle className="h-4 w-4 text-red-600" />, iconClass: 'bg-red-100' },
         { label: 'Payments', value: payments.total, icon: <Receipt className="h-4 w-4 text-amber-700" />, iconClass: 'bg-amber-100' },
     ];
+
+    const columns = 12;
 
     return (
         <>
@@ -147,48 +258,59 @@ export default function PaymentsIndex({ payments, totals, filters }: { payments:
                             <Table>
                                 <TableHeader>
                                     <TableRow className="hover:bg-transparent">
-                                        <TableHead className="px-5 text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Client</TableHead>
-                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Invoice</TableHead>
-                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Received</TableHead>
-                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Balance</TableHead>
-                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Method</TableHead>
-                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Reference</TableHead>
-                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Date</TableHead>
-                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">By</TableHead>
-                                        <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Actions</TableHead>
+                                        <TableHead className="px-5 whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Payment ID</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Client ID</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Invoice #</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Payment Date</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Customer Name</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Company Name</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Payment Amount</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Payment Method</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Payment Status</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Service / Package</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Assigned User</TableHead>
+                                        <TableHead className="whitespace-nowrap text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {payments.data.length === 0 ? (
                                         <TableRow className="hover:bg-transparent">
-                                            <TableCell colSpan={9} className="h-56 text-center text-sm text-gray-400">
+                                            <TableCell colSpan={columns} className="h-56 text-center text-sm text-gray-400">
                                                 No payments found
                                             </TableCell>
                                         </TableRow>
                                     ) : payments.data.map((p) => (
-                                        <TableRow key={p.id}>
-                                            <TableCell className="px-5">
-                                                <Link href={`/clients/${p.client_id}`} className="hover:text-amber-700">
-                                                    <p className="text-sm font-medium text-gray-900">{p.client_name}</p>
-                                                    <p className="font-mono text-xs text-amber-700">{p.client_number}</p>
+                                        <TableRow
+                                            key={p.id}
+                                            className="cursor-pointer"
+                                            onClick={() => setSelected(p)}
+                                        >
+                                            <TableCell className="px-5 whitespace-nowrap font-mono text-sm font-medium text-gray-900">#{p.id}</TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                                <Link
+                                                    href={`/clients/${p.client_id}`}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="font-mono text-sm font-medium text-amber-700 hover:text-amber-800 hover:underline"
+                                                >
+                                                    {p.client_number}
                                                 </Link>
                                             </TableCell>
-                                            <TableCell className="font-medium">{fmt(p.invoice_amount)}</TableCell>
-                                            <TableCell className="text-emerald-600">{fmt(p.amount_received)}</TableCell>
-                                            <TableCell>
-                                                <span className={cn('text-sm font-medium', p.balance_due > 0 ? 'text-red-600' : 'text-emerald-600')}>
-                                                    {fmt(p.balance_due)}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
+                                            <TableCell className="whitespace-nowrap font-mono text-xs text-gray-700">{p.invoice_number}</TableCell>
+                                            <TableCell className="whitespace-nowrap text-xs text-gray-500">{formatDate(p.paid_at ?? p.created_at)}</TableCell>
+                                            <TableCell className="whitespace-nowrap text-sm font-medium text-gray-900">{p.customer_name}</TableCell>
+                                            <TableCell className="whitespace-nowrap text-sm text-gray-600">{p.company_name || '—'}</TableCell>
+                                            <TableCell className="whitespace-nowrap font-medium text-emerald-600">{fmt(p.amount_received)}</TableCell>
+                                            <TableCell className="whitespace-nowrap">
                                                 {p.payment_method
                                                     ? <Badge variant="secondary" className="text-xs capitalize">{METHOD_LABELS[p.payment_method] ?? p.payment_method}</Badge>
                                                     : <span className="text-gray-300">—</span>}
                                             </TableCell>
-                                            <TableCell className="font-mono text-xs text-gray-500">{p.transaction_reference ?? '—'}</TableCell>
-                                            <TableCell className="text-xs text-gray-400">{p.paid_at ?? p.created_at}</TableCell>
-                                            <TableCell className="text-xs text-gray-500">{p.created_by ?? '—'}</TableCell>
-                                            <TableCell>
+                                            <TableCell className="whitespace-nowrap"><StatusBadge status={p.status} /></TableCell>
+                                            <TableCell className="max-w-[180px] truncate text-sm text-gray-600" title={p.services.join(', ')}>
+                                                {p.services.length ? p.services.join(', ') : '—'}
+                                            </TableCell>
+                                            <TableCell className="whitespace-nowrap text-sm text-gray-600">{p.assigned_user || '—'}</TableCell>
+                                            <TableCell onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex items-center gap-3">
                                                     <PrintInvoiceLink paymentId={p.id} />
                                                     {p.has_receipt && (
@@ -225,6 +347,8 @@ export default function PaymentsIndex({ payments, totals, filters }: { payments:
                     </section>
                 </div>
             </AppLayout>
+
+            <PaymentDetail payment={selected} onClose={() => setSelected(null)} />
         </>
     );
 }
