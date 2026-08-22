@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -9,11 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChevronLeft, GitBranch } from 'lucide-react';
 
 interface User { id: number; name: string; role: string }
-interface CatalogService { id: number; name: string; slug: string }
-interface ExistingClient {
-    id: number; client_number: string; name: string;
-    phone: string | null; email: string | null; state: string | null; company: string | null;
-}
 
 const US_STATES = [
     'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
@@ -22,74 +17,29 @@ const US_STATES = [
     'VA','WA','WV','WI','WY','DC',
 ];
 
-export default function LeadCreate({
-    users,
-    services = [],
-    clients = [],
-    selected_client_id = null,
-}: {
-    users: User[];
-    services?: CatalogService[];
-    clients?: ExistingClient[];
-    selected_client_id?: number | null;
-}) {
+export default function ClientCreate({ users }: { users: User[] }) {
     const { auth } = usePage<{ auth: { user: { id: number; role: string } } }>().props;
     const isSales = auth.user.role === 'sales';
-    const preselected = selected_client_id ? String(selected_client_id) : '';
     const { data, setData, post, processing, errors } = useForm({
         name: '', phone: '', email: '', state: '',
-        company: '', service_required: '', notes: '',
-        source: 'manual', assigned_to: isSales ? String(auth.user.id) : '',
-        client_id: preselected,
+        company: '', notes: '', compliance_type: '',
+        assigned_to: isSales ? String(auth.user.id) : '',
     });
-    const serviceOptions = services.length > 0 ? services.map((s) => s.name) : [
-        'LLC', 'EIN', 'USDOT', 'MC Authority', 'BOC-3', 'UCR', 'IFTA', 'IRP', '2290', 'MCS-150',
-    ];
-
-    function applyClient(id: string) {
-        const client = clients.find((c) => String(c.id) === id);
-        setData({
-            ...data,
-            client_id: id,
-            name: data.name || client?.name || '',
-            phone: data.phone || client?.phone || '',
-            email: data.email || client?.email || '',
-            state: data.state || client?.state || '',
-            company: data.company || client?.company || '',
-        });
-    }
-
-    useEffect(() => {
-        if (!preselected) return;
-        const client = clients.find((c) => String(c.id) === preselected);
-        if (!client) return;
-        setData({
-            ...data,
-            client_id: preselected,
-            name: client.name || '',
-            phone: client.phone || '',
-            email: client.email || '',
-            state: client.state || '',
-            company: client.company || '',
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [preselected]);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        post('/leads');
+        post('/clients');
     }
 
     return (
         <>
-            <Head title="New Lead" />
-            <AppLayout title="New Lead">
+            <Head title="New Client" />
+            <AppLayout title="New Client">
                 <form onSubmit={handleSubmit} className="space-y-6">
-
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                            <Link href="/leads" className="mb-3 inline-flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-gray-700">
-                                <ChevronLeft size={14} /> Back to leads
+                            <Link href="/clients" className="mb-3 inline-flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-gray-700">
+                                <ChevronLeft size={14} /> Back to clients
                             </Link>
                             <div className="mt-3">
                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-amber-600">
@@ -98,15 +48,15 @@ export default function LeadCreate({
                                 </span>
                             </div>
                             <h2 className="mt-3 text-[32px] leading-none font-semibold tracking-tight text-gray-950">
-                                New lead
+                                New client
                             </h2>
                             <p className="mt-2 text-sm text-gray-500">
-                                Capture inbound interest and assign it to the pipeline.
+                                Create a client profile directly. You can link leads to this account later.
                             </p>
                         </div>
                         <div className="flex items-center gap-2.5">
                             <Link
-                                href="/leads"
+                                href="/clients"
                                 className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
                             >
                                 Cancel
@@ -116,30 +66,10 @@ export default function LeadCreate({
                                 disabled={processing}
                                 className="inline-flex items-center rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black disabled:opacity-70"
                             >
-                                {processing ? 'Creating…' : 'Create lead'}
+                                {processing ? 'Creating…' : 'Create client'}
                             </button>
                         </div>
                     </div>
-
-                    <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
-                        <h3 className="text-base font-semibold text-gray-950">Link to existing client</h3>
-                        <p className="mt-1 text-sm text-gray-400">Optional. Skip this to create a standalone lead that can later convert into a new client.</p>
-                        <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-                            <Field label="Existing client" error={errors.client_id}>
-                                <Select value={data.client_id} onValueChange={(v) => applyClient(v)}>
-                                    <SelectTrigger><SelectValue placeholder="None — new pipeline lead" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="">None — new pipeline lead</SelectItem>
-                                        {clients.map((c) => (
-                                            <SelectItem key={c.id} value={String(c.id)}>
-                                                {c.client_number} — {c.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </Field>
-                        </div>
-                    </section>
 
                     <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
                         <h3 className="text-base font-semibold text-gray-950">Contact</h3>
@@ -159,7 +89,7 @@ export default function LeadCreate({
 
                     <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
                         <h3 className="text-base font-semibold text-gray-950">Business</h3>
-                        <p className="mt-1 text-sm text-gray-400">Company details and the service they need.</p>
+                        <p className="mt-1 text-sm text-gray-400">Company details and how this account should be handled.</p>
                         <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
                             <Field label="Company" error={errors.company} className="xl:col-span-2">
                                 <Input placeholder="Trucking Co. LLC" value={data.company} onChange={(e) => setData('company', e.target.value)} />
@@ -172,30 +102,12 @@ export default function LeadCreate({
                                     </SelectContent>
                                 </Select>
                             </Field>
-                            <Field label="Service required" error={errors.service_required}>
-                                <Select value={data.service_required} onValueChange={(v) => setData('service_required', v)}>
-                                    <SelectTrigger><SelectValue placeholder="Select service" /></SelectTrigger>
+                            <Field label="Compliance" error={errors.compliance_type}>
+                                <Select value={data.compliance_type} onValueChange={(v) => setData('compliance_type', v)}>
+                                    <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
                                     <SelectContent>
-                                        {serviceOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </Field>
-                        </div>
-                    </section>
-
-                    <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
-                        <h3 className="text-base font-semibold text-gray-950">Pipeline</h3>
-                        <p className="mt-1 text-sm text-gray-400">Source, assignment, and extra context.</p>
-                        <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-                            <Field label="Source" error={errors.source}>
-                                <Select value={data.source} onValueChange={(v) => setData('source', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="manual">Manual Entry</SelectItem>
-                                        <SelectItem value="website">Website</SelectItem>
-                                        <SelectItem value="referral">Referral</SelectItem>
-                                        <SelectItem value="phone">Phone Call</SelectItem>
-                                        <SelectItem value="other">Other</SelectItem>
+                                        <SelectItem value="project">Project based</SelectItem>
+                                        <SelectItem value="monthly">Monthly</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </Field>
@@ -225,14 +137,14 @@ export default function LeadCreate({
 
                     <div className="flex justify-end gap-2.5">
                         <Button type="button" variant="outline" className="h-10 rounded-lg" asChild>
-                            <Link href="/leads">Cancel</Link>
+                            <Link href="/clients">Cancel</Link>
                         </Button>
                         <button
                             type="submit"
                             disabled={processing}
                             className="inline-flex h-10 items-center rounded-lg bg-[#12141D] px-5 text-sm font-medium text-white transition-colors hover:bg-black disabled:opacity-70"
                         >
-                            {processing ? 'Creating…' : 'Create lead'}
+                            {processing ? 'Creating…' : 'Create client'}
                         </button>
                     </div>
                 </form>

@@ -124,7 +124,7 @@ class DashboardService
                 'id'       => $t->id,
                 'title'    => $t->title,
                 'priority' => $t->priority,
-                'client'   => $t->client?->lead?->name ?? '—',
+                'client'   => $t->client?->display_name ?? '—',
                 'due_date' => $t->due_date?->format('H:i'),
             ])
             ->toArray();

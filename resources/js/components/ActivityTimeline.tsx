@@ -2,7 +2,7 @@ import React from 'react';
 import {
     UserPlus, RefreshCw, StickyNote, DollarSign,
     UserCheck, Upload, CheckSquare, Settings, User, Zap, Clock, Phone,
-    Trophy, Ban, Briefcase,
+    Trophy, Ban, Briefcase, Link2,
 } from 'lucide-react';
 
 interface Activity {
@@ -34,6 +34,7 @@ const actionIcon: Record<string, React.ReactNode> = {
     service_updated:    <Settings size={13} />,
     service_assigned:   <Briefcase size={13} />,
     client_created:     <Zap size={13} />,
+    lead_linked:        <Link2 size={13} />,
 };
 
 const actionColor: Record<string, string> = {
@@ -55,6 +56,7 @@ const actionColor: Record<string, string> = {
     service_updated:    'bg-sky-100 text-sky-600',
     service_assigned:   'bg-sky-100 text-sky-700',
     client_created:     'bg-violet-100 text-violet-600',
+    lead_linked:        'bg-amber-100 text-amber-700',
 };
 
 function statusFromActivity(a: Activity): string | null {
