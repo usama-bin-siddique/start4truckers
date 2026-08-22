@@ -6,8 +6,10 @@ use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Document;
 use App\Models\Lead;
+use App\Models\User;
 use App\Services\ActivityService;
 use App\Services\DocumentService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -30,18 +32,19 @@ class DocumentController extends Controller
         $this->authorize('viewAny', Document::class);
 
         $user = auth()->user();
+        $term = $this->normalizeDocumentSearch($request->input('search'));
+        $focusedClient = $this->resolveFocusedClient($user, $request, $term);
 
         $query = Document::with(['client.lead', 'lead', 'uploadedBy'])
-            ->visibleTo($user)
-            ->when($request->search, fn ($q, $v) =>
-                $q->where(fn ($q) =>
-                    $q->where('original_filename', 'like', "%{$v}%")
-                      ->orWhereHas('client.lead', fn ($q) => $q->where('name', 'like', "%{$v}%"))
-                      ->orWhereHas('lead', fn ($q) => $q->where('name', 'like', "%{$v}%"))
-                )
-            )
-            ->when($request->category, fn ($q, $v) => $q->where('category', $v))
-            ->when($request->client_id, fn ($q, $v) => $q->where('client_id', $v));
+            ->visibleTo($user);
+
+        if ($focusedClient) {
+            $query->where('client_id', $focusedClient->id);
+        } elseif ($term !== '') {
+            $this->applyDocumentSearch($query, $term);
+        }
+
+        $query->when($request->category, fn ($q, $v) => $q->where('category', $v));
 
         $documents = $query->latest()->paginate(25)->withQueryString();
 
@@ -57,12 +60,25 @@ class DocumentController extends Controller
                 'category'          => $d->category,
                 'category_label'    => $d->category_label,
                 'original_filename' => $d->original_filename,
+                'mime_type'         => $d->mime_type,
                 'file_size'         => $d->file_size_formatted,
                 'uploaded_by'       => $d->uploadedBy?->name,
                 'created_at'        => $d->created_at->toDateString(),
+                'view_url'          => route('documents.view', $d),
+                'download_url'      => route('documents.download', $d),
             ]),
             'categories' => Document::CATEGORIES,
-            'filters'    => $request->only(['search', 'category', 'client_id']),
+            'filters'    => [
+                'search'    => $request->input('search', ''),
+                'category'  => $request->input('category', ''),
+                'client_id' => $request->input('client_id', ''),
+            ],
+            'focused_client' => $focusedClient ? [
+                'id'            => $focusedClient->id,
+                'name'          => $focusedClient->display_name,
+                'client_number' => $focusedClient->client_number,
+                'profile_url'   => "/clients/{$focusedClient->id}?tab=documents",
+            ] : null,
             'stats'      => [
                 'total'      => (clone $stats)->count(),
                 'this_month' => (clone $stats)->whereYear('created_at', now()->year)
@@ -168,6 +184,25 @@ class DocumentController extends Controller
         return Inertia::flash('success', $message)->back()->with('success', $message);
     }
 
+    public function view(Document $document): StreamedResponse
+    {
+        $this->authorize('view', $document);
+
+        if (! Storage::disk('private')->exists($document->stored_path)) {
+            abort(404, 'File not found.');
+        }
+
+        $filename = str_replace(['"', "\r", "\n"], '', $document->original_filename);
+
+        return Storage::disk('private')->response(
+            $document->stored_path,
+            $filename,
+            [
+                'Content-Type' => $document->mime_type ?: 'application/octet-stream',
+            ]
+        );
+    }
+
     public function download(Document $document): StreamedResponse
     {
         $this->authorize('view', $document);
@@ -198,5 +233,89 @@ class DocumentController extends Controller
         $document->delete();
 
         return $this->flashedBack('Document deleted.');
+    }
+
+    private function normalizeDocumentSearch(mixed $raw): string
+    {
+        $term = trim((string) $raw);
+
+        if ($term === '') {
+            return '';
+        }
+
+        $term = preg_replace('/^(client\s*id|client|id)\s*[:#]?\s*/i', '', $term) ?? $term;
+        $term = ltrim(trim($term), '#');
+
+        return $term;
+    }
+
+    private function resolveFocusedClient(User $user, Request $request, string $term): ?Client
+    {
+        if ($request->filled('client_id')) {
+            return Client::query()
+                ->with('lead')
+                ->visibleTo($user)
+                ->find($request->integer('client_id'));
+        }
+
+        if ($term === '') {
+            return null;
+        }
+
+        if (ctype_digit($term)) {
+            $byId = Client::query()->with('lead')->visibleTo($user)->find((int) $term);
+            if ($byId) {
+                return $byId;
+            }
+        }
+
+        $matches = Client::query()
+            ->with('lead')
+            ->visibleTo($user)
+            ->where(function (Builder $q) use ($term) {
+                $this->applyClientMatch($q, $term);
+            })
+            ->limit(3)
+            ->get();
+
+        return $matches->count() === 1 ? $matches->first() : null;
+    }
+
+    private function applyDocumentSearch(Builder $query, string $term): void
+    {
+        $query->where(function (Builder $q) use ($term) {
+            $like = '%'.$term.'%';
+
+            $q->where('original_filename', 'like', $like)
+                ->orWhereHas('client', function (Builder $client) use ($term) {
+                    $this->applyClientMatch($client, $term);
+                })
+                ->orWhereHas('lead', function (Builder $lead) use ($term, $like) {
+                    $lead->where(function (Builder $q) use ($term, $like) {
+                        $q->where('name', 'like', $like)
+                            ->orWhere('company', 'like', $like);
+
+                        if (ctype_digit($term)) {
+                            $q->orWhere('id', (int) $term);
+                        }
+                    });
+                });
+        });
+    }
+
+    private function applyClientMatch(Builder $query, string $term): void
+    {
+        $query->where(function (Builder $q) use ($term) {
+            $like = '%'.$term.'%';
+
+            $q->where('name', 'like', $like)
+                ->orWhere('company', 'like', $like)
+                ->orWhere('client_number', 'like', $like)
+                ->orWhereHas('lead', fn (Builder $lead) => $lead->where('name', 'like', $like));
+
+            if (ctype_digit($term)) {
+                $q->orWhere('id', (int) $term);
+            }
+        });
     }
 }

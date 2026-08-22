@@ -899,13 +899,15 @@ function DocumentsTab({ clientId, documents, categories, canUpload }: { clientId
                         <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                                 <p className="text-[11px] font-semibold tracking-[0.12em] text-amber-700 uppercase">{doc.category_label}</p>
-                                <p className="mt-1 truncate text-sm text-gray-800">{doc.original_filename}</p>
+                                <a href={`/documents/${doc.id}/view`} target="_blank" rel="noreferrer" className="mt-1 block truncate text-sm text-gray-800 hover:text-amber-700 hover:underline">
+                                    {doc.original_filename}
+                                </a>
                                 <p className="mt-1 text-xs text-gray-400">{doc.file_size} · {doc.created_at}</p>
                                 <p className="text-xs text-gray-400">By {doc.uploaded_by ?? '—'}</p>
                             </div>
                             <div className="flex shrink-0 gap-1">
                                 <Button size="icon" variant="ghost" className="h-7 w-7" asChild>
-                                    <a href={`/documents/${doc.id}/download`} target="_blank" rel="noreferrer">
+                                    <a href={`/documents/${doc.id}/view`} target="_blank" rel="noreferrer" title="View document">
                                         <FileText size={13} />
                                     </a>
                                 </Button>
