@@ -16,6 +16,11 @@ class Client extends Model
     protected $fillable = [
         'client_number',
         'lead_id',
+        'name',
+        'phone',
+        'email',
+        'state',
+        'company',
         'assigned_to',
         'status',
         'compliance_type',
@@ -35,6 +40,14 @@ class Client extends Model
         static::creating(function (Client $client) {
             if (empty($client->client_number)) {
                 $client->client_number = self::generateClientNumber();
+            }
+        });
+
+        static::created(function (Client $client) {
+            if ($client->lead_id) {
+                Lead::whereKey($client->lead_id)
+                    ->whereNull('client_id')
+                    ->update(['client_id' => $client->id]);
             }
         });
     }
@@ -61,10 +74,20 @@ class Client extends Model
         return $query;
     }
 
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->name ?: $this->lead?->name ?: 'Unknown client';
+    }
+
     // Relationships
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class);
+    }
+
+    public function leads(): HasMany
+    {
+        return $this->hasMany(Lead::class)->latest();
     }
 
     public function assignedUser(): BelongsTo
@@ -87,12 +110,13 @@ class Client extends Model
      *
      * @return \Illuminate\Support\Collection<int, ClientService>
      */
-    public function syncServicesFromLead()
+    public function syncServicesFromLead(?Lead $fromLead = null)
     {
+        $source = $fromLead ?? $this->lead;
         $this->loadMissing('lead');
         $created = collect();
 
-        foreach (Service::matchingRequirement($this->lead?->service_required) as $service) {
+        foreach (Service::matchingRequirement($source?->service_required) as $service) {
             $row = $this->clientServices()->firstOrCreate(
                 ['service_id' => $service->id],
                 ['status' => ClientService::STATUS_PENDING]

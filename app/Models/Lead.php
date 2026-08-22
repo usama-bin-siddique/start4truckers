@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -25,6 +24,7 @@ class Lead extends Model
         'source',
         'status',
         'assigned_to',
+        'client_id',
         'converted_by',
         'converted_at',
         'reviewed_at',
@@ -103,9 +103,9 @@ class Lead extends Model
         return $this->belongsTo(User::class, 'converted_by');
     }
 
-    public function client(): HasOne
+    public function client(): BelongsTo
     {
-        return $this->hasOne(Client::class);
+        return $this->belongsTo(Client::class);
     }
 
     public function documents(): HasMany

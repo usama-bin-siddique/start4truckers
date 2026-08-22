@@ -14,7 +14,6 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\Api\Web3FormsController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 // Root redirect
 Route::get('/', fn () => redirect()->route('login'));
@@ -38,12 +37,7 @@ Route::middleware(['auth'])->group(function () {
     // Leads — admin + sales + manager
     Route::middleware('role:admin,sales,manager')->group(function () {
         Route::get('/leads',                [LeadController::class, 'index'])->name('leads.index');
-        Route::get('/leads/create', function () {
-            return Inertia::render('Leads/Create', [
-                'users'    => \App\Models\User::where('is_active', true)->select('id', 'name', 'role')->get(),
-                'services' => \App\Models\Service::where('is_active', true)->orderBy('order')->get(['id', 'name', 'slug']),
-            ]);
-        })->name('leads.create');
+        Route::get('/leads/create',         [LeadController::class, 'create'])->name('leads.create');
         Route::post('/leads',               [LeadController::class, 'store'])->name('leads.store');
         Route::get('/leads/{lead}',         [LeadController::class, 'show'])->name('leads.show');
         Route::put('/leads/{lead}',         [LeadController::class, 'update'])->name('leads.update');
@@ -57,8 +51,10 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/leads/{lead}',      [LeadController::class, 'destroy'])->name('leads.destroy');
     });
 
-    // Clients — all roles
+    // Clients — all roles view; create/update enforced by policy
     Route::get('/clients',          [ClientController::class, 'index'])->name('clients.index');
+    Route::get('/clients/create',   [ClientController::class, 'create'])->name('clients.create');
+    Route::post('/clients',         [ClientController::class, 'store'])->name('clients.store');
     Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
     Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
 

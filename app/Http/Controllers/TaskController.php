@@ -46,7 +46,7 @@ class TaskController extends Controller
                 'assigned_user' => $t->assignedUser ? ['id' => $t->assignedUser->id, 'name' => $t->assignedUser->name] : null,
                 'created_by'    => $t->createdBy?->name,
                 'client_id'     => $t->client_id,
-                'client_name'   => $t->client?->lead?->name,
+                'client_name'   => $t->client?->display_name,
                 'client_number' => $t->client?->client_number,
                 'due_date'      => $t->due_date?->format('Y-m-d\\TH:i'),
                 'reminder_at'   => $t->reminder_at?->format('Y-m-d\\TH:i'),

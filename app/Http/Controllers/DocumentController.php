@@ -53,7 +53,7 @@ class DocumentController extends Controller
                 'client_id'         => $d->client_id,
                 'lead_id'           => $d->lead_id,
                 'client_number'     => $d->client?->client_number,
-                'client_name'       => $d->client?->lead?->name ?? $d->lead?->name ?? '—',
+                'client_name'       => $d->client?->display_name ?? $d->lead?->name ?? '—',
                 'category'          => $d->category,
                 'category_label'    => $d->category_label,
                 'original_filename' => $d->original_filename,

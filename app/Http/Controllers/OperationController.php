@@ -42,7 +42,7 @@ class OperationController extends Controller
                 'id'              => $cs->id,
                 'client_id'       => $cs->client_id,
                 'client_number'   => $cs->client->client_number,
-                'client_name'     => $cs->client->lead?->name ?? '—',
+                'client_name'     => $cs->client->display_name,
                 'service_name'    => $cs->service->name,
                 'status'          => $cs->status,
                 'assigned_user'   => $cs->assignedUser ? ['name' => $cs->assignedUser->name] : null,

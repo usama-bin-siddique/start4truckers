@@ -6,13 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Eye, Filter, X, UserCheck, Users, CheckCircle, CircleOff, GitBranch } from 'lucide-react';
+import { Search, Eye, Filter, X, UserCheck, Users, CheckCircle, CircleOff, GitBranch, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Lead { name: string; email: string | null; phone: string | null; company: string | null; service_required: string | null }
 interface Client {
-    id: number; client_number: string; status: string; compliance_type: 'project' | 'monthly' | null;
+    id: number; client_number: string; name: string; email: string | null; phone: string | null;
+    company: string | null; status: string; compliance_type: 'project' | 'monthly' | null;
     assigned_user: { name: string } | null;
+    leads_count?: number;
     lead: Lead | null; balance_due: number; created_at: string;
 }
 interface Paginator<T> {
@@ -27,6 +29,7 @@ interface Props {
     users: { id: number; name: string; role: string }[];
     filters: Filters;
     stats: Stats;
+    can_create?: boolean;
 }
 
 const complianceLabel: Record<string, string> = {
@@ -40,7 +43,7 @@ const statusConfig: Record<string, { label: string; badge: 'success' | 'secondar
     inactive:  { label: 'Inactive',  badge: 'outline' },
 };
 
-export default function ClientsIndex({ clients, users, filters, stats }: Props) {
+export default function ClientsIndex({ clients, users, filters, stats, can_create = false }: Props) {
     const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
     const canReassign = auth.user.role !== 'sales';
     const [showFilters, setShowFilters] = useState(false);
@@ -89,6 +92,15 @@ export default function ClientsIndex({ clients, users, filters, stats }: Props) 
                                 Manage converted accounts and keep work moving.
                             </p>
                         </div>
+                        {can_create && (
+                            <Link
+                                href="/clients/create"
+                                className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Add client
+                            </Link>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -208,21 +220,21 @@ export default function ClientsIndex({ clients, users, filters, stats }: Props) 
                                                 <TableCell>
                                                     <div>
                                                         <Link href={`/clients/${client.id}`} className="font-medium text-gray-900 transition-colors hover:text-amber-700">
-                                                            {client.lead?.name ?? '—'}
+                                                            {client.name || client.lead?.name || '—'}
                                                         </Link>
-                                                        {client.lead?.company && (
-                                                            <p className="mt-0.5 text-xs text-gray-400">{client.lead.company}</p>
+                                                        {(client.company || client.lead?.company) && (
+                                                            <p className="mt-0.5 text-xs text-gray-400">{client.company || client.lead?.company}</p>
                                                         )}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="space-y-0.5 text-xs text-gray-600">
-                                                        {client.lead?.phone && <p>{client.lead.phone}</p>}
-                                                        {client.lead?.email && <p className="max-w-[140px] truncate">{client.lead.email}</p>}
+                                                        {(client.phone || client.lead?.phone) && <p>{client.phone || client.lead?.phone}</p>}
+                                                        {(client.email || client.lead?.email) && <p className="max-w-[140px] truncate">{client.email || client.lead?.email}</p>}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <span className="text-sm text-gray-700">{client.lead?.service_required ?? '—'}</span>
+                                                    <span className="text-sm text-gray-700">{client.lead?.service_required ?? (client.leads_count ? `${client.leads_count} lead${client.leads_count === 1 ? '' : 's'}` : '—')}</span>
                                                 </TableCell>
                                                 <TableCell>
                                                     {client.compliance_type ? (
