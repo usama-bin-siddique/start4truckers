@@ -267,10 +267,10 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
     );
 
     return (
-        <div className="flex h-screen gap-3 overflow-hidden bg-[#EFEFEA] p-3">
+        <div className="flex h-full max-h-full gap-3 overflow-hidden bg-[#EFEFEA] p-3">
             <aside
                 className={cn(
-                    'hidden shrink-0 flex-col transition-all duration-300 lg:flex',
+                    'hidden h-full min-h-0 shrink-0 flex-col transition-all duration-300 lg:flex',
                     collapsed ? 'w-[72px]' : 'w-[248px]'
                 )}
             >
@@ -289,7 +289,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                 </>
             )}
 
-            <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] bg-[#F6F6F4]">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] bg-[#F6F6F4]">
                 <header className="flex shrink-0 items-start justify-between px-6 pt-6 pb-2 sm:px-8">
                     <div className="flex items-start gap-3">
                         <Button
@@ -351,7 +351,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                     </div>
                 )}
 
-                <main className="flex-1 overflow-y-auto">
+                <main className="min-h-0 flex-1 overflow-y-auto">
                     <div className="px-6 pt-4 pb-8 sm:px-8">{children}</div>
                 </main>
             </div>

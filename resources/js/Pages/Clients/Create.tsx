@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, GitBranch } from 'lucide-react';
+import CategoryDropzones, { queuedFileCount } from '@/components/CategoryDropzones';
+import { ChevronLeft, DollarSign, FileText, GitBranch, Upload, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface User { id: number; name: string; role: string }
 
@@ -17,12 +19,26 @@ const US_STATES = [
     'VA','WA','WV','WI','WY','DC',
 ];
 
-export default function ClientCreate({ users, profile_options }: { users: User[]; profile_options: {
-    statuses: Record<string, string>;
-    us_states: string[];
-    entity_types: Record<string, string>;
-    contact_methods: Record<string, string>;
-} }) {
+const PAYMENT_METHODS = ['Cash', 'Check', 'Zelle', 'Venmo', 'Bank Transfer', 'Stripe', 'Other'];
+
+export default function ClientCreate({
+    users,
+    profile_options,
+    doc_categories = {},
+    can_upload_documents = false,
+    can_add_payment = false,
+}: {
+    users: User[];
+    profile_options: {
+        statuses: Record<string, string>;
+        us_states: string[];
+        entity_types: Record<string, string>;
+        contact_methods: Record<string, string>;
+    };
+    doc_categories?: Record<string, string>;
+    can_upload_documents?: boolean;
+    can_add_payment?: boolean;
+}) {
     const { auth } = usePage<{ auth: { user: { id: number; role: string } } }>().props;
     const isSales = auth.user.role === 'sales';
     const { data, setData, post, processing, errors } = useForm({
@@ -30,11 +46,24 @@ export default function ClientCreate({ users, profile_options }: { users: User[]
         company: '', ein: '', usdot_number: '', mc_number: '',
         notes: '', compliance_type: '', status: 'onboarding',
         assigned_to: isSales ? String(auth.user.id) : '',
+        files: {} as Record<string, File[]>,
+        payment: {
+            invoice_amount: '',
+            amount_received: '',
+            payment_method: '',
+            transaction_reference: '',
+            notes: '',
+            paid_at: '',
+            receipt: null as File | null,
+        },
     });
+
+    const queued = queuedFileCount(data.files);
+    const uploadError = firstUploadError(errors as Record<string, string>);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        post('/clients');
+        post('/clients', { forceFormData: true });
     }
 
     return (
@@ -57,7 +86,7 @@ export default function ClientCreate({ users, profile_options }: { users: User[]
                                 New client
                             </h2>
                             <p className="mt-2 text-sm text-gray-500">
-                                Create a client profile directly. You can link leads to this account later.
+                                Create a client profile directly. Documents and payment can be added now or later.
                             </p>
                         </div>
                         <div className="flex items-center gap-2.5">
@@ -141,10 +170,9 @@ export default function ClientCreate({ users, profile_options }: { users: User[]
                             </Field>
                             {!isSales && (
                             <Field label="Assign to" error={errors.assigned_to}>
-                                <Select value={data.assigned_to} onValueChange={(v) => setData('assigned_to', v)}>
+                                <Select value={data.assigned_to || undefined} onValueChange={(v) => setData('assigned_to', v)}>
                                     <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Unassigned</SelectItem>
                                         {users.filter((u) => ['admin', 'sales', 'manager'].includes(u.role)).map((u) => (
                                             <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
                                         ))}
@@ -162,6 +190,104 @@ export default function ClientCreate({ users, profile_options }: { users: User[]
                             </Field>
                         </div>
                     </section>
+
+                    {can_upload_documents && (
+                        <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h3 className="text-base font-semibold text-gray-950">Documents</h3>
+                                    <p className="mt-1 text-sm text-gray-400">Optional. Drop files into a category, or skip and upload later.</p>
+                                </div>
+                                {queued > 0 && (
+                                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+                                        {queued} file{queued === 1 ? '' : 's'} ready
+                                    </span>
+                                )}
+                            </div>
+                            <div className="mt-6">
+                                <CategoryDropzones
+                                    categories={doc_categories}
+                                    files={data.files}
+                                    onChange={(files) => setData('files', files)}
+                                    error={uploadError}
+                                />
+                            </div>
+                        </section>
+                    )}
+
+                    {can_add_payment && (
+                        <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
+                            <h3 className="text-base font-semibold text-gray-950">Payment</h3>
+                            <p className="mt-1 text-sm text-gray-400">Optional. Record an invoice or payment now, or add it from the client profile later.</p>
+                            <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+                                <Field label="Invoice amount" error={errors['payment.invoice_amount']}>
+                                    <div className="relative">
+                                        <DollarSign className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="0.00"
+                                            className="pl-9"
+                                            value={data.payment.invoice_amount}
+                                            onChange={(e) => setData('payment', { ...data.payment, invoice_amount: e.target.value })}
+                                        />
+                                    </div>
+                                </Field>
+                                <Field label="Amount received" error={errors['payment.amount_received']}>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0.00"
+                                        value={data.payment.amount_received}
+                                        onChange={(e) => setData('payment', { ...data.payment, amount_received: e.target.value })}
+                                    />
+                                </Field>
+                                <Field label="Payment method" error={errors['payment.payment_method']}>
+                                    <Select
+                                        value={data.payment.payment_method}
+                                        onValueChange={(v) => setData('payment', { ...data.payment, payment_method: v })}
+                                    >
+                                        <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                                        <SelectContent>
+                                            {PAYMENT_METHODS.map((m) => (
+                                                <SelectItem key={m} value={m.toLowerCase().replace(' ', '_')}>{m}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                                <Field label="Transaction reference" error={errors['payment.transaction_reference']}>
+                                    <Input
+                                        placeholder="TX-12345"
+                                        value={data.payment.transaction_reference}
+                                        onChange={(e) => setData('payment', { ...data.payment, transaction_reference: e.target.value })}
+                                    />
+                                </Field>
+                                <Field label="Payment date" error={errors['payment.paid_at']}>
+                                    <Input
+                                        type="date"
+                                        value={data.payment.paid_at}
+                                        onChange={(e) => setData('payment', { ...data.payment, paid_at: e.target.value })}
+                                    />
+                                </Field>
+                                <Field label="Payment notes" error={errors['payment.notes']} className="md:col-span-2 xl:col-span-3">
+                                    <Textarea
+                                        rows={2}
+                                        value={data.payment.notes}
+                                        onChange={(e) => setData('payment', { ...data.payment, notes: e.target.value })}
+                                    />
+                                </Field>
+                                <div className="md:col-span-2 xl:col-span-4">
+                                    <PaymentProofField
+                                        file={data.payment.receipt}
+                                        error={errors['payment.receipt']}
+                                        onChange={(receipt) => setData('payment', { ...data.payment, receipt })}
+                                    />
+                                </div>
+                            </div>
+                        </section>
+                    )}
 
                     <div className="flex justify-end gap-2.5">
                         <Button type="button" variant="outline" className="h-10 rounded-lg" asChild>
@@ -198,5 +324,92 @@ function Field({
             {children}
             {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
+    );
+}
+
+function firstUploadError(errors: Record<string, string>): string | undefined {
+    if (errors.files) return errors.files;
+    return Object.entries(errors).find(([key]) => key.startsWith('files'))?.[1];
+}
+
+const PROOF_ACCEPT = '.jpg,.jpeg,.png,.pdf';
+const PROOF_EXT = ['jpg', 'jpeg', 'png', 'pdf'];
+const PROOF_MAX_BYTES = 5 * 1024 * 1024;
+
+function PaymentProofField({
+    file,
+    onChange,
+    error,
+}: {
+    file: File | null;
+    onChange: (file: File | null) => void;
+    error?: string;
+}) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [over, setOver] = useState(false);
+
+    function take(incoming?: File) {
+        if (!incoming) return;
+        const ext = incoming.name.split('.').pop()?.toLowerCase() ?? '';
+        if (!PROOF_EXT.includes(ext) || incoming.size > PROOF_MAX_BYTES) return;
+        onChange(incoming);
+    }
+
+    function formatSize(bytes: number) {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    return (
+        <Field label="Payment proof" error={error}>
+            {file ? (
+                <div className="flex items-center gap-2 rounded-xl border border-gray-200/80 bg-[#FAFAF8] px-3 py-2">
+                    <FileText className="h-4 w-4 shrink-0 text-amber-700" />
+                    <span className="min-w-0 flex-1 truncate text-xs text-gray-800">{file.name}</span>
+                    <span className="shrink-0 text-[10px] text-gray-400">{formatSize(file.size)}</span>
+                    <button
+                        type="button"
+                        onClick={() => onChange(null)}
+                        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        aria-label="Remove payment proof"
+                    >
+                        <X className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+                    onDragLeave={() => setOver(false)}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        setOver(false);
+                        take(e.dataTransfer.files[0]);
+                    }}
+                    className={cn(
+                        'flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-5 text-center transition-colors',
+                        over
+                            ? 'border-[#C4A035] bg-amber-50'
+                            : 'border-gray-200 bg-[#FAFAF8] hover:border-[#C4A035]/60 hover:bg-amber-50/40',
+                    )}
+                >
+                    <Upload className={cn('mb-1.5 h-4 w-4', over ? 'text-amber-700' : 'text-gray-400')} />
+                    <span className="text-xs font-medium text-gray-600">Drop screenshot or PDF, or click to browse</span>
+                    <span className="mt-0.5 text-[11px] text-gray-400">JPG, PNG, or PDF · max 5 MB · optional</span>
+                </button>
+            )}
+            <input
+                ref={inputRef}
+                type="file"
+                accept={PROOF_ACCEPT}
+                className="hidden"
+                onChange={(e) => {
+                    take(e.target.files?.[0]);
+                    e.target.value = '';
+                }}
+            />
+        </Field>
     );
 }
