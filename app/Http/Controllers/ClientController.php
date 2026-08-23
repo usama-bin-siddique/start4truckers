@@ -9,10 +9,14 @@ use App\Models\Payment;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\ActivityService;
+use App\Services\DocumentService;
 use App\Services\MonthlyComplianceService;
+use App\Services\NotificationService;
 use App\Support\ClientProfile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,7 +24,9 @@ class ClientController extends Controller
 {
     public function __construct(
         private ActivityService $activity,
-        private MonthlyComplianceService $monthlyCompliance
+        private MonthlyComplianceService $monthlyCompliance,
+        private DocumentService $documents,
+        private NotificationService $notifications,
     ) {}
 
     public function index(Request $request): Response
@@ -79,9 +85,14 @@ class ClientController extends Controller
     {
         $this->authorize('create', Client::class);
 
+        $user = auth()->user();
+
         return Inertia::render('Clients/Create', [
             'users' => User::where('is_active', true)->select('id', 'name', 'role')->get(),
             'profile_options' => ClientProfile::options(),
+            'doc_categories' => Document::CATEGORIES,
+            'can_upload_documents' => $user->can('create', Document::class),
+            'can_add_payment' => $user->can('create', Payment::class),
         ]);
     }
 
@@ -99,28 +110,61 @@ class ClientController extends Controller
         $data['status'] = ClientProfile::normalizeStatus($data['status'] ?? null, Client::STATUS_ONBOARDING);
         $data['compliance_type'] = $data['compliance_type'] ?? null;
 
-        $client = Client::create($data);
+        $hasDocuments = $this->hasCategoryUploads($request);
+        $hasPayment = $this->hasPaymentInput($request);
 
-        $this->activity->log(
-            $client,
-            Activity::ACTION_CLIENT_CREATED,
-            'Client created directly by '.auth()->user()->name
-        );
-
-        if ($client->compliance_type === Client::COMPLIANCE_MONTHLY) {
-            $this->monthlyCompliance->enroll($client->fresh());
+        if ($hasDocuments) {
+            $this->authorize('create', Document::class);
+            $this->validateDocumentUploads($request);
         }
 
-        if ($client->assigned_to) {
+        if ($hasPayment) {
+            $this->authorize('create', Payment::class);
+            $this->validatePaymentInput($request);
+        }
+
+        $client = DB::transaction(function () use ($request, $data, $hasDocuments, $hasPayment) {
+            $client = Client::create($data);
+
             $this->activity->log(
                 $client,
-                Activity::ACTION_LEAD_ASSIGNED,
-                'Client assigned to '.$client->assignedUser?->name
+                Activity::ACTION_CLIENT_CREATED,
+                'Client created directly by '.auth()->user()->name
             );
+
+            if ($client->compliance_type === Client::COMPLIANCE_MONTHLY) {
+                $this->monthlyCompliance->enroll($client->fresh());
+            }
+
+            if ($client->assigned_to) {
+                $this->activity->log(
+                    $client,
+                    Activity::ACTION_LEAD_ASSIGNED,
+                    'Client assigned to '.$client->assignedUser?->name
+                );
+            }
+
+            if ($hasDocuments) {
+                $this->documents->storeCategoryUploads($client, $request->file('files', []) ?? []);
+            }
+
+            if ($hasPayment) {
+                $this->storeOptionalPayment($request, $client);
+            }
+
+            return $client;
+        });
+
+        $message = "Client #{$client->client_number} created.";
+        if ($hasDocuments) {
+            $count = $client->documents()->count();
+            $message .= $count === 1 ? ' 1 document uploaded.' : " {$count} documents uploaded.";
+        }
+        if ($hasPayment) {
+            $message .= ' Payment recorded.';
         }
 
-        return redirect()->route('clients.show', $client)
-            ->with('success', "Client #{$client->client_number} created.");
+        return redirect()->route('clients.show', $client)->with('success', $message);
     }
 
     public function show(Client $client): Response
@@ -437,5 +481,114 @@ class ClientController extends Controller
     private function blankToNull(array $data): array
     {
         return collect($data)->map(fn ($value) => $value === '' ? null : $value)->all();
+    }
+
+    private function hasCategoryUploads(Request $request): bool
+    {
+        $uploads = $request->file('files');
+
+        if (! is_array($uploads) || $uploads === []) {
+            return false;
+        }
+
+        foreach ($uploads as $fileList) {
+            $fileList = is_array($fileList) ? $fileList : [$fileList];
+
+            foreach ($fileList as $file) {
+                if ($file instanceof UploadedFile) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function validateDocumentUploads(Request $request): void
+    {
+        $rules = ['files' => ['required', 'array']];
+
+        foreach (array_keys(Document::CATEGORIES) as $category) {
+            $rules["files.{$category}"] = ['nullable', 'array'];
+            $rules["files.{$category}.*"] = ['file', 'max:20480', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx'];
+        }
+
+        $request->validate($rules);
+    }
+
+    private function hasPaymentInput(Request $request): bool
+    {
+        $payment = $request->input('payment', []);
+        if (! is_array($payment)) {
+            $payment = [];
+        }
+
+        return $request->file('payment.receipt') instanceof UploadedFile
+            || filled($payment['invoice_amount'] ?? null)
+            || filled($payment['amount_received'] ?? null)
+            || filled($payment['payment_method'] ?? null)
+            || filled($payment['transaction_reference'] ?? null)
+            || filled($payment['notes'] ?? null)
+            || filled($payment['paid_at'] ?? null);
+    }
+
+    private function validatePaymentInput(Request $request): void
+    {
+        $request->validate([
+            'payment.invoice_amount'        => ['required', 'numeric', 'min:0'],
+            'payment.amount_received'       => ['nullable', 'numeric', 'min:0'],
+            'payment.payment_method'        => ['nullable', 'string', 'max:50'],
+            'payment.transaction_reference' => ['nullable', 'string', 'max:255'],
+            'payment.notes'                 => ['nullable', 'string'],
+            'payment.paid_at'               => ['nullable', 'date'],
+            'payment.receipt'               => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ]);
+    }
+
+    private function storeOptionalPayment(Request $request, Client $client): Payment
+    {
+        $data = $request->validate([
+            'payment.invoice_amount'        => ['required', 'numeric', 'min:0'],
+            'payment.amount_received'       => ['nullable', 'numeric', 'min:0'],
+            'payment.payment_method'        => ['nullable', 'string', 'max:50'],
+            'payment.transaction_reference' => ['nullable', 'string', 'max:255'],
+            'payment.notes'                 => ['nullable', 'string'],
+            'payment.paid_at'               => ['nullable', 'date'],
+            'payment.receipt'               => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ])['payment'];
+
+        $receipt = $request->file('payment.receipt');
+        unset($data['receipt']);
+
+        $data['client_id'] = $client->id;
+        $data['created_by'] = auth()->id();
+        $data['amount_received'] = $data['amount_received'] ?? 0;
+
+        $payment = Payment::create($data);
+
+        if ($receipt instanceof UploadedFile) {
+            $payment->update([
+                'receipt_path' => $receipt->store("clients/{$client->id}/receipts", 'private'),
+            ]);
+        }
+
+        $proofNote = $receipt ? ' with payment proof' : '';
+        $this->activity->log(
+            $client,
+            Activity::ACTION_PAYMENT_CREATED,
+            "Payment of \${$payment->invoice_amount} created (received: \${$payment->amount_received}){$proofNote}"
+        );
+
+        if ((float) $payment->amount_received > 0) {
+            $this->notifications->notifyClientStakeholders($client, NotificationService::TYPE_PAYMENT_RECEIVED, [
+                'payment_id'    => $payment->id,
+                'client_id'     => $client->id,
+                'client_name'   => $client->display_name,
+                'client_number' => $client->client_number,
+                'amount'        => $payment->amount_received,
+            ]);
+        }
+
+        return $payment;
     }
 }
