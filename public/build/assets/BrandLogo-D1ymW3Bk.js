@@ -1,0 +1,1 @@
+import{n as e,t}from"./jsx-runtime-Dvf2IK11.js";var n=t(),r=`/images/logo.png`;function i({className:t,alt:i=`Start4Truckers`}){return(0,n.jsx)(`img`,{src:r,alt:i,className:e(`object-contain`,t)})}export{i as t};
