@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Filter, X, DollarSign, TrendingUp, AlertCircle, Download, Receipt, GitBranch } from 'lucide-react';
+import { Search, Filter, X, DollarSign, TrendingUp, AlertCircle, Download, Receipt, GitBranch, Plus, FileText, Upload } from 'lucide-react';
 import PrintInvoiceLink from '@/components/PrintInvoiceLink';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +37,7 @@ interface Payment {
 interface Paginator<T> { data: T[]; total: number; last_page: number; links: { url: string | null; label: string; active: boolean }[] }
 interface Totals { invoiced: number; received: number; balance: number }
 interface Filters { search?: string; method?: string; date_from?: string; date_to?: string }
+interface PaymentClient { id: number; client_number: string | null; name: string; company: string | null }
 
 const METHOD_LABELS: Record<string, string> = {
     cash: 'Cash', check: 'Check', zelle: 'Zelle', venmo: 'Venmo',
@@ -137,10 +140,23 @@ function DetailField({ label, value }: { label: string; value: string }) {
     );
 }
 
-export default function PaymentsIndex({ payments, totals, filters }: { payments: Paginator<Payment>; totals: Totals; filters: Filters }) {
+export default function PaymentsIndex({
+    payments,
+    totals,
+    filters,
+    clients = [],
+    can_create = false,
+}: {
+    payments: Paginator<Payment>;
+    totals: Totals;
+    filters: Filters;
+    clients?: PaymentClient[];
+    can_create?: boolean;
+}) {
     const [showFilters, setShowFilters] = useState(false);
     const [search, setSearch] = useState(filters.search ?? '');
     const [selected, setSelected] = useState<Payment | null>(null);
+    const [addOpen, setAddOpen] = useState(false);
     const hasFilters = Object.values(filters).some(Boolean);
 
     useEffect(() => {
@@ -187,6 +203,15 @@ export default function PaymentsIndex({ payments, totals, filters }: { payments:
                                 Track invoices, receipts, and outstanding balances.
                             </p>
                         </div>
+                        {can_create && (
+                            <button
+                                type="button"
+                                onClick={() => setAddOpen(true)}
+                                className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
+                            >
+                                <Plus className="h-4 w-4" /> Add payment
+                            </button>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -349,6 +374,226 @@ export default function PaymentsIndex({ payments, totals, filters }: { payments:
             </AppLayout>
 
             <PaymentDetail payment={selected} onClose={() => setSelected(null)} />
+            {can_create && (
+                <AddPaymentDialog
+                    open={addOpen}
+                    clients={clients}
+                    onClose={() => setAddOpen(false)}
+                />
+            )}
         </>
+    );
+}
+
+function AddPaymentDialog({
+    open,
+    clients,
+    onClose,
+}: {
+    open: boolean;
+    clients: PaymentClient[];
+    onClose: () => void;
+}) {
+    const [clientQuery, setClientQuery] = useState('');
+    const form = useForm({
+        client_id: '',
+        invoice_amount: '',
+        amount_received: '',
+        payment_method: '',
+        transaction_reference: '',
+        notes: '',
+        paid_at: '',
+        receipt: null as File | null,
+        return_to: 'payments',
+    });
+
+    const filteredClients = clients.filter((c) => {
+        const q = clientQuery.trim().toLowerCase();
+        if (!q) return true;
+        return [c.name, c.company, c.client_number].some((v) => (v ?? '').toLowerCase().includes(q));
+    });
+
+    function submit(e: React.FormEvent) {
+        e.preventDefault();
+        form.post('/payments', {
+            forceFormData: true,
+            onSuccess: () => {
+                form.reset();
+                setClientQuery('');
+                onClose();
+            },
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={(next) => { if (!next) { form.reset(); setClientQuery(''); onClose(); } }}>
+            <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Add payment</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={submit} className="space-y-3">
+                    <Field label="Client *" error={form.errors.client_id}>
+                        {clients.length > 8 && (
+                            <Input
+                                type="search"
+                                placeholder="Search client name or ID…"
+                                className="mb-2 h-9"
+                                value={clientQuery}
+                                onChange={(e) => setClientQuery(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                            />
+                        )}
+                        <Select value={form.data.client_id || undefined} onValueChange={(v) => form.setData('client_id', v)}>
+                            <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                            <SelectContent>
+                                {filteredClients.length === 0 ? (
+                                    <div className="px-3 py-2 text-sm text-gray-400">No matching clients</div>
+                                ) : filteredClients.map((c) => (
+                                    <SelectItem key={c.id} value={String(c.id)}>
+                                        {c.name}{c.client_number ? ` · ${c.client_number}` : ''}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </Field>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Field label="Invoice amount *" error={form.errors.invoice_amount}>
+                            <Input type="number" step="0.01" min="0" placeholder="0.00" value={form.data.invoice_amount} onChange={(e) => form.setData('invoice_amount', e.target.value)} />
+                        </Field>
+                        <Field label="Amount received" error={form.errors.amount_received}>
+                            <Input type="number" step="0.01" min="0" placeholder="0.00" value={form.data.amount_received} onChange={(e) => form.setData('amount_received', e.target.value)} />
+                        </Field>
+                    </div>
+                    <Field label="Payment method" error={form.errors.payment_method}>
+                        <Select value={form.data.payment_method || undefined} onValueChange={(v) => form.setData('payment_method', v)}>
+                            <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                            <SelectContent>
+                                {Object.entries(METHOD_LABELS).map(([k, v]) => (
+                                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </Field>
+                    <Field label="Transaction reference" error={form.errors.transaction_reference}>
+                        <Input placeholder="TX-12345" value={form.data.transaction_reference} onChange={(e) => form.setData('transaction_reference', e.target.value)} />
+                    </Field>
+                    <Field label="Payment date" error={form.errors.paid_at}>
+                        <Input type="date" value={form.data.paid_at} onChange={(e) => form.setData('paid_at', e.target.value)} />
+                    </Field>
+                    <Field label="Notes" error={form.errors.notes}>
+                        <Textarea rows={2} value={form.data.notes} onChange={(e) => form.setData('notes', e.target.value)} />
+                    </Field>
+                    <PaymentProofField
+                        file={form.data.receipt}
+                        error={form.errors.receipt}
+                        onChange={(file) => form.setData('receipt', file)}
+                    />
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                        <Button type="submit" disabled={form.processing || clients.length === 0}>Save payment</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function Field({
+    label,
+    error,
+    children,
+}: {
+    label: string;
+    error?: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="space-y-1.5">
+            <Label className="text-[13px] font-medium text-gray-600">{label}</Label>
+            {children}
+            {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
+    );
+}
+
+const PROOF_ACCEPT = '.jpg,.jpeg,.png,.pdf';
+const PROOF_EXT = ['jpg', 'jpeg', 'png', 'pdf'];
+const PROOF_MAX_BYTES = 5 * 1024 * 1024;
+
+function PaymentProofField({
+    file,
+    onChange,
+    error,
+}: {
+    file: File | null;
+    onChange: (file: File | null) => void;
+    error?: string;
+}) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [over, setOver] = useState(false);
+
+    function take(incoming?: File) {
+        if (!incoming) return;
+        const ext = incoming.name.split('.').pop()?.toLowerCase() ?? '';
+        if (!PROOF_EXT.includes(ext) || incoming.size > PROOF_MAX_BYTES) return;
+        onChange(incoming);
+    }
+
+    function formatSize(bytes: number) {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    return (
+        <Field label="Payment proof" error={error}>
+            {file ? (
+                <div className="flex items-center gap-2 rounded-xl border border-gray-200/80 bg-[#FAFAF8] px-3 py-2">
+                    <FileText className="h-4 w-4 shrink-0 text-amber-700" />
+                    <span className="min-w-0 flex-1 truncate text-xs text-gray-800">{file.name}</span>
+                    <span className="shrink-0 text-[10px] text-gray-400">{formatSize(file.size)}</span>
+                    <button
+                        type="button"
+                        onClick={() => onChange(null)}
+                        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        aria-label="Remove payment proof"
+                    >
+                        <X className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+                    onDragLeave={() => setOver(false)}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        setOver(false);
+                        take(e.dataTransfer.files[0]);
+                    }}
+                    className={cn(
+                        'flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-5 text-center transition-colors',
+                        over
+                            ? 'border-[#C4A035] bg-amber-50'
+                            : 'border-gray-200 bg-[#FAFAF8] hover:border-[#C4A035]/60 hover:bg-amber-50/40',
+                    )}
+                >
+                    <Upload className={cn('mb-1.5 h-4 w-4', over ? 'text-amber-700' : 'text-gray-400')} />
+                    <span className="text-xs font-medium text-gray-600">Drop screenshot or PDF, or click to browse</span>
+                    <span className="mt-0.5 text-[11px] text-gray-400">JPG, PNG, or PDF · max 5 MB · optional</span>
+                </button>
+            )}
+            <input
+                ref={inputRef}
+                type="file"
+                accept={PROOF_ACCEPT}
+                className="hidden"
+                onChange={(e) => {
+                    take(e.target.files?.[0]);
+                    e.target.value = '';
+                }}
+            />
+        </Field>
     );
 }
