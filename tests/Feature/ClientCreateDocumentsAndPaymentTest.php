@@ -56,9 +56,12 @@ class ClientCreateDocumentsAndPaymentTest extends TestCase
 
         $this->actingAs($admin)
             ->post('/clients', [
-                'name'  => 'Docs Client',
-                'files' => [
-                    'w9' => [$file],
+                'name'      => 'Docs Client',
+                'documents' => [
+                    [
+                        'category' => 'w9',
+                        'file'     => $file,
+                    ],
                 ],
             ])
             ->assertRedirect();
@@ -71,6 +74,80 @@ class ClientCreateDocumentsAndPaymentTest extends TestCase
             'category'           => 'w9',
             'original_filename'  => 'w9.pdf',
         ]);
+    }
+
+    public function test_multiple_document_rows_keep_their_types(): void
+    {
+        Storage::fake('private');
+
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $w9 = UploadedFile::fake()->create('w9.pdf', 40, 'application/pdf');
+        $insurance = UploadedFile::fake()->create('coi.pdf', 40, 'application/pdf');
+
+        $this->actingAs($admin)
+            ->post('/clients', [
+                'name'      => 'Multi Docs Client',
+                'documents' => [
+                    ['category' => 'w9', 'file' => $w9],
+                    ['category' => 'insurance', 'file' => $insurance],
+                ],
+            ])
+            ->assertRedirect();
+
+        $client = Client::where('name', 'Multi Docs Client')->first();
+        $this->assertNotNull($client);
+        $this->assertSame(2, Document::where('client_id', $client->id)->count());
+        $this->assertDatabaseHas('documents', [
+            'client_id'         => $client->id,
+            'category'          => 'w9',
+            'original_filename' => 'w9.pdf',
+        ]);
+        $this->assertDatabaseHas('documents', [
+            'client_id'         => $client->id,
+            'category'          => 'insurance',
+            'original_filename' => 'coi.pdf',
+        ]);
+    }
+
+    public function test_custom_document_type_is_stored_when_creating_a_client(): void
+    {
+        Storage::fake('private');
+
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $file = UploadedFile::fake()->create('bol.pdf', 40, 'application/pdf');
+
+        $this->actingAs($admin)
+            ->post('/clients', [
+                'name'      => 'Custom Type Client',
+                'documents' => [
+                    ['category' => 'Bill of Lading', 'file' => $file],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('documents', [
+            'category'          => 'Bill of Lading',
+            'original_filename' => 'bol.pdf',
+        ]);
+    }
+
+    public function test_document_row_without_a_type_does_not_create_the_client(): void
+    {
+        Storage::fake('private');
+
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $file = UploadedFile::fake()->create('w9.pdf', 40, 'application/pdf');
+
+        $this->actingAs($admin)
+            ->post('/clients', [
+                'name'      => 'Missing Type Client',
+                'documents' => [
+                    ['category' => '', 'file' => $file],
+                ],
+            ])
+            ->assertSessionHasErrors('documents.0.category');
+
+        $this->assertNull(Client::where('name', 'Missing Type Client')->first());
     }
 
     public function test_optional_payment_is_recorded_when_creating_a_client(): void

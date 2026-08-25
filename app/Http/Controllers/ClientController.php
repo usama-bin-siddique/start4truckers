@@ -110,12 +110,18 @@ class ClientController extends Controller
         $data['status'] = ClientProfile::normalizeStatus($data['status'] ?? null, Client::STATUS_ONBOARDING);
         $data['compliance_type'] = $data['compliance_type'] ?? null;
 
-        $hasDocuments = $this->hasCategoryUploads($request);
+        $hasDocumentRows = $this->documents->hasDocumentRows($request);
+        $hasDocuments = $hasDocumentRows || $this->hasCategoryUploads($request);
         $hasPayment = $this->hasPaymentInput($request);
+        $documentRows = [];
 
         if ($hasDocuments) {
             $this->authorize('create', Document::class);
-            $this->validateDocumentUploads($request);
+            if ($hasDocumentRows) {
+                $documentRows = $this->documents->validateDocumentRows($request);
+            } else {
+                $this->validateDocumentUploads($request);
+            }
         }
 
         if ($hasPayment) {
@@ -123,7 +129,7 @@ class ClientController extends Controller
             $this->validatePaymentInput($request);
         }
 
-        $client = DB::transaction(function () use ($request, $data, $hasDocuments, $hasPayment) {
+        $client = DB::transaction(function () use ($request, $data, $hasDocuments, $hasDocumentRows, $documentRows, $hasPayment) {
             $client = Client::create($data);
 
             $this->activity->log(
@@ -145,7 +151,11 @@ class ClientController extends Controller
             }
 
             if ($hasDocuments) {
-                $this->documents->storeCategoryUploads($client, $request->file('files', []) ?? []);
+                if ($hasDocumentRows) {
+                    $this->documents->storeDocumentRows($client, $documentRows);
+                } else {
+                    $this->documents->storeCategoryUploads($client, $request->file('files', []) ?? []);
+                }
             }
 
             if ($hasPayment) {
@@ -506,6 +516,12 @@ class ClientController extends Controller
 
     private function validateDocumentUploads(Request $request): void
     {
+        if ($this->documents->hasDocumentRows($request)) {
+            $this->documents->validateDocumentRows($request);
+
+            return;
+        }
+
         $rules = ['files' => ['required', 'array']];
 
         foreach (array_keys(Document::CATEGORIES) as $category) {

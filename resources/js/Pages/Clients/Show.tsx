@@ -13,7 +13,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import ActivityTimeline from '@/components/ActivityTimeline';
 import LeadStatusBadge from '@/components/LeadStatusBadge';
-import CategoryDropzones, { queuedFileCount } from '@/components/CategoryDropzones';
+import DocumentUploadRows, {
+    emptyDocumentRow,
+    queuedDocumentCount,
+    toDocumentPayload,
+    type DocumentUploadRow,
+} from '@/components/DocumentUploadRows';
 import {
     ChevronLeft, Phone, Mail, Building, MapPin, Briefcase, Globe, Edit,
     DollarSign, FileText, CheckSquare, Clock, AlertCircle, CheckCircle2, Circle, GitBranch,
@@ -852,21 +857,19 @@ function OperationsTab({
 }
 
 function DocumentsTab({ clientId, documents, categories, canUpload }: { clientId: number; documents: Document[]; categories: Record<string, string>; canUpload: boolean }) {
-    const [open, setOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<Document | null>(null);
-    const [files, setFiles] = useState<Record<string, File[]>>({});
+    const [rows, setRows] = useState<DocumentUploadRow[]>([emptyDocumentRow()]);
     const [processing, setProcessing] = useState(false);
     const errors = usePage().props.errors as Record<string, string>;
-    const queued = queuedFileCount(files);
-    const uploadError = firstUploadError(errors);
+    const queued = queuedDocumentCount(rows);
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
         setProcessing(true);
-        router.post('/documents', { client_id: clientId, files }, {
+        router.post('/documents', { client_id: clientId, documents: toDocumentPayload(rows) }, {
             forceFormData: true,
             preserveScroll: true,
-            onSuccess: () => { setFiles({}); setOpen(false); },
+            onSuccess: () => setRows([emptyDocumentRow()]),
             onFinish: () => setProcessing(false),
         });
     }
@@ -878,23 +881,14 @@ function DocumentsTab({ clientId, documents, categories, canUpload }: { clientId
 
     return (
         <div className="space-y-4">
-            {canUpload && (
-                <div className="flex justify-end">
-                    <button
-                        type="button"
-                        onClick={() => setOpen(true)}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
-                    >
-                        Upload documents
-                    </button>
-                </div>
+            {documents.length === 0 && !canUpload && (
+                <section className="flex h-48 items-center justify-center rounded-2xl border border-gray-200/80 bg-white text-sm text-gray-400 shadow-sm">
+                    No documents uploaded yet
+                </section>
             )}
+            {documents.length > 0 && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {documents.length === 0 ? (
-                    <section className="col-span-full flex h-48 items-center justify-center rounded-2xl border border-gray-200/80 bg-white text-sm text-gray-400 shadow-sm">
-                        No documents uploaded yet
-                    </section>
-                ) : documents.map((doc) => (
+                {documents.map((doc) => (
                     <section key={doc.id} className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm">
                         <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -919,35 +913,40 @@ function DocumentsTab({ clientId, documents, categories, canUpload }: { clientId
                     </section>
                 ))}
             </div>
+            )}
 
-            <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setFiles({}); }}>
-                <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
-                    <DialogHeader className="border-b border-gray-100 px-6 py-5">
-                        <DialogTitle>Upload documents</DialogTitle>
-                        <p className="text-sm text-gray-500">Drop files into every category you need. All selected files upload together.</p>
-                    </DialogHeader>
-                    <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-                        <div className="flex-1 overflow-y-auto px-6 py-5">
-                            <CategoryDropzones
-                                categories={categories}
-                                files={files}
-                                onChange={setFiles}
-                                error={uploadError}
-                            />
+            {canUpload && (
+                <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h3 className="text-base font-semibold text-gray-950">Add documents</h3>
+                            <p className="mt-1 text-sm text-gray-400">Each file needs a document type. Use + to add another row.</p>
                         </div>
-                        <DialogFooter className="border-t border-gray-100 px-6 py-4">
-                            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                        {queued > 0 && (
+                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+                                {queued} file{queued === 1 ? '' : 's'} ready
+                            </span>
+                        )}
+                    </div>
+                    <form onSubmit={submit} className="mt-6 space-y-4">
+                        <DocumentUploadRows
+                            categories={categories}
+                            rows={rows}
+                            onChange={setRows}
+                            errors={errors}
+                        />
+                        <div className="flex justify-end">
                             <button
                                 type="submit"
                                 disabled={processing || queued === 0}
-                                className="inline-flex items-center rounded-lg bg-[#12141D] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black disabled:opacity-50"
+                                className="inline-flex items-center rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black disabled:opacity-50"
                             >
                                 {processing ? 'Uploading…' : queued === 0 ? 'Upload' : `Upload ${queued} file${queued === 1 ? '' : 's'}`}
                             </button>
-                        </DialogFooter>
+                        </div>
                     </form>
-                </DialogContent>
-            </Dialog>
+                </section>
+            )}
 
             <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
                 <AlertDialogContent>
@@ -1099,13 +1098,6 @@ function Field({ label, error, children }: { label: string; error?: string; chil
             {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
     );
-}
-
-function firstUploadError(errors: Record<string, string>): string | undefined {
-    if (errors.files) return errors.files;
-    if (errors.file) return errors.file;
-    if (errors.category) return errors.category;
-    return Object.entries(errors).find(([key]) => key.startsWith('files'))?.[1];
 }
 
 const PROOF_ACCEPT = '.jpg,.jpeg,.png,.pdf';

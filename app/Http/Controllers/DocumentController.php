@@ -94,6 +94,10 @@ class DocumentController extends Controller
     {
         $this->authorize('create', Document::class);
 
+        if ($this->documents->hasDocumentRows($request)) {
+            return $this->storeRows($request);
+        }
+
         if ($this->hasCategoryUploads($request)) {
             return $this->storeBulk($request);
         }
@@ -114,6 +118,31 @@ class DocumentController extends Controller
         $this->documents->storeFor($owner, $request->input('category'), $request->file('file'));
 
         return $this->flashedBack('Document uploaded.');
+    }
+
+    private function storeRows(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'client_id' => ['nullable', 'exists:clients,id', 'required_without:lead_id'],
+            'lead_id'   => ['nullable', 'exists:leads,id', 'required_without:client_id'],
+        ]);
+
+        $owner = $request->filled('lead_id')
+            ? Lead::findOrFail($request->lead_id)
+            : Client::findOrFail($request->client_id);
+
+        $this->authorize('view', $owner);
+
+        $rows = $this->documents->validateDocumentRows($request);
+
+        $stored = [];
+        DB::transaction(function () use ($owner, $rows, &$stored) {
+            $stored = $this->documents->storeDocumentRows($owner, $rows);
+        });
+
+        $count = count($stored);
+
+        return $this->flashedBack($count === 1 ? 'Document uploaded.' : "{$count} documents uploaded.");
     }
 
     private function storeBulk(Request $request): RedirectResponse

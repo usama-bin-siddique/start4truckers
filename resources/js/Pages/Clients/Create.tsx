@@ -6,7 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import CategoryDropzones, { queuedFileCount } from '@/components/CategoryDropzones';
+import DocumentUploadRows, {
+    emptyDocumentRow,
+    queuedDocumentCount,
+    toDocumentPayload,
+    type DocumentUploadRow,
+} from '@/components/DocumentUploadRows';
 import { ChevronLeft, DollarSign, FileText, GitBranch, Upload, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -41,12 +46,12 @@ export default function ClientCreate({
 }) {
     const { auth } = usePage<{ auth: { user: { id: number; role: string } } }>().props;
     const isSales = auth.user.role === 'sales';
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors, transform } = useForm({
         name: '', phone: '', email: '', state: '', address: '',
         company: '', ein: '', usdot_number: '', mc_number: '',
         notes: '', compliance_type: '', status: 'onboarding',
         assigned_to: isSales ? String(auth.user.id) : '',
-        files: {} as Record<string, File[]>,
+        documents: [emptyDocumentRow()] as DocumentUploadRow[],
         payment: {
             invoice_amount: '',
             amount_received: '',
@@ -58,11 +63,15 @@ export default function ClientCreate({
         },
     });
 
-    const queued = queuedFileCount(data.files);
-    const uploadError = firstUploadError(errors as Record<string, string>);
+    const queued = queuedDocumentCount(data.documents);
+    const uploadErrors = errors as Record<string, string>;
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+        transform((form) => ({
+            ...form,
+            documents: toDocumentPayload(form.documents),
+        }));
         post('/clients', { forceFormData: true });
     }
 
@@ -196,7 +205,7 @@ export default function ClientCreate({
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
                                     <h3 className="text-base font-semibold text-gray-950">Documents</h3>
-                                    <p className="mt-1 text-sm text-gray-400">Optional. Drop files into a category, or skip and upload later.</p>
+                                    <p className="mt-1 text-sm text-gray-400">Optional. Add a file and document type for each row, or skip and upload later.</p>
                                 </div>
                                 {queued > 0 && (
                                     <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
@@ -205,11 +214,11 @@ export default function ClientCreate({
                                 )}
                             </div>
                             <div className="mt-6">
-                                <CategoryDropzones
+                                <DocumentUploadRows
                                     categories={doc_categories}
-                                    files={data.files}
-                                    onChange={(files) => setData('files', files)}
-                                    error={uploadError}
+                                    rows={data.documents}
+                                    onChange={(documents) => setData('documents', documents)}
+                                    errors={uploadErrors}
                                 />
                             </div>
                         </section>
@@ -325,11 +334,6 @@ function Field({
             {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
     );
-}
-
-function firstUploadError(errors: Record<string, string>): string | undefined {
-    if (errors.files) return errors.files;
-    return Object.entries(errors).find(([key]) => key.startsWith('files'))?.[1];
 }
 
 const PROOF_ACCEPT = '.jpg,.jpeg,.png,.pdf';
