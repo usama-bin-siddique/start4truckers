@@ -87,6 +87,18 @@ class PaymentController extends Controller
                 'has_receipt'           => ! empty($p->receipt_path),
                 'created_at'            => $p->created_at->toDateString(),
             ]),
+            'clients' => Client::query()
+                ->with('lead')
+                ->visibleTo($user)
+                ->orderBy('name')
+                ->get(['id', 'client_number', 'name', 'company', 'lead_id'])
+                ->map(fn (Client $c) => [
+                    'id'            => $c->id,
+                    'client_number' => $c->client_number,
+                    'name'          => $c->display_name,
+                    'company'       => $c->company,
+                ]),
+            'can_create' => $user->can('create', Payment::class),
             'totals'   => [
                 'invoiced'  => (float) ($totals->total_invoiced ?? 0),
                 'received'  => (float) ($totals->total_received ?? 0),
@@ -109,10 +121,12 @@ class PaymentController extends Controller
             'notes'                 => ['nullable', 'string'],
             'paid_at'               => ['nullable', 'date'],
             'receipt'               => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'return_to'             => ['nullable', 'in:payments'],
         ]);
 
         $receipt = $request->file('receipt');
-        unset($data['receipt']);
+        $returnTo = $data['return_to'] ?? null;
+        unset($data['receipt'], $data['return_to']);
 
         $client = Client::findOrFail($data['client_id']);
         $this->authorize('view', $client);
@@ -141,6 +155,10 @@ class PaymentController extends Controller
                 'client_number' => $client->client_number,
                 'amount'        => $payment->amount_received,
             ]);
+        }
+
+        if ($returnTo === 'payments') {
+            return redirect()->route('payments.index')->with('success', 'Payment recorded.');
         }
 
         return redirect()->route('clients.show', $client)

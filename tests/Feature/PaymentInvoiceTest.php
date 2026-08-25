@@ -77,6 +77,8 @@ class PaymentInvoiceTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Payments/Index')
                 ->has('payments.data', 1)
+                ->where('can_create', true)
+                ->has('clients', 1)
                 ->where('payments.data.0.id', $payment->id)
                 ->where('payments.data.0.client_id', $client->id)
                 ->where('payments.data.0.client_number', $client->client_number)
@@ -89,5 +91,34 @@ class PaymentInvoiceTest extends TestCase
                 ->where('payments.data.0.assigned_user', 'Assigned Sales')
                 ->where('payments.data.0.services.0', 'DOT Authority')
             );
+    }
+
+    public function test_payment_can_be_added_manually_from_the_payments_page(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $client = Client::create([
+            'name'   => 'Walk-in Client',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($admin)
+            ->from('/payments')
+            ->post('/payments', [
+                'client_id'       => $client->id,
+                'invoice_amount'  => 350,
+                'amount_received' => 350,
+                'payment_method'  => 'cash',
+                'return_to'       => 'payments',
+            ])
+            ->assertRedirect(route('payments.index'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('payments', [
+            'client_id'       => $client->id,
+            'invoice_amount'  => 350,
+            'amount_received' => 350,
+            'payment_method'  => 'cash',
+            'created_by'      => $admin->id,
+        ]);
     }
 }
