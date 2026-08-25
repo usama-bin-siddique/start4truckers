@@ -91,6 +91,23 @@ class Document extends Model
         return $this->belongsTo(User::class, 'uploaded_by');
     }
 
+    public static function normalizeCategory(string $value): string
+    {
+        $value = trim($value);
+
+        if ($value === '' || $value === '__custom__') {
+            return '';
+        }
+
+        if (isset(self::CATEGORIES[$value])) {
+            return $value;
+        }
+
+        $byLabel = array_search($value, self::CATEGORIES, true);
+
+        return $byLabel !== false ? $byLabel : $value;
+    }
+
     public function getCategoryLabelAttribute(): string
     {
         return self::CATEGORIES[$this->category] ?? $this->category;

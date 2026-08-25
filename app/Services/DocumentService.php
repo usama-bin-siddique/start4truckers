@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Document;
 use App\Models\Lead;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -26,10 +27,18 @@ class DocumentService
 
         $path = $file->store($folder, 'private');
 
+        $normalized = Document::normalizeCategory($category);
+
+        if ($normalized === '') {
+            throw ValidationException::withMessages([
+                'category' => 'A document type is required.',
+            ]);
+        }
+
         $document = Document::create([
             'lead_id'           => $owner instanceof Lead ? $owner->id : $owner->lead_id,
             'client_id'         => $owner instanceof Client ? $owner->id : null,
-            'category'          => $category,
+            'category'          => $normalized,
             'original_filename' => $file->getClientOriginalName(),
             'stored_path'       => $path,
             'mime_type'         => $file->getMimeType(),
@@ -71,6 +80,131 @@ class DocumentService
         }
 
         return $document;
+    }
+
+    /**
+     * @return list<array{index: int, file: UploadedFile|null, category: string}>
+     */
+    public function documentRowsFromRequest(Request $request): array
+    {
+        $inputs = $request->input('documents', []);
+        if (! is_array($inputs)) {
+            $inputs = [];
+        }
+
+        $files = $request->file('documents', []);
+        if (! is_array($files)) {
+            $files = [];
+        }
+
+        $indexes = array_unique(array_merge(array_keys($inputs), array_keys($files)));
+        sort($indexes);
+
+        $rows = [];
+
+        foreach ($indexes as $index) {
+            if (! is_int($index) && ! ctype_digit((string) $index)) {
+                continue;
+            }
+
+            $index = (int) $index;
+            $file = $files[$index]['file'] ?? null;
+            $category = is_array($inputs[$index] ?? null)
+                ? trim((string) ($inputs[$index]['category'] ?? ''))
+                : '';
+
+            if (! $file instanceof UploadedFile && $category === '') {
+                continue;
+            }
+
+            $rows[] = [
+                'index'    => $index,
+                'file'     => $file instanceof UploadedFile ? $file : null,
+                'category' => $category,
+            ];
+        }
+
+        return $rows;
+    }
+
+    public function hasDocumentRows(Request $request): bool
+    {
+        foreach ($this->documentRowsFromRequest($request) as $row) {
+            if ($row['file'] instanceof UploadedFile) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<array{index: int, file: UploadedFile, category: string}>
+     */
+    public function validateDocumentRows(Request $request): array
+    {
+        $request->validate([
+            'documents'            => ['required', 'array'],
+            'documents.*.file'     => ['nullable', 'file', 'max:20480', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx'],
+            'documents.*.category' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $errors = [];
+        $ready  = [];
+
+        foreach ($this->documentRowsFromRequest($request) as $row) {
+            $i = $row['index'];
+
+            if (! $row['file'] instanceof UploadedFile) {
+                $errors["documents.{$i}.file"] = 'Choose a file for this document.';
+                continue;
+            }
+
+            $category = Document::normalizeCategory($row['category']);
+
+            if ($category === '') {
+                $errors["documents.{$i}.category"] = 'Choose or enter a document type.';
+                continue;
+            }
+
+            $ready[] = [
+                'index'    => $i,
+                'file'     => $row['file'],
+                'category' => $category,
+            ];
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        if ($ready === []) {
+            throw ValidationException::withMessages([
+                'documents' => 'Add at least one document, or leave this section empty.',
+            ]);
+        }
+
+        return $ready;
+    }
+
+    /**
+     * @param  list<array{file: UploadedFile, category: string}>  $rows
+     * @return list<Document>
+     */
+    public function storeDocumentRows(Lead|Client $owner, array $rows, ?int $uploadedBy = null): array
+    {
+        $stored = [];
+
+        foreach ($rows as $row) {
+            $file = $row['file'] ?? null;
+            $category = (string) ($row['category'] ?? '');
+
+            if ($file instanceof UploadedFile && $category !== '') {
+                $stored[] = $this->storeFor($owner, $category, $file, $uploadedBy);
+            }
+        }
+
+        return $stored;
     }
 
     /**
