@@ -22,6 +22,7 @@ const actionIcon: Record<string, React.ReactNode> = {
     note_added:         <StickyNote size={13} />,
     payment_created:    <DollarSign size={13} />,
     payment_updated:    <DollarSign size={13} />,
+    payment_deleted:    <DollarSign size={13} />,
     sla_started:        <Clock size={13} />,
     sla_met:            <CheckSquare size={13} />,
     sla_breached:       <Zap size={13} />,
@@ -35,6 +36,11 @@ const actionIcon: Record<string, React.ReactNode> = {
     service_assigned:   <Briefcase size={13} />,
     client_created:     <Zap size={13} />,
     lead_linked:        <Link2 size={13} />,
+    reminder_created:   <Clock size={13} />,
+    reminder_deleted:   <Clock size={13} />,
+    custom_field_added: <StickyNote size={13} />,
+    custom_field_updated: <StickyNote size={13} />,
+    custom_field_deleted: <StickyNote size={13} />,
 };
 
 const actionColor: Record<string, string> = {
@@ -44,6 +50,7 @@ const actionColor: Record<string, string> = {
     note_added:         'bg-gray-100 text-gray-600',
     payment_created:    'bg-green-100 text-green-600',
     payment_updated:    'bg-green-100 text-green-600',
+    payment_deleted:    'bg-red-100 text-red-600',
     sla_started:        'bg-amber-100 text-amber-700',
     sla_met:            'bg-emerald-100 text-emerald-700',
     sla_breached:       'bg-red-100 text-red-600',
@@ -57,6 +64,11 @@ const actionColor: Record<string, string> = {
     service_assigned:   'bg-sky-100 text-sky-700',
     client_created:     'bg-violet-100 text-violet-600',
     lead_linked:        'bg-amber-100 text-amber-700',
+    reminder_created:   'bg-amber-100 text-amber-700',
+    reminder_deleted:   'bg-gray-100 text-gray-600',
+    custom_field_added: 'bg-sky-100 text-sky-700',
+    custom_field_updated: 'bg-sky-100 text-sky-700',
+    custom_field_deleted: 'bg-gray-100 text-gray-600',
 };
 
 function statusFromActivity(a: Activity): string | null {

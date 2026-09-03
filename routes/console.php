@@ -10,4 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('leads:check-sla')->everyMinute();
 Schedule::command('tasks:send-reminders')->everyMinute();
-Schedule::command('compliance:send-reminders')->hourly();
+Schedule::command('client-reminders:send')->everyMinute();

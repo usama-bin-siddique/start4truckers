@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Truck } from 'lucide-react';
+import { Plus, Truck, Eye, EyeOff, SquarePen, Trash2 } from 'lucide-react';
 
 export interface ProfileOptions {
     statuses: Record<string, string>;
@@ -16,7 +17,7 @@ export interface ProfileOptions {
     citizenship_statuses: Record<string, string>;
     entity_types: Record<string, string>;
     authority_statuses: Record<string, string>;
-    account_statuses: Record<string, string>;
+    fmcsa_authority_types?: Record<string, string>;
     truck_types: Record<string, string>;
     eld_statuses: Record<string, string>;
     us_states: string[];
@@ -101,13 +102,16 @@ interface ProfileClient {
     next_action: string | null;
     next_action_due_at: string | null;
     login_gov_email: string | null;
-    motus_account_email: string | null;
-    fmcsa_account_email: string | null;
-    portal_username: string | null;
-    account_status: string | null;
-    account_last_verified_at: string | null;
+    login_gov_password: string | null;
     vehicles: Vehicle[];
+    custom_fields?: CustomField[];
 }
+
+export type CustomField = {
+    id: number;
+    label: string;
+    value: string | null;
+};
 
 function val(value: string | null | undefined): string {
     return value ?? '';
@@ -151,13 +155,12 @@ export function OptionSelect({
     placeholder?: string;
     allowEmpty?: boolean;
 }) {
-    const entries = Array.isArray(options) ? options.map((v) => [v, v] as const) : Object.entries(options);
+    const entries = Array.isArray(options) ? options.map((v) => [v, v] as const) : Object.entries(options ?? {});
 
     return (
-        <Select value={value} onValueChange={onChange}>
-            <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+        <Select value={value || undefined} onValueChange={onChange}>
+            <SelectTrigger><SelectValue placeholder={allowEmpty ? 'Not set' : placeholder} /></SelectTrigger>
             <SelectContent>
-                {allowEmpty && <SelectItem value="">Not set</SelectItem>}
                 {entries.map(([key, label]) => (
                     <SelectItem key={key} value={key}>{label}</SelectItem>
                 ))}
@@ -171,6 +174,55 @@ function Display({ label, value }: { label: string; value: React.ReactNode }) {
         <div>
             <p className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">{label}</p>
             <p className="mt-0.5 whitespace-pre-wrap text-sm text-gray-900">{value || '—'}</p>
+        </div>
+    );
+}
+
+function SecretDisplay({ label, value }: { label: string; value: string | null }) {
+    const [visible, setVisible] = useState(false);
+
+    if (!value) {
+        return <Display label={label} value={null} />;
+    }
+
+    return (
+        <div>
+            <p className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">{label}</p>
+            <div className="mt-0.5 flex items-center gap-2">
+                <p className="text-sm text-gray-900">{visible ? value : '••••••••'}</p>
+                <button
+                    type="button"
+                    onClick={() => setVisible((v) => !v)}
+                    className="text-gray-400 hover:text-gray-700"
+                    aria-label={visible ? 'Hide password' : 'Show password'}
+                >
+                    {visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function PasswordInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+    const [visible, setVisible] = useState(false);
+
+    return (
+        <div className="relative">
+            <Input
+                type={visible ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={value ?? ''}
+                onChange={(e) => onChange(e.target.value)}
+                className="pr-9"
+            />
+            <button
+                type="button"
+                onClick={() => setVisible((v) => !v)}
+                className="absolute top-1/2 right-2.5 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                aria-label={visible ? 'Hide password' : 'Show password'}
+            >
+                {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
         </div>
     );
 }
@@ -225,11 +277,7 @@ export function ProfileTab({
         insurance_expires_at: val(client.insurance_expires_at),
         operating_authority_status: val(client.operating_authority_status),
         login_gov_email: val(client.login_gov_email),
-        motus_account_email: val(client.motus_account_email),
-        fmcsa_account_email: val(client.fmcsa_account_email),
-        portal_username: val(client.portal_username),
-        account_status: val(client.account_status),
-        account_last_verified_at: val(client.account_last_verified_at),
+        login_gov_password: val(client.login_gov_password),
         state: val(client.state),
     });
 
@@ -282,7 +330,7 @@ export function ProfileTab({
                         <Display label="USDOT Status" value={optionLabel(options.authority_statuses, client.usdot_status)} />
                         <Display label="MC #" value={client.mc_number} />
                         <Display label="MC Status" value={optionLabel(options.authority_statuses, client.mc_status)} />
-                        <Display label="FMCSA Authority Type" value={client.fmcsa_authority_type} />
+                        <Display label="FMCSA Authority Type" value={optionLabel(options.fmcsa_authority_types ?? {}, client.fmcsa_authority_type)} />
                         <Display label="FF # / Freight Forwarder #" value={client.ff_number} />
                         <Display label="UCR #" value={client.ucr_number} />
                         <Display label="UCR Status" value={optionLabel(options.authority_statuses, client.ucr_status)} />
@@ -297,16 +345,14 @@ export function ProfileTab({
 
                 <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm lg:col-span-2">
                     <h3 className="text-base font-semibold text-gray-950">Account / Login Information</h3>
-                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <Display label="Login.gov Email" value={client.login_gov_email} />
-                        <Display label="Motus Account Email" value={client.motus_account_email} />
-                        <Display label="FMCSA Account Email" value={client.fmcsa_account_email} />
-                        <Display label="Portal Username" value={client.portal_username} />
-                        <Display label="Account Status" value={optionLabel(options.account_statuses, client.account_status)} />
-                        <Display label="Last Verified" value={client.account_last_verified_at} />
+                        <SecretDisplay label="Login.gov Password" value={client.login_gov_password} />
                     </div>
                 </section>
             </div>
+
+            <CustomFieldsSection clientId={client.id} fields={client.custom_fields ?? []} canEdit={canEdit} />
 
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
@@ -362,7 +408,9 @@ export function ProfileTab({
                                 <Field label="MC Status" error={form.errors.mc_status}>
                                     <OptionSelect value={form.data.mc_status} onChange={(v) => form.setData('mc_status', v)} options={options.authority_statuses} />
                                 </Field>
-                                <Field label="FMCSA Authority Type" error={form.errors.fmcsa_authority_type}><Input value={form.data.fmcsa_authority_type} onChange={(e) => form.setData('fmcsa_authority_type', e.target.value)} /></Field>
+                                <Field label="FMCSA Authority Type" error={form.errors.fmcsa_authority_type}>
+                                    <OptionSelect value={form.data.fmcsa_authority_type} onChange={(v) => form.setData('fmcsa_authority_type', v)} options={options.fmcsa_authority_types ?? {}} />
+                                </Field>
                                 <Field label="FF #" error={form.errors.ff_number}><Input value={form.data.ff_number} onChange={(e) => form.setData('ff_number', e.target.value)} /></Field>
                                 <Field label="UCR #" error={form.errors.ucr_number}><Input value={form.data.ucr_number} onChange={(e) => form.setData('ucr_number', e.target.value)} /></Field>
                                 <Field label="UCR Status" error={form.errors.ucr_status}>
@@ -385,14 +433,12 @@ export function ProfileTab({
                         <section>
                             <h4 className="mb-3 text-sm font-semibold text-gray-900">Account / Login</h4>
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <Field label="Login.gov Email" error={form.errors.login_gov_email}><Input type="email" value={form.data.login_gov_email} onChange={(e) => form.setData('login_gov_email', e.target.value)} /></Field>
-                                <Field label="Motus Account Email" error={form.errors.motus_account_email}><Input type="email" value={form.data.motus_account_email} onChange={(e) => form.setData('motus_account_email', e.target.value)} /></Field>
-                                <Field label="FMCSA Account Email" error={form.errors.fmcsa_account_email}><Input type="email" value={form.data.fmcsa_account_email} onChange={(e) => form.setData('fmcsa_account_email', e.target.value)} /></Field>
-                                <Field label="Portal Username" error={form.errors.portal_username}><Input value={form.data.portal_username} onChange={(e) => form.setData('portal_username', e.target.value)} /></Field>
-                                <Field label="Account Status" error={form.errors.account_status}>
-                                    <OptionSelect value={form.data.account_status} onChange={(v) => form.setData('account_status', v)} options={options.account_statuses} />
+                                <Field label="Login.gov Email" error={form.errors.login_gov_email}>
+                                    <Input type="email" value={form.data.login_gov_email} onChange={(e) => form.setData('login_gov_email', e.target.value)} />
                                 </Field>
-                                <Field label="Last Verified" error={form.errors.account_last_verified_at}><Input type="date" value={form.data.account_last_verified_at} onChange={(e) => form.setData('account_last_verified_at', e.target.value)} /></Field>
+                                <Field label="Login.gov Password" error={form.errors.login_gov_password}>
+                                    <PasswordInput value={form.data.login_gov_password} onChange={(v) => form.setData('login_gov_password', v)} />
+                                </Field>
                             </div>
                         </section>
                         <DialogFooter>
@@ -403,6 +449,147 @@ export function ProfileTab({
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+function CustomFieldsSection({
+    clientId,
+    fields,
+    canEdit,
+}: {
+    clientId: number;
+    fields: CustomField[];
+    canEdit: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const [editing, setEditing] = useState<CustomField | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<CustomField | null>(null);
+    const form = useForm({ label: '', value: '' });
+
+    function openCreate() {
+        form.setData({ label: '', value: '' });
+        form.clearErrors();
+        setEditing(null);
+        setOpen(true);
+    }
+
+    function openEdit(field: CustomField) {
+        form.setData({ label: field.label, value: field.value ?? '' });
+        form.clearErrors();
+        setEditing(field);
+        setOpen(true);
+    }
+
+    function submit(e: React.FormEvent) {
+        e.preventDefault();
+        const options = {
+            preserveScroll: true,
+            onSuccess: () => {
+                setOpen(false);
+                setEditing(null);
+                form.reset();
+            },
+        };
+        if (editing) {
+            form.put(`/clients/${clientId}/custom-fields/${editing.id}`, options);
+            return;
+        }
+        form.post(`/clients/${clientId}/custom-fields`, options);
+    }
+
+    return (
+        <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h3 className="text-base font-semibold text-gray-950">Custom Fields</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Add extra client or business details here without changing the rest of the profile.
+                    </p>
+                </div>
+                {canEdit && (
+                    <Button type="button" size="sm" variant="outline" onClick={openCreate}>
+                        <Plus className="h-4 w-4" /> Add field
+                    </Button>
+                )}
+            </div>
+            {fields.length === 0 ? (
+                <p className="mt-4 text-sm text-gray-400">No custom fields yet.</p>
+            ) : (
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {fields.map((field) => (
+                        <div key={field.id} className="flex items-start justify-between gap-3 rounded-xl border border-gray-100 px-4 py-3">
+                            <Display label={field.label} value={field.value} />
+                            {canEdit && (
+                                <div className="flex shrink-0 gap-1">
+                                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8" title="Edit field" onClick={() => openEdit(field)}>
+                                        <SquarePen className="h-4 w-4" />
+                                    </Button>
+                                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600" title="Remove field" onClick={() => setDeleteTarget(field)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setEditing(null); form.reset(); } }}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{editing ? 'Edit custom field' : 'Add custom field'}</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={submit} className="space-y-3">
+                        <Field label="Field name *" error={form.errors.label}>
+                            <Input
+                                value={form.data.label}
+                                onChange={(e) => form.setData('label', e.target.value)}
+                                placeholder="e.g. TWIC expiration, Factoring company"
+                            />
+                        </Field>
+                        <Field label="Value" error={form.errors.value}>
+                            <Textarea
+                                rows={3}
+                                value={form.data.value}
+                                onChange={(e) => form.setData('value', e.target.value)}
+                                placeholder="Enter the value for this field"
+                            />
+                        </Field>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                            <Button type="submit" disabled={form.processing}>{editing ? 'Save field' : 'Add field'}</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <AlertDialog open={deleteTarget !== null} onOpenChange={() => setDeleteTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Remove this custom field?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {deleteTarget
+                                ? `"${deleteTarget.label}" will be removed from this client profile.`
+                                : 'This custom field will be removed.'}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={() => {
+                                if (deleteTarget) {
+                                    router.delete(`/clients/${clientId}/custom-fields/${deleteTarget.id}`, { preserveScroll: true });
+                                }
+                                setDeleteTarget(null);
+                            }}
+                        >
+                            Remove field
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </section>
     );
 }
 
@@ -638,13 +825,11 @@ export function ComplianceTab({
 
             {client.compliance_type === 'monthly' && (
                 <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
-                    <h3 className="text-base font-semibold text-gray-950">Monthly compliance cycle</h3>
+                    <h3 className="text-base font-semibold text-gray-950">Monthly compliance</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                        The next reminder is created automatically when this task is completed. Assigned users and admins are notified.
+                        Use Custom Reminder on this client profile to schedule follow-up work. Next due dates can be set below.
                     </p>
-                    {openMonthlyTasks.length === 0 ? (
-                        <p className="mt-4 text-sm text-gray-400">No open monthly compliance task.</p>
-                    ) : openMonthlyTasks.map((t) => (
+                    {openMonthlyTasks.length > 0 && openMonthlyTasks.map((t) => (
                         <div key={t.id} className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3">
                             <div>
                                 <p className="text-sm font-medium text-gray-900">{t.title}</p>

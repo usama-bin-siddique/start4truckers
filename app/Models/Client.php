@@ -73,11 +73,7 @@ class Client extends Model
         'next_action',
         'next_action_due_at',
         'login_gov_email',
-        'motus_account_email',
-        'fmcsa_account_email',
-        'portal_username',
-        'account_status',
-        'account_last_verified_at',
+        'login_gov_password',
         'assigned_to',
         'status',
         'compliance_type',
@@ -138,6 +134,7 @@ class Client extends Model
     {
         return [
             'ssn'                          => 'encrypted',
+            'login_gov_password'           => 'encrypted',
             'date_of_birth'                => 'date',
             'dl_expiration'                => 'date',
             'llc_formed_at'                => 'date',
@@ -152,7 +149,6 @@ class Client extends Model
             'monthly_compliance_started_at' => 'date',
             'compliance_reminder_sent_for' => 'date',
             'next_action_due_at'           => 'date',
-            'account_last_verified_at'     => 'date',
         ];
     }
 
@@ -194,6 +190,16 @@ class Client extends Model
     public function vehicles(): HasMany
     {
         return $this->hasMany(ClientVehicle::class)->latest();
+    }
+
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(ClientReminder::class)->orderBy('remind_at');
+    }
+
+    public function customFields(): HasMany
+    {
+        return $this->hasMany(ClientCustomField::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function getStatusLabelAttribute(): string

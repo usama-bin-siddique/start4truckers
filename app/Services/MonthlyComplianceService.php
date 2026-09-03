@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Task;
 use App\Support\ClientProfile;
@@ -50,8 +49,6 @@ class MonthlyComplianceService
         $client->next_action = $client->next_action ?: 'Monthly compliance review';
         $client->next_action_due_at = $client->next_compliance_due_at;
         $client->save();
-
-        $this->ensureOpenTask($client);
 
         if ($alreadyEnrolled) {
             return;
@@ -117,114 +114,19 @@ class MonthlyComplianceService
         }
 
         $client->last_compliance_completed_at = now();
-        $client->next_compliance_due_at = now()->addDays(30);
-        $client->compliance_reminder_sent_for = null;
-        $client->next_action = 'Monthly compliance review';
-        $client->next_action_due_at = $client->next_compliance_due_at;
         $client->save();
-
-        $this->ensureOpenTask($client);
-
-        $due = $client->next_compliance_due_at->toFormattedDateString();
 
         $this->activity->log(
             $client,
             'compliance_completed',
             $completedTask
-                ? "Monthly compliance task \"{$completedTask->title}\" completed. Next compliance date is {$due}."
-                : "Monthly compliance completed. Next compliance date is {$due}."
+                ? "Monthly compliance task \"{$completedTask->title}\" completed."
+                : 'Monthly compliance completed.'
         );
-
-        $this->notification->notifyClientStakeholders($client, NotificationService::TYPE_COMPLIANCE_STARTED, [
-            'client_id'     => $client->id,
-            'client_name'   => $client->display_name,
-            'client_number' => $client->client_number,
-            'due_date'      => $client->next_compliance_due_at->toDateString(),
-            'message'       => "Monthly compliance completed for {$client->display_name}. Next compliance date is {$due}.",
-        ]);
     }
 
     public function sendDueReminders(): int
     {
-        $clients = Client::query()
-            ->where('compliance_type', Client::COMPLIANCE_MONTHLY)
-            ->whereNotNull('next_compliance_due_at')
-            ->whereDate('next_compliance_due_at', '<=', now())
-            ->get()
-            ->filter(function (Client $client) {
-                return $client->compliance_reminder_sent_for?->toDateString()
-                    !== $client->next_compliance_due_at?->toDateString();
-            });
-
-        $count = 0;
-
-        foreach ($clients as $client) {
-            $this->ensureOpenTask($client);
-
-            $this->notification->notifyClientStakeholders($client, NotificationService::TYPE_COMPLIANCE_DUE, [
-                'client_id'     => $client->id,
-                'client_name'   => $client->display_name,
-                'client_number' => $client->client_number,
-                'due_date'      => $client->next_compliance_due_at?->toDateString(),
-                'message'       => "Client {$client->display_name} has a compliance task due.",
-            ]);
-
-            $client->update([
-                'compliance_reminder_sent_for' => $client->next_compliance_due_at,
-            ]);
-
-            Task::query()
-                ->where('client_id', $client->id)
-                ->where('kind', Task::KIND_MONTHLY_COMPLIANCE)
-                ->where('status', '!=', Task::STATUS_COMPLETED)
-                ->update(['reminder_sent_at' => now()]);
-
-            $count++;
-        }
-
-        return $count;
-    }
-
-    public function ensureOpenTask(Client $client): Task
-    {
-        $due = $client->next_compliance_due_at?->copy()->startOfDay() ?? now()->addDays(30)->startOfDay();
-
-        $existing = Task::query()
-            ->where('client_id', $client->id)
-            ->where('kind', Task::KIND_MONTHLY_COMPLIANCE)
-            ->where('status', '!=', Task::STATUS_COMPLETED)
-            ->latest()
-            ->first();
-
-        if ($existing) {
-            $existing->update([
-                'due_date'         => $due,
-                'reminder_at'      => $due,
-                'assigned_to'      => $existing->assigned_to ?: $client->assigned_to,
-            ]);
-
-            return $existing->fresh();
-        }
-
-        $task = Task::create([
-            'client_id'    => $client->id,
-            'title'        => 'Monthly compliance — '.$client->display_name,
-            'description'  => 'Complete the monthly compliance review for this client. Completing this task schedules the next 30-day reminder automatically.',
-            'assigned_to'  => $client->assigned_to,
-            'created_by'   => $client->assigned_to,
-            'priority'     => Task::PRIORITY_HIGH,
-            'status'       => Task::STATUS_PENDING,
-            'kind'         => Task::KIND_MONTHLY_COMPLIANCE,
-            'due_date'     => $due,
-            'reminder_at'  => $due,
-        ]);
-
-        $this->activity->log(
-            $client,
-            Activity::ACTION_TASK_CREATED,
-            "Automatic monthly compliance reminder created for {$due->toFormattedDateString()}."
-        );
-
-        return $task;
+        return 0;
     }
 }

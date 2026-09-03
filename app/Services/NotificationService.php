@@ -19,6 +19,7 @@ class NotificationService
     const TYPE_SLA_BREACHED         = 'sla_breached';
     const TYPE_COMPLIANCE_DUE       = 'compliance_due';
     const TYPE_COMPLIANCE_STARTED   = 'compliance_started';
+    const TYPE_CLIENT_REMINDER      = 'client_reminder';
 
     public function notify(int|User $user, string $type, array $data): CrmNotification
     {
@@ -90,6 +91,9 @@ class NotificationService
             self::TYPE_COMPLIANCE_DUE,
             self::TYPE_COMPLIANCE_STARTED => $clientId
                 ? "/clients/{$clientId}?tab=compliance"
+                : '/clients',
+            self::TYPE_CLIENT_REMINDER => $clientId
+                ? "/clients/{$clientId}?tab=overview"
                 : '/clients',
             self::TYPE_TASK_DUE => ($kind === Task::KIND_MONTHLY_COMPLIANCE && $clientId)
                 ? "/clients/{$clientId}?tab=compliance"

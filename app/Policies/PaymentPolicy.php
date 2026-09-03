@@ -33,6 +33,6 @@ class PaymentPolicy
 
     public function delete(User $user, Payment $payment): bool
     {
-        return $user->isAdmin();
+        return $this->update($user, $payment);
     }
 }

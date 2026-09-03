@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ClientCustomFieldController;
+use App\Http\Controllers\ClientReminderController;
 use App\Http\Controllers\ClientVehicleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
@@ -62,6 +64,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/clients/{client}/vehicles', [ClientVehicleController::class, 'store'])->name('clients.vehicles.store');
     Route::put('/clients/{client}/vehicles/{vehicle}', [ClientVehicleController::class, 'update'])->name('clients.vehicles.update');
     Route::delete('/clients/{client}/vehicles/{vehicle}', [ClientVehicleController::class, 'destroy'])->name('clients.vehicles.destroy');
+    Route::post('/clients/{client}/reminders', [ClientReminderController::class, 'store'])->name('clients.reminders.store');
+    Route::delete('/clients/{client}/reminders/{reminder}', [ClientReminderController::class, 'destroy'])->name('clients.reminders.destroy');
+    Route::post('/clients/{client}/custom-fields', [ClientCustomFieldController::class, 'store'])->name('clients.custom-fields.store');
+    Route::put('/clients/{client}/custom-fields/{customField}', [ClientCustomFieldController::class, 'update'])->name('clients.custom-fields.update');
+    Route::delete('/clients/{client}/custom-fields/{customField}', [ClientCustomFieldController::class, 'destroy'])->name('clients.custom-fields.destroy');
 
     // Payments — admin + sales
     Route::middleware('role:admin,sales')->group(function () {

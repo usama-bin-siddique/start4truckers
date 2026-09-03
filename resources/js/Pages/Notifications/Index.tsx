@@ -34,6 +34,7 @@ const typeConfig: Record<string, { icon: React.ReactNode; label: string; color: 
     sla_breached:        { icon: <Bell size={16} />,           label: 'SLA Missed',          color: 'text-red-700',     bg: 'bg-red-100' },
     compliance_due:      { icon: <ShieldCheck size={16} />,    label: 'Compliance Due',      color: 'text-amber-700',   bg: 'bg-amber-100' },
     compliance_started:  { icon: <ShieldCheck size={16} />,    label: 'Monthly Compliance',  color: 'text-indigo-700',  bg: 'bg-indigo-100' },
+    client_reminder:     { icon: <Bell size={16} />,           label: 'Custom Reminder',     color: 'text-amber-700',   bg: 'bg-amber-100' },
 };
 
 function getNotificationMessage(notification: Notification): string {
@@ -60,6 +61,8 @@ function getNotificationMessage(notification: Notification): string {
             return (data.message as string) || `Client ${data.client_name || 'Unknown'} has a compliance task due.`;
         case 'compliance_started':
             return (data.message as string) || `Client ${data.client_name || 'Unknown'} is now a Monthly Compliance Client.`;
+        case 'client_reminder':
+            return (data.message as string) || `Reminder for ${data.client_name || 'client'}: ${data.description || 'Custom reminder'}`;
         default:
             return (data.message as string) || 'New notification';
     }

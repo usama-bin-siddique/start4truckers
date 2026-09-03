@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, Legend,
 } from 'recharts';
-import { DollarSign, TrendingUp, AlertCircle, Filter, BarChart3, Receipt, ShieldCheck, FileDown, FileSpreadsheet } from 'lucide-react';
+import { DollarSign, TrendingUp, AlertCircle, Filter, BarChart3, Receipt, ShieldCheck, FileDown, FileSpreadsheet, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RevenueReport {
@@ -39,6 +39,27 @@ interface EmployeePerf {
 }
 interface MonthlyTrend  { month: string; revenue: number; leads: number; clients: number; services: number }
 interface ComplianceBreakdown { one_time: number; monthly: number; unset: number; due_soon: number }
+interface PaymentRow {
+    id: number;
+    invoice_number: string;
+    client_id: number;
+    client_number: string | null;
+    client_name: string;
+    company_name: string | null;
+    invoice_amount: number;
+    amount_received: number;
+    balance_due: number;
+    payment_method: string | null;
+    status: 'paid' | 'partial' | 'unpaid';
+    transaction_reference: string | null;
+    paid_at: string | null;
+    recorded_by: string | null;
+}
+interface PaymentsReport {
+    total_received: number;
+    count: number;
+    payments: PaymentRow[];
+}
 interface Filters { dateFrom: string; dateTo: string; userId?: string; serviceId?: string }
 
 interface Props {
@@ -49,9 +70,43 @@ interface Props {
     employee_perf:    EmployeePerf[];
     monthly_trends:   MonthlyTrend[];
     compliance:       ComplianceBreakdown;
+    payments:         PaymentsReport;
     users:            { id: number; name: string; role: string }[];
     services:         { id: number; name: string }[];
     filters:          Filters;
+}
+
+const METHOD_LABELS: Record<string, string> = {
+    cash: 'Cash', check: 'Check', zelle: 'Zelle', venmo: 'Venmo',
+    bank_transfer: 'Bank Transfer', stripe: 'Stripe', other: 'Other',
+};
+
+const STATUS_LABELS: Record<PaymentRow['status'], string> = {
+    paid: 'Paid',
+    partial: 'Partial',
+    unpaid: 'Unpaid',
+};
+
+function monthBounds(ym: string): { from: string; to: string } {
+    const [year, month] = ym.split('-').map(Number);
+    const last = new Date(year, month, 0).getDate();
+    return {
+        from: `${ym}-01`,
+        to: `${ym}-${String(last).padStart(2, '0')}`,
+    };
+}
+
+function selectedMonth(from: string, to: string): string {
+    if (!from || !to || from.slice(0, 7) !== to.slice(0, 7)) return '';
+    const bounds = monthBounds(from.slice(0, 7));
+    return from === bounds.from && to === bounds.to ? from.slice(0, 7) : '';
+}
+
+function currentMonthValue(offset = 0): string {
+    const date = new Date();
+    date.setDate(1);
+    date.setMonth(date.getMonth() + offset);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function fmt(n: number) {
@@ -90,9 +145,26 @@ function EmptyChart({ label }: { label: string }) {
 }
 
 export default function ReportsIndex({
-    revenue, sales_by_service, lead_conversion, outstanding, employee_perf, monthly_trends, compliance, users, filters,
+    revenue, sales_by_service, lead_conversion, outstanding, employee_perf, monthly_trends, compliance, payments, users, filters,
 }: Props) {
     const [localFilters, setLocalFilters] = useState(filters);
+
+    function applyMonth(ym: string) {
+        if (!ym) return;
+        const { from, to } = monthBounds(ym);
+        const next = { ...localFilters, dateFrom: from, dateTo: to };
+        setLocalFilters(next);
+        router.get('/reports', {
+            date_from: from,
+            date_to: to,
+            user_id: next.userId,
+            service_id: next.serviceId,
+        }, { preserveState: true, replace: true });
+    }
+
+    function applyPresetMonth(offset: number) {
+        applyMonth(currentMonthValue(offset));
+    }
 
     function applyFilters() {
         router.get('/reports', {
@@ -161,6 +233,15 @@ export default function ReportsIndex({
                     <section className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm">
                         <div className="flex flex-wrap items-end gap-3">
                             <div className="space-y-1">
+                                <Label className="text-xs text-gray-400">Month</Label>
+                                <Input
+                                    type="month"
+                                    className="h-10 w-40 rounded-lg text-sm"
+                                    value={selectedMonth(localFilters.dateFrom, localFilters.dateTo)}
+                                    onChange={(e) => applyMonth(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1">
                                 <Label className="text-xs text-gray-400">From</Label>
                                 <Input
                                     type="date"
@@ -180,10 +261,13 @@ export default function ReportsIndex({
                             </div>
                             <div className="space-y-1">
                                 <Label className="text-xs text-gray-400">Employee</Label>
-                                <Select value={localFilters.userId ?? ''} onValueChange={(v) => setLocalFilters((f) => ({ ...f, userId: v || undefined }))}>
+                                <Select
+                                    value={localFilters.userId || undefined}
+                                    onValueChange={(v) => setLocalFilters((f) => ({ ...f, userId: v === '__all__' ? undefined : v }))}
+                                >
                                     <SelectTrigger className="h-10 w-40 text-sm"><SelectValue placeholder="All employees" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">All employees</SelectItem>
+                                        <SelectItem value="__all__">All employees</SelectItem>
                                         {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
@@ -191,12 +275,20 @@ export default function ReportsIndex({
                             <Button size="sm" className="h-10 rounded-lg bg-[#12141D] px-4 text-white hover:bg-black" onClick={applyFilters}>
                                 <Filter size={13} /> Apply
                             </Button>
+                            <Button size="sm" variant="outline" className="h-10 rounded-lg" onClick={() => applyPresetMonth(0)}>This month</Button>
+                            <Button size="sm" variant="outline" className="h-10 rounded-lg" onClick={() => applyPresetMonth(-1)}>Last month</Button>
                             <Button size="sm" variant="outline" className="h-10 rounded-lg" onClick={resetFilters}>Reset</Button>
                         </div>
+                        <p className="mt-3 flex items-center gap-1.5 text-xs text-gray-400">
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            Showing {filters.dateFrom} to {filters.dateTo}
+                            {payments.count === 1 ? ' · 1 payment' : ` · ${payments.count} payments`}
+                        </p>
                     </section>
 
-                    <Tabs defaultValue="revenue">
+                    <Tabs defaultValue="payments">
                         <TabsList className="h-auto flex-wrap gap-1 rounded-xl bg-white p-1 shadow-sm">
+                            <TabsTrigger value="payments">Payments</TabsTrigger>
                             <TabsTrigger value="revenue">Revenue</TabsTrigger>
                             <TabsTrigger value="services">Sales by Service</TabsTrigger>
                             <TabsTrigger value="leads">Lead Conversion</TabsTrigger>
@@ -205,6 +297,70 @@ export default function ReportsIndex({
                             <TabsTrigger value="trends">Monthly Trends</TabsTrigger>
                             <TabsTrigger value="compliance">Compliance</TabsTrigger>
                         </TabsList>
+
+                        <TabsContent value="payments" className="mt-5 space-y-4">
+                            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                                <KpiCard label="Total received" value={fmt(payments.total_received)} icon={<TrendingUp className="h-4 w-4 text-emerald-700" />} iconClass="bg-emerald-100" />
+                                <KpiCard label="Payments" value={payments.count} icon={<Receipt className="h-4 w-4 text-amber-700" />} iconClass="bg-amber-100" />
+                                <KpiCard label="Invoiced" value={fmt(revenue.total_invoiced)} icon={<DollarSign className="h-4 w-4 text-sky-700" />} iconClass="bg-sky-100" />
+                                <KpiCard label="Outstanding" value={fmt(revenue.total_balance)} icon={<AlertCircle className="h-4 w-4 text-red-600" />} iconClass="bg-red-100" />
+                            </div>
+                            <Panel title="Payments in this period">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead className="px-5 text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Date</TableHead>
+                                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Client</TableHead>
+                                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Company</TableHead>
+                                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Invoice #</TableHead>
+                                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Received</TableHead>
+                                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Invoice</TableHead>
+                                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Method</TableHead>
+                                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Status</TableHead>
+                                            <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Reference</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {payments.payments.length === 0 ? (
+                                            <TableRow className="hover:bg-transparent">
+                                                <TableCell colSpan={9} className="h-48 text-center text-sm text-gray-400">
+                                                    No payments received in this period
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : payments.payments.map((p) => (
+                                            <TableRow key={p.id}>
+                                                <TableCell className="px-5 whitespace-nowrap text-sm text-gray-600">{p.paid_at ?? '—'}</TableCell>
+                                                <TableCell className="whitespace-nowrap text-sm font-medium">
+                                                    <Link href={`/clients/${p.client_id}`} className="text-gray-900 hover:text-amber-700 hover:underline">
+                                                        {p.client_name}
+                                                    </Link>
+                                                    {p.client_number && (
+                                                        <span className="mt-0.5 block font-mono text-[11px] text-amber-700">{p.client_number}</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="whitespace-nowrap text-sm text-gray-600">{p.company_name || '—'}</TableCell>
+                                                <TableCell className="whitespace-nowrap font-mono text-xs text-gray-700">{p.invoice_number}</TableCell>
+                                                <TableCell className="whitespace-nowrap font-medium text-emerald-600">{fmt(p.amount_received)}</TableCell>
+                                                <TableCell className="whitespace-nowrap text-sm">{fmt(p.invoice_amount)}</TableCell>
+                                                <TableCell className="whitespace-nowrap">
+                                                    {p.payment_method
+                                                        ? <Badge variant="secondary" className="text-xs">{METHOD_LABELS[p.payment_method] ?? p.payment_method}</Badge>
+                                                        : <span className="text-gray-300">—</span>}
+                                                </TableCell>
+                                                <TableCell className="whitespace-nowrap">
+                                                    <Badge variant={p.status === 'paid' ? 'success' : p.status === 'partial' ? 'warning' : 'secondary'}>
+                                                        {STATUS_LABELS[p.status]}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="max-w-[140px] truncate text-sm text-gray-500" title={p.transaction_reference ?? ''}>
+                                                    {p.transaction_reference || '—'}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </Panel>
+                        </TabsContent>
 
                         <TabsContent value="revenue" className="mt-5 space-y-4">
                             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
