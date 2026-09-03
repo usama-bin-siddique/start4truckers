@@ -9,7 +9,7 @@ class SendComplianceRemindersCommand extends Command
 {
     protected $signature = 'compliance:send-reminders';
 
-    protected $description = 'Notify assigned users and admins when monthly compliance is due';
+    protected $description = 'No-op. Automatic monthly compliance reminders were replaced by client custom reminders.';
 
     public function handle(MonthlyComplianceService $compliance): int
     {

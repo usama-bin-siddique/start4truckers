@@ -39,6 +39,7 @@ class Activity extends Model
     const ACTION_SLA_BREACHED       = 'sla_breached';
     const ACTION_PAYMENT_CREATED    = 'payment_created';
     const ACTION_PAYMENT_UPDATED    = 'payment_updated';
+    const ACTION_PAYMENT_DELETED    = 'payment_deleted';
     const ACTION_CONVERTED          = 'converted_to_client';
     const ACTION_DOCUMENT_UPLOADED  = 'document_uploaded';
     const ACTION_DOCUMENT_DELETED   = 'document_deleted';
@@ -47,6 +48,11 @@ class Activity extends Model
     const ACTION_SERVICE_ASSIGNED   = 'service_assigned';
     const ACTION_CLIENT_CREATED     = 'client_created';
     const ACTION_LEAD_LINKED        = 'lead_linked';
+    const ACTION_REMINDER_CREATED   = 'reminder_created';
+    const ACTION_REMINDER_DELETED   = 'reminder_deleted';
+    const ACTION_CUSTOM_FIELD_ADDED    = 'custom_field_added';
+    const ACTION_CUSTOM_FIELD_UPDATED  = 'custom_field_updated';
+    const ACTION_CUSTOM_FIELD_DELETED  = 'custom_field_deleted';
 
     public function subject(): MorphTo
     {

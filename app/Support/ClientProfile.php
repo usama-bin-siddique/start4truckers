@@ -62,11 +62,10 @@ class ClientProfile
         'expired'     => 'Expired',
     ];
 
-    public const ACCOUNT_STATUSES = [
-        'active'      => 'Active',
-        'pending'     => 'Pending',
-        'unverified'  => 'Unverified',
-        'suspended'   => 'Suspended',
+    public const FMCSA_AUTHORITY_TYPES = [
+        'ff' => 'FF Number',
+        'mc' => 'MC Number',
+        'mx' => 'MX Number',
     ];
 
     public const TRUCK_TYPES = [
@@ -132,8 +131,8 @@ class ClientProfile
             'contact_methods'      => self::CONTACT_METHODS,
             'citizenship_statuses' => self::CITIZENSHIP_STATUSES,
             'entity_types'         => self::ENTITY_TYPES,
-            'authority_statuses'   => self::AUTHORITY_STATUSES,
-            'account_statuses'     => self::ACCOUNT_STATUSES,
+            'authority_statuses'     => self::AUTHORITY_STATUSES,
+            'fmcsa_authority_types'  => self::FMCSA_AUTHORITY_TYPES,
             'truck_types'          => self::TRUCK_TYPES,
             'eld_statuses'         => self::ELD_STATUSES,
             'us_states'            => self::US_STATES,
@@ -174,7 +173,7 @@ class ClientProfile
             'usdot_status'                 => ['nullable', 'string', 'max:50'],
             'mc_number'                    => ['nullable', 'string', 'max:30'],
             'mc_status'                    => ['nullable', 'string', 'max:50'],
-            'fmcsa_authority_type'         => ['nullable', 'string', 'max:100'],
+            'fmcsa_authority_type'         => ['nullable', 'in:'.implode(',', array_keys(self::FMCSA_AUTHORITY_TYPES))],
             'ff_number'                    => ['nullable', 'string', 'max:30'],
             'ucr_number'                   => ['nullable', 'string', 'max:30'],
             'ucr_status'                   => ['nullable', 'string', 'max:50'],
@@ -201,11 +200,7 @@ class ClientProfile
             'next_action'                  => ['nullable', 'string', 'max:255'],
             'next_action_due_at'           => ['nullable', 'date'],
             'login_gov_email'              => ['nullable', 'email', 'max:255'],
-            'motus_account_email'          => ['nullable', 'email', 'max:255'],
-            'fmcsa_account_email'          => ['nullable', 'email', 'max:255'],
-            'portal_username'              => ['nullable', 'string', 'max:255'],
-            'account_status'               => ['nullable', 'string', 'max:50'],
-            'account_last_verified_at'     => ['nullable', 'date'],
+            'login_gov_password'           => ['nullable', 'string', 'max:255'],
             'notes'                        => ['nullable', 'string'],
             'client_notes'                 => ['nullable', 'string'],
             'assigned_to'                  => ['nullable', 'exists:users,id'],

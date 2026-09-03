@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\Setting;
 use App\Services\ActivityService;
 use App\Services\NotificationService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,38 +29,36 @@ class PaymentController extends Controller
         $this->authorize('viewAny', Payment::class);
 
         $user = Auth::user();
+        $filters = $this->filterValues($request);
 
-        $query = Payment::with(['client.lead', 'client.assignedUser', 'client.clientServices.service', 'createdBy'])
-            ->visibleTo($user)
-            ->when($request->search, function ($q, $v) {
-                $term = trim((string) $v);
-                $idTerm = preg_replace('/^INV-/i', '', $term) ?? $term;
+        $base = Payment::query()->visibleTo($user);
+        $this->applyFilters($base, $filters);
 
-                $q->where(function ($q) use ($term, $idTerm) {
-                    $q->where('id', $idTerm)
-                        ->orWhere('transaction_reference', 'like', "%{$term}%")
-                        ->orWhereHas('client', function ($q) use ($term) {
-                            $q->where('client_number', 'like', "%{$term}%")
-                                ->orWhere('name', 'like', "%{$term}%")
-                                ->orWhere('company', 'like', "%{$term}%");
-                        })
-                        ->orWhereHas('client.lead', function ($q) use ($term) {
-                            $q->where('name', 'like', "%{$term}%")
-                                ->orWhere('company', 'like', "%{$term}%");
-                        });
-                });
-            })
-            ->when($request->method, fn ($q, $v) => $q->where('payment_method', $v))
-            ->when($request->date_from, fn ($q, $v) => $q->whereDate('paid_at', '>=', $v))
-            ->when($request->date_to, fn ($q, $v) => $q->whereDate('paid_at', '<=', $v));
+        $payments = $base->clone()
+            ->with(['client.lead', 'client.assignedUser', 'client.clientServices.service', 'createdBy'])
+            ->latest()
+            ->paginate(25)
+            ->withQueryString();
 
-        $payments = $query->latest()->paginate(25)->withQueryString();
-
-        $totals = Payment::query()->visibleTo($user)->selectRaw('
+        $totals = $base->clone()->selectRaw('
             SUM(invoice_amount) as total_invoiced,
             SUM(amount_received) as total_received,
             SUM(invoice_amount - amount_received) as total_balance
         ')->first();
+
+        $clients = Client::query()
+            ->with('lead')
+            ->visibleTo($user)
+            ->orderBy('name')
+            ->get(['id', 'client_number', 'name', 'company', 'lead_id']);
+
+        $companies = $clients
+            ->map(fn (Client $c) => $c->company ?: $c->lead?->company)
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
 
         return Inertia::render('Payments/Index', [
             'payments' => $payments->through(fn ($p) => [
@@ -87,24 +86,20 @@ class PaymentController extends Controller
                 'has_receipt'           => ! empty($p->receipt_path),
                 'created_at'            => $p->created_at->toDateString(),
             ]),
-            'clients' => Client::query()
-                ->with('lead')
-                ->visibleTo($user)
-                ->orderBy('name')
-                ->get(['id', 'client_number', 'name', 'company', 'lead_id'])
-                ->map(fn (Client $c) => [
-                    'id'            => $c->id,
-                    'client_number' => $c->client_number,
-                    'name'          => $c->display_name,
-                    'company'       => $c->company,
-                ]),
+            'clients' => $clients->map(fn (Client $c) => [
+                'id'            => $c->id,
+                'client_number' => $c->client_number,
+                'name'          => $c->display_name,
+                'company'       => $c->company ?: $c->lead?->company,
+            ]),
+            'companies' => $companies,
             'can_create' => $user->can('create', Payment::class),
             'totals'   => [
                 'invoiced'  => (float) ($totals->total_invoiced ?? 0),
                 'received'  => (float) ($totals->total_received ?? 0),
                 'balance'   => (float) ($totals->total_balance ?? 0),
             ],
-            'filters'  => $request->only(['search', 'method', 'date_from', 'date_to']),
+            'filters'  => $filters,
         ]);
     }
 
@@ -169,20 +164,49 @@ class PaymentController extends Controller
     {
         $this->authorize('update', $payment);
 
+        $request->merge(
+            collect($request->except('receipt'))->map(fn ($value) => $value === '' ? null : $value)->all()
+        );
+
         $data = $request->validate([
+            'client_id'             => ['sometimes', 'exists:clients,id'],
             'invoice_amount'        => ['required', 'numeric', 'min:0'],
             'amount_received'       => ['nullable', 'numeric', 'min:0'],
             'payment_method'        => ['nullable', 'string', 'max:50'],
             'transaction_reference' => ['nullable', 'string', 'max:255'],
             'notes'                 => ['nullable', 'string'],
             'paid_at'               => ['nullable', 'date'],
+            'receipt'               => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
 
+        $receipt = $request->file('receipt');
+        unset($data['receipt']);
+
+        if (array_key_exists('client_id', $data) && (int) $data['client_id'] !== (int) $payment->client_id) {
+            $this->authorize('view', Client::findOrFail($data['client_id']));
+        }
+
+        $data['amount_received'] = $data['amount_received'] ?? 0;
         $payment->update($data);
 
-        $this->activity->log($payment->client, Activity::ACTION_PAYMENT_UPDATED,
-            "Payment updated: \${$payment->invoice_amount} invoiced, \${$payment->amount_received} received"
-        );
+        if ($receipt) {
+            if ($payment->receipt_path) {
+                Storage::disk('private')->delete($payment->receipt_path);
+            }
+
+            $payment->update([
+                'receipt_path' => $receipt->store("clients/{$payment->client_id}/receipts", 'private'),
+            ]);
+        }
+
+        $payment->loadMissing('client');
+        if ($payment->client) {
+            $this->activity->log(
+                $payment->client,
+                Activity::ACTION_PAYMENT_UPDATED,
+                "Payment updated: \${$payment->invoice_amount} invoiced, \${$payment->amount_received} received"
+            );
+        }
 
         return back()->with('success', 'Payment updated.');
     }
@@ -249,7 +273,113 @@ class PaymentController extends Controller
     public function destroy(Payment $payment): RedirectResponse
     {
         $this->authorize('delete', $payment);
+
+        $payment->loadMissing('client');
+        if ($payment->client) {
+            $this->activity->log(
+                $payment->client,
+                Activity::ACTION_PAYMENT_DELETED,
+                "Payment of \${$payment->invoice_amount} deleted (received: \${$payment->amount_received})"
+            );
+        }
+
         $payment->delete();
+
         return back()->with('success', 'Payment deleted.');
+    }
+
+    /**
+     * @return array{search:?string,payment_method:?string,date_from:?string,date_to:?string,client_id:?string,company:?string,status:?string}
+     */
+    private function filterValues(Request $request): array
+    {
+        $blank = function (?string $value): ?string {
+            $value = trim((string) $value);
+
+            return $value === '' || $value === '__all__' ? null : $value;
+        };
+
+        return [
+            'search'         => $blank($request->input('search')),
+            'payment_method' => $blank($request->input('payment_method') ?: $request->query('method')),
+            'date_from'      => $blank($request->input('date_from')),
+            'date_to'        => $blank($request->input('date_to')),
+            'client_id'      => $blank($request->input('client_id')),
+            'company'        => $blank($request->input('company')),
+            'status'         => $blank($request->input('status')),
+        ];
+    }
+
+    /**
+     * @param  array{search:?string,payment_method:?string,date_from:?string,date_to:?string,client_id:?string,company:?string,status:?string}  $filters
+     */
+    private function applyFilters(Builder $query, array $filters): void
+    {
+        if ($filters['search']) {
+            $term = $filters['search'];
+            $like = '%'.$term.'%';
+            $amount = preg_replace('/[$,\s]/', '', $term) ?? '';
+
+            $query->where(function (Builder $q) use ($term, $like, $amount) {
+                $q->where('transaction_reference', 'like', $like)
+                    ->orWhere('notes', 'like', $like)
+                    ->orWhere('payment_method', 'like', $like)
+                    ->orWhereHas('client', function (Builder $q) use ($like) {
+                        $q->where('client_number', 'like', $like)
+                            ->orWhere('name', 'like', $like)
+                            ->orWhere('company', 'like', $like);
+                    })
+                    ->orWhereHas('client.lead', function (Builder $q) use ($like) {
+                        $q->where('name', 'like', $like)
+                            ->orWhere('company', 'like', $like);
+                    })
+                    ->orWhereHas('client.assignedUser', fn (Builder $q) => $q->where('name', 'like', $like))
+                    ->orWhereHas('createdBy', fn (Builder $q) => $q->where('name', 'like', $like));
+
+                if (preg_match('/^(?:INV-)?0*(\d+)$/i', $term, $match)) {
+                    $q->orWhere('id', (int) $match[1]);
+                }
+
+                if ($amount !== '' && is_numeric($amount)) {
+                    $q->orWhere('invoice_amount', $amount)
+                        ->orWhere('amount_received', $amount);
+                }
+            });
+        }
+
+        if ($filters['payment_method']) {
+            $query->where('payment_method', $filters['payment_method']);
+        }
+
+        if ($filters['client_id']) {
+            $query->where('client_id', $filters['client_id']);
+        }
+
+        if ($filters['company']) {
+            $company = $filters['company'];
+            $query->whereHas('client', function (Builder $q) use ($company) {
+                $q->where('company', $company)
+                    ->orWhereHas('lead', fn (Builder $q) => $q->where('company', $company));
+            });
+        }
+
+        if ($filters['status']) {
+            match ($filters['status']) {
+                'paid' => $query->where('amount_received', '>', 0)->whereColumn('amount_received', '>=', 'invoice_amount'),
+                'partial' => $query->where('amount_received', '>', 0)->whereColumn('amount_received', '<', 'invoice_amount'),
+                'unpaid' => $query->where('amount_received', '<=', 0),
+                default => null,
+            };
+        }
+
+        $dateExpr = 'DATE(COALESCE(paid_at, created_at))';
+
+        if ($filters['date_from']) {
+            $query->whereRaw("{$dateExpr} >= ?", [$filters['date_from']]);
+        }
+
+        if ($filters['date_to']) {
+            $query->whereRaw("{$dateExpr} <= ?", [$filters['date_to']]);
+        }
     }
 }

@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Filter, X, DollarSign, TrendingUp, AlertCircle, Download, Receipt, GitBranch, Plus, FileText, Upload } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Search, Filter, X, DollarSign, TrendingUp, AlertCircle, Download, Receipt, GitBranch, Plus, FileText, Upload, SquarePen, Trash2 } from 'lucide-react';
 import PrintInvoiceLink from '@/components/PrintInvoiceLink';
 import { cn } from '@/lib/utils';
 
@@ -36,8 +37,19 @@ interface Payment {
 }
 interface Paginator<T> { data: T[]; total: number; last_page: number; links: { url: string | null; label: string; active: boolean }[] }
 interface Totals { invoiced: number; received: number; balance: number }
-interface Filters { search?: string; method?: string; date_from?: string; date_to?: string }
+interface Filters {
+    search?: string | null;
+    payment_method?: string | null;
+    method?: string | null;
+    date_from?: string | null;
+    date_to?: string | null;
+    client_id?: string | null;
+    company?: string | null;
+    status?: string | null;
+}
 interface PaymentClient { id: number; client_number: string | null; name: string; company: string | null }
+
+const ALL = '__all__';
 
 const METHOD_LABELS: Record<string, string> = {
     cash: 'Cash', check: 'Check', zelle: 'Zelle', venmo: 'Venmo',
@@ -68,10 +80,16 @@ function StatusBadge({ status }: { status: Payment['status'] }) {
 
 function PaymentDetail({
     payment,
+    canManage,
     onClose,
+    onEdit,
+    onDelete,
 }: {
     payment: Payment | null;
+    canManage: boolean;
     onClose: () => void;
+    onEdit: (payment: Payment) => void;
+    onDelete: (payment: Payment) => void;
 }) {
     return (
         <Dialog open={payment !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -123,7 +141,19 @@ function PaymentDetail({
                                 </a>
                             )}
                         </div>
-                        <Button type="button" variant="outline" onClick={onClose}>Close</Button>
+                        <div className="flex items-center gap-2">
+                            {canManage && (
+                                <>
+                                    <Button type="button" variant="outline" onClick={() => onEdit(payment)}>
+                                        <SquarePen className="h-4 w-4" /> Edit
+                                    </Button>
+                                    <Button type="button" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => onDelete(payment)}>
+                                        <Trash2 className="h-4 w-4" /> Delete
+                                    </Button>
+                                </>
+                            )}
+                            <Button type="button" variant="outline" onClick={onClose}>Close</Button>
+                        </div>
                     </DialogFooter>
                 )}
             </DialogContent>
@@ -145,19 +175,24 @@ export default function PaymentsIndex({
     totals,
     filters,
     clients = [],
+    companies = [],
     can_create = false,
 }: {
     payments: Paginator<Payment>;
     totals: Totals;
     filters: Filters;
     clients?: PaymentClient[];
+    companies?: string[];
     can_create?: boolean;
 }) {
-    const [showFilters, setShowFilters] = useState(false);
+    const [showFilters, setShowFilters] = useState(Object.values(filters).some(Boolean));
     const [search, setSearch] = useState(filters.search ?? '');
     const [selected, setSelected] = useState<Payment | null>(null);
     const [addOpen, setAddOpen] = useState(false);
-    const hasFilters = Object.values(filters).some(Boolean);
+    const [editing, setEditing] = useState<Payment | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<Payment | null>(null);
+    const activeMethod = filters.payment_method || filters.method || '';
+    const hasFilters = Object.values({ ...filters, payment_method: activeMethod, method: undefined }).some(Boolean);
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -167,12 +202,23 @@ export default function PaymentsIndex({
     }, [search]);
 
     function applyFilter(key: string, value: string) {
-        router.get('/payments', { ...filters, [key]: value || undefined }, { preserveState: true, replace: true });
+        const next: Record<string, string | undefined> = {
+            search: search || undefined,
+            payment_method: activeMethod || undefined,
+            date_from: filters.date_from || undefined,
+            date_to: filters.date_to || undefined,
+            client_id: filters.client_id || undefined,
+            company: filters.company || undefined,
+            status: filters.status || undefined,
+            [key]: value && value !== ALL ? value : undefined,
+        };
+
+        router.get('/payments', next, { preserveState: true, preserveScroll: true, replace: true });
     }
 
     function clearFilters() {
         setSearch('');
-        router.get('/payments', {}, { preserveState: true, replace: true });
+        router.get('/payments', {}, { preserveState: true, preserveScroll: true, replace: true });
     }
 
     const kpis = [
@@ -233,7 +279,7 @@ export default function PaymentsIndex({
                             <div className="relative min-w-[220px] flex-1 max-w-md">
                                 <Search size={15} className="absolute top-1/2 left-3.5 -translate-y-1/2 text-gray-400" />
                                 <Input
-                                    placeholder="Search payments.."
+                                    placeholder="Search client, company, invoice, amount, reference…"
                                     className="h-10 rounded-full border-gray-200 bg-[#F7F7F5] pl-10 text-sm shadow-none"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
@@ -264,18 +310,65 @@ export default function PaymentsIndex({
                         </div>
 
                         {showFilters && (
-                            <div className="flex flex-wrap gap-3 border-t border-gray-100 px-5 py-4">
-                                <Select value={filters.method ?? ''} onValueChange={(v) => applyFilter('method', v)}>
-                                    <SelectTrigger className="h-9 w-40 text-sm"><SelectValue placeholder="Payment method" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="">All methods</SelectItem>
-                                        {Object.entries(METHOD_LABELS).map(([k, v]) => (
-                                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <Input type="date" className="h-9 w-36 text-sm" value={filters.date_from ?? ''} onChange={(e) => applyFilter('date_from', e.target.value)} />
-                                <Input type="date" className="h-9 w-36 text-sm" value={filters.date_to ?? ''} onChange={(e) => applyFilter('date_to', e.target.value)} />
+                            <div className="grid grid-cols-1 gap-3 border-t border-gray-100 px-5 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-gray-400">Client</Label>
+                                    <Select value={filters.client_id || ALL} onValueChange={(v) => applyFilter('client_id', v)}>
+                                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All clients" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={ALL}>All clients</SelectItem>
+                                            {clients.map((c) => (
+                                                <SelectItem key={c.id} value={String(c.id)}>
+                                                    {c.name}{c.client_number ? ` · ${c.client_number}` : ''}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-gray-400">Company</Label>
+                                    <Select value={filters.company || ALL} onValueChange={(v) => applyFilter('company', v)}>
+                                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All companies" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={ALL}>All companies</SelectItem>
+                                            {companies.map((name) => (
+                                                <SelectItem key={name} value={name}>{name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-gray-400">Payment method</Label>
+                                    <Select value={activeMethod || ALL} onValueChange={(v) => applyFilter('payment_method', v)}>
+                                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All methods" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={ALL}>All methods</SelectItem>
+                                            {Object.entries(METHOD_LABELS).map(([k, v]) => (
+                                                <SelectItem key={k} value={k}>{v}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-gray-400">Status</Label>
+                                    <Select value={filters.status || ALL} onValueChange={(v) => applyFilter('status', v)}>
+                                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All statuses" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={ALL}>All statuses</SelectItem>
+                                            {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                                                <SelectItem key={k} value={k}>{v}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-gray-400">From date</Label>
+                                    <Input type="date" className="h-9 text-sm" value={filters.date_from ?? ''} onChange={(e) => applyFilter('date_from', e.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-gray-400">To date</Label>
+                                    <Input type="date" className="h-9 text-sm" value={filters.date_to ?? ''} onChange={(e) => applyFilter('date_to', e.target.value)} />
+                                </div>
                             </div>
                         )}
 
@@ -336,12 +429,22 @@ export default function PaymentsIndex({
                                             </TableCell>
                                             <TableCell className="whitespace-nowrap text-sm text-gray-600">{p.assigned_user || '—'}</TableCell>
                                             <TableCell onClick={(e) => e.stopPropagation()}>
-                                                <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-1">
                                                     <PrintInvoiceLink paymentId={p.id} />
                                                     {p.has_receipt && (
                                                         <a href={`/payments/${p.id}/receipt`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800" title="View receipt">
-                                                            <Download size={13} /> Receipt
+                                                            <Download size={13} />
                                                         </a>
+                                                    )}
+                                                    {can_create && (
+                                                        <>
+                                                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" title="Edit payment" onClick={() => setEditing(p)}>
+                                                                <SquarePen className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600" title="Delete payment" onClick={() => setDeleteTarget(p)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </TableCell>
@@ -373,39 +476,91 @@ export default function PaymentsIndex({
                 </div>
             </AppLayout>
 
-            <PaymentDetail payment={selected} onClose={() => setSelected(null)} />
+            <PaymentDetail
+                payment={selected}
+                canManage={can_create}
+                onClose={() => setSelected(null)}
+                onEdit={(payment) => { setSelected(null); setEditing(payment); }}
+                onDelete={(payment) => { setSelected(null); setDeleteTarget(payment); }}
+            />
             {can_create && (
-                <AddPaymentDialog
-                    open={addOpen}
+                <PaymentFormDialog
+                    open={addOpen || editing !== null}
+                    payment={editing}
                     clients={clients}
-                    onClose={() => setAddOpen(false)}
+                    onClose={() => { setAddOpen(false); setEditing(null); }}
                 />
             )}
+            <AlertDialog open={deleteTarget !== null} onOpenChange={() => setDeleteTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {deleteTarget
+                                ? `This will remove payment #${deleteTarget.id} (${fmt(deleteTarget.invoice_amount)}). You can add a corrected record afterward.`
+                                : 'This payment record will be removed.'}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={() => {
+                                if (deleteTarget) {
+                                    router.delete(`/payments/${deleteTarget.id}`, { preserveScroll: true });
+                                }
+                                setDeleteTarget(null);
+                            }}
+                        >
+                            Delete payment
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }
 
-function AddPaymentDialog({
+function PaymentFormDialog({
     open,
+    payment,
     clients,
     onClose,
 }: {
     open: boolean;
+    payment: Payment | null;
     clients: PaymentClient[];
     onClose: () => void;
 }) {
     const [clientQuery, setClientQuery] = useState('');
     const form = useForm({
-        client_id: '',
-        invoice_amount: '',
-        amount_received: '',
-        payment_method: '',
-        transaction_reference: '',
-        notes: '',
-        paid_at: '',
+        client_id: payment ? String(payment.client_id) : '',
+        invoice_amount: payment ? String(payment.invoice_amount) : '',
+        amount_received: payment ? String(payment.amount_received) : '',
+        payment_method: payment?.payment_method ?? '',
+        transaction_reference: payment?.transaction_reference ?? '',
+        notes: payment?.notes ?? '',
+        paid_at: payment?.paid_at ?? '',
         receipt: null as File | null,
         return_to: 'payments',
     });
+
+    useEffect(() => {
+        if (!open) return;
+        form.setData({
+            client_id: payment ? String(payment.client_id) : '',
+            invoice_amount: payment ? String(payment.invoice_amount) : '',
+            amount_received: payment ? String(payment.amount_received) : '',
+            payment_method: payment?.payment_method ?? '',
+            transaction_reference: payment?.transaction_reference ?? '',
+            notes: payment?.notes ?? '',
+            paid_at: payment?.paid_at ?? '',
+            receipt: null,
+            return_to: 'payments',
+        });
+        form.clearErrors();
+        setClientQuery('');
+    }, [open, payment?.id]);
 
     const filteredClients = clients.filter((c) => {
         const q = clientQuery.trim().toLowerCase();
@@ -415,21 +570,26 @@ function AddPaymentDialog({
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        form.post('/payments', {
+        const options = {
             forceFormData: true,
             onSuccess: () => {
                 form.reset();
                 setClientQuery('');
                 onClose();
             },
-        });
+        };
+        if (payment) {
+            form.put(`/payments/${payment.id}`, options);
+            return;
+        }
+        form.post('/payments', options);
     }
 
     return (
         <Dialog open={open} onOpenChange={(next) => { if (!next) { form.reset(); setClientQuery(''); onClose(); } }}>
             <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Add payment</DialogTitle>
+                    <DialogTitle>{payment ? 'Edit payment' : 'Add payment'}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={submit} className="space-y-3">
                     <Field label="Client *" error={form.errors.client_id}>
@@ -488,9 +648,14 @@ function AddPaymentDialog({
                         error={form.errors.receipt}
                         onChange={(file) => form.setData('receipt', file)}
                     />
+                    {payment?.has_receipt && !form.data.receipt && (
+                        <p className="text-[11px] text-gray-400">Current proof stays on file unless you upload a replacement.</p>
+                    )}
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit" disabled={form.processing || clients.length === 0}>Save payment</Button>
+                        <Button type="submit" disabled={form.processing || clients.length === 0}>
+                            {payment ? 'Save changes' : 'Save payment'}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

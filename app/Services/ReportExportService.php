@@ -23,6 +23,7 @@ class ReportExportService
 
         $this->summarySheet($spreadsheet, $report);
         $this->revenueSheet($spreadsheet, $report);
+        $this->paymentsSheet($spreadsheet, $report);
         $this->servicesSheet($spreadsheet, $report);
         $this->leadsSheet($spreadsheet, $report);
         $this->outstandingSheet($spreadsheet, $report);
@@ -118,6 +119,56 @@ class ReportExportService
         $this->writeTable($sheet, $daily, 13, moneyColumns: [2]);
         $sheet->getColumnDimension('A')->setWidth(28);
         $sheet->getColumnDimension('B')->setWidth(18);
+    }
+
+    private function paymentsSheet(Spreadsheet $spreadsheet, array $report): void
+    {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('Payments');
+        $this->titleBlock($sheet, $report, 'Payments received');
+
+        $summary = [
+            ['Metric', 'Value'],
+            ['Total received', $report['payments']['total_received'] ?? 0],
+            ['Payments', $report['payments']['count'] ?? 0],
+        ];
+        $this->writeTable($sheet, $summary, 6);
+        $sheet->getStyle('B7')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_CURRENCY_USD);
+
+        $rows = [[
+            'Payment date',
+            'Client',
+            'Company',
+            'Client #',
+            'Invoice #',
+            'Invoice amount',
+            'Amount received',
+            'Balance',
+            'Method',
+            'Status',
+            'Reference',
+        ]];
+
+        foreach ($report['payments']['payments'] ?? [] as $row) {
+            $rows[] = [
+                $row['paid_at'],
+                $row['client_name'],
+                $row['company_name'] ?: '—',
+                $row['client_number'],
+                $row['invoice_number'],
+                $row['invoice_amount'],
+                $row['amount_received'],
+                $row['balance_due'],
+                $row['payment_method'] ?: '—',
+                $row['status'],
+                $row['transaction_reference'] ?: '—',
+            ];
+        }
+
+        $this->writeTable($sheet, $rows, 11, moneyColumns: [6, 7, 8]);
+        foreach (range(1, 11) as $col) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
+        }
     }
 
     private function servicesSheet(Spreadsheet $spreadsheet, array $report): void

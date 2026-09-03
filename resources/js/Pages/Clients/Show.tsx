@@ -22,10 +22,11 @@ import DocumentUploadRows, {
 import {
     ChevronLeft, Phone, Mail, Building, MapPin, Briefcase, Globe, Edit,
     DollarSign, FileText, CheckSquare, Clock, AlertCircle, CheckCircle2, Circle, GitBranch,
-    LayoutDashboard, Upload, X, Download, Truck, ShieldCheck, UserCheck, UserRound,
+    LayoutDashboard, Upload, X, Download, Truck, ShieldCheck, UserCheck, UserRound, Bell, SquarePen, Trash2,
 } from 'lucide-react';
 import PrintInvoiceLink from '@/components/PrintInvoiceLink';
 import { ProfileTab, FleetTab, ComplianceTab, type ProfileOptions } from '@/Pages/Clients/ClientProfileForms';
+import { ClientRemindersList, CustomReminderDialog, type ClientReminder } from '@/Pages/Clients/CustomReminders';
 import { cn } from '@/lib/utils';
 
 interface Lead { id: number; name: string; email: string | null; phone: string | null; state: string | null; company: string | null; service_required: string | null; source: string; status: string; created_at: string }
@@ -52,6 +53,7 @@ interface Client {
     ssn_masked: string | null;
     lead: Lead | null; leads: RelatedLead[]; payments: Payment[]; client_services: ClientService[];
     documents: Document[]; tasks: Task[]; activities: Activity[]; vehicles: import('./ClientProfileForms').Vehicle[];
+    reminders?: ClientReminder[];
     [key: string]: unknown;
 }
 interface Props {
@@ -128,10 +130,11 @@ export default function ClientShow({ client, users, services, doc_categories, pr
     const { url } = usePage();
     const addPayment = url.includes('add_payment=1');
     const requestedTab = new URLSearchParams(url.split('?')[1] ?? '').get('tab');
-    const [tab, setTab] = useState(addPayment ? 'payments' : (requestedTab || 'overview'));
+    const [tab, setTab] = useState(addPayment ? 'payments' : (requestedTab === 'reminders' ? 'overview' : (requestedTab || 'overview')));
     const [forcePayment, setForcePayment] = useState(addPayment);
     const [editOpen, setEditOpen] = useState(false);
     const [complianceOpen, setComplianceOpen] = useState(false);
+    const [reminderOpen, setReminderOpen] = useState(false);
     const canEdit = ['admin', 'sales', 'processing', 'manager'].includes(auth.user.role);
     const canReassign = ['admin', 'manager'].includes(auth.user.role);
     const canCreateLead = ['admin', 'sales', 'manager'].includes(auth.user.role);
@@ -198,7 +201,7 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                                 {(client.state || client.lead?.state) && <span className="inline-flex items-center gap-1.5"><MapPin size={14} />{client.state || client.lead?.state}</span>}
                             </div>
                         </div>
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex flex-wrap items-center justify-end gap-2.5">
                             {canCreateLead && (
                                 <Link
                                     href={`/leads/create?client_id=${client.id}`}
@@ -225,6 +228,15 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                                     className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
                                 >
                                     <ShieldCheck className="h-4 w-4" /> Change compliance
+                                </button>
+                            )}
+                            {canEdit && (
+                                <button
+                                    type="button"
+                                    onClick={() => setReminderOpen(true)}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-[#C4A035] px-4 py-2.5 text-sm font-semibold text-[#12141D] shadow-sm transition-colors hover:bg-[#E0B63C]"
+                                >
+                                    <Bell className="h-4 w-4" /> Custom Reminder
                                 </button>
                             )}
                             {canEdit && (
@@ -261,6 +273,11 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                         )}
                         {['admin', 'sales'].includes(auth.user.role) && (
                             <Button type="button" variant="outline" size="sm" onClick={() => { setTab('payments'); setForcePayment(true); }}>Record Payment</Button>
+                        )}
+                        {canEdit && (
+                            <Button type="button" variant="outline" size="sm" onClick={() => setReminderOpen(true)}>
+                                <Bell className="h-4 w-4" /> Custom Reminder
+                            </Button>
                         )}
                         {canEdit && <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)}>Add Note</Button>}
                         <Button type="button" variant="outline" size="sm" onClick={() => setTab('tasks')}>Create Task</Button>
@@ -371,6 +388,12 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                                     <p className="mt-3 text-sm text-gray-600">{client.documents.length} file{client.documents.length === 1 ? '' : 's'} on file</p>
                                     <button type="button" className="mt-3 text-sm font-medium text-amber-700" onClick={() => setTab('documents')}>View documents</button>
                                 </section>
+                                <ClientRemindersList
+                                    clientId={client.id}
+                                    reminders={client.reminders ?? []}
+                                    canEdit={canEdit}
+                                    onAdd={() => setReminderOpen(true)}
+                                />
                                 <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm lg:col-span-2">
                                     <h3 className="text-base font-semibold text-gray-950">Recent activity</h3>
                                     <div className="mt-3">
@@ -432,6 +455,8 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                         </TabsContent>
                     </Tabs>
                 </div>
+
+                <CustomReminderDialog clientId={client.id} open={reminderOpen} onOpenChange={setReminderOpen} />
 
                 <Dialog open={editOpen} onOpenChange={setEditOpen}>
                     <DialogContent className="max-w-md">
@@ -524,8 +549,8 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                         >
                             <p className="text-sm text-gray-500">
                                 Convert this client from a regular account to Monthly, or switch back to One-Time.
-                                Choosing Monthly records today&apos;s date, sets the next compliance date 30 days later,
-                                and creates an automatic reminder for the assigned user and admins.
+                                Choosing Monthly records today&apos;s date and sets the next compliance date 30 days later.
+                                Use Custom Reminder on this profile to schedule follow-up work.
                             </p>
                             <div className="space-y-1">
                                 <Label className="text-xs">Compliance type</Label>
@@ -540,11 +565,6 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                                     <p className="text-xs text-red-500">{complianceForm.errors.compliance_type}</p>
                                 )}
                             </div>
-                            {complianceForm.data.compliance_type === 'monthly' && (
-                                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                    Completing the monthly compliance task will automatically schedule the next 30-day reminder.
-                                </p>
-                            )}
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setComplianceOpen(false)}>Cancel</Button>
                                 <Button type="submit" disabled={complianceForm.processing}>Save compliance</Button>
@@ -559,6 +579,8 @@ export default function ClientShow({ client, users, services, doc_categories, pr
 
 function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { clientId: number; payments: Payment[]; canEdit: boolean; autoOpen?: boolean }) {
     const [open, setOpen] = useState(autoOpen && canEdit);
+    const [editing, setEditing] = useState<Payment | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<Payment | null>(null);
     const form = useForm<{
         invoice_amount: string;
         amount_received: string;
@@ -579,12 +601,55 @@ function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { client
         receipt: null,
     });
 
+    function resetForm() {
+        form.reset();
+        form.setData({
+            invoice_amount: '',
+            amount_received: '',
+            payment_method: '',
+            transaction_reference: '',
+            notes: '',
+            paid_at: '',
+            client_id: String(clientId),
+            receipt: null,
+        });
+        form.clearErrors();
+        setEditing(null);
+    }
+
+    function openCreate() {
+        resetForm();
+        setOpen(true);
+    }
+
+    function openEdit(payment: Payment) {
+        form.setData({
+            invoice_amount: String(payment.invoice_amount),
+            amount_received: String(payment.amount_received),
+            payment_method: payment.payment_method ?? '',
+            transaction_reference: payment.transaction_reference ?? '',
+            notes: payment.notes ?? '',
+            paid_at: payment.paid_at ?? '',
+            client_id: String(clientId),
+            receipt: null,
+        });
+        form.clearErrors();
+        setEditing(payment);
+        setOpen(true);
+    }
+
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        form.post('/payments', {
+        const options = {
             forceFormData: true,
-            onSuccess: () => { form.reset(); setOpen(false); },
-        });
+            preserveScroll: true,
+            onSuccess: () => { resetForm(); setOpen(false); },
+        };
+        if (editing) {
+            form.put(`/payments/${editing.id}`, options);
+            return;
+        }
+        form.post('/payments', options);
     }
 
     return (
@@ -593,7 +658,7 @@ function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { client
                 <div className="flex justify-end">
                     <button
                         type="button"
-                        onClick={() => setOpen(true)}
+                        onClick={openCreate}
                         className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
                     >
                         <DollarSign className="h-4 w-4" /> Add payment
@@ -613,12 +678,13 @@ function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { client
                             <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">By</TableHead>
                             <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Proof</TableHead>
                             <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Print</TableHead>
+                            {canEdit && <TableHead className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Actions</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {payments.length === 0 ? (
                             <TableRow className="hover:bg-transparent">
-                                <TableCell colSpan={9} className="h-48 text-center text-sm text-gray-400">No payments recorded</TableCell>
+                                <TableCell colSpan={canEdit ? 10 : 9} className="h-48 text-center text-sm text-gray-400">No payments recorded</TableCell>
                             </TableRow>
                         ) : payments.map((p) => (
                             <TableRow key={p.id}>
@@ -646,15 +712,27 @@ function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { client
                                 <TableCell>
                                     <PrintInvoiceLink paymentId={p.id} />
                                 </TableCell>
+                                {canEdit && (
+                                    <TableCell>
+                                        <div className="flex items-center gap-1">
+                                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" title="Edit payment" onClick={() => openEdit(p)}>
+                                                <SquarePen className="h-4 w-4" />
+                                            </Button>
+                                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600" title="Delete payment" onClick={() => setDeleteTarget(p)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                )}
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
             </section>
 
-            <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) form.reset(); }}>
+            <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) resetForm(); }}>
                 <DialogContent className="max-w-md">
-                    <DialogHeader><DialogTitle>Add Payment</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>{editing ? 'Edit payment' : 'Add Payment'}</DialogTitle></DialogHeader>
                     <form onSubmit={submit} className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                             <Field label="Invoice Amount *" error={form.errors.invoice_amount}>
@@ -665,7 +743,7 @@ function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { client
                             </Field>
                         </div>
                         <Field label="Payment Method" error={form.errors.payment_method}>
-                            <Select value={form.data.payment_method} onValueChange={(v) => form.setData('payment_method', v)}>
+                            <Select value={form.data.payment_method || undefined} onValueChange={(v) => form.setData('payment_method', v)}>
                                 <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
                                 <SelectContent>
                                     {['Cash', 'Check', 'Zelle', 'Venmo', 'Bank Transfer', 'Stripe', 'Other'].map((m) => (
@@ -687,14 +765,42 @@ function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { client
                             file={form.data.receipt}
                             error={form.errors.receipt}
                             onChange={(file) => form.setData('receipt', file)}
+                            existingLabel={editing?.has_receipt && !form.data.receipt ? 'Current proof on file — drop a new file to replace it' : undefined}
                         />
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                            <Button type="submit" disabled={form.processing}>Save Payment</Button>
+                            <Button type="submit" disabled={form.processing}>{editing ? 'Save changes' : 'Save Payment'}</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={deleteTarget !== null} onOpenChange={() => setDeleteTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {deleteTarget
+                                ? `This will remove the ${fmt(deleteTarget.invoice_amount)} payment record. You can add a corrected one afterward.`
+                                : 'This payment record will be removed.'}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={() => {
+                                if (deleteTarget) {
+                                    router.delete(`/payments/${deleteTarget.id}`, { preserveScroll: true });
+                                }
+                                setDeleteTarget(null);
+                            }}
+                        >
+                            Delete payment
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
@@ -1108,10 +1214,12 @@ function PaymentProofField({
     file,
     onChange,
     error,
+    existingLabel,
 }: {
     file: File | null;
     onChange: (file: File | null) => void;
     error?: string;
+    existingLabel?: string;
 }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [over, setOver] = useState(false);
@@ -1165,7 +1273,7 @@ function PaymentProofField({
                 >
                     <Upload className={cn('mb-1.5 h-4 w-4', over ? 'text-amber-700' : 'text-gray-400')} />
                     <span className="text-xs font-medium text-gray-600">Drop screenshot or PDF, or click to browse</span>
-                    <span className="mt-0.5 text-[11px] text-gray-400">JPG, PNG, or PDF · max 5 MB</span>
+                    <span className="mt-0.5 text-[11px] text-gray-400">{existingLabel ?? 'JPG, PNG, or PDF · max 5 MB'}</span>
                 </button>
             )}
             <input

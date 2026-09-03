@@ -90,6 +90,45 @@
         </table>
     @endif
 
+    <h2>Payments received</h2>
+    <table class="kpis">
+        <tr>
+            <td><div class="label">Total received</div><div class="value">${{ number_format($payments['total_received'] ?? 0, 2) }}</div></td>
+            <td><div class="label">Payments</div><div class="value">{{ $payments['count'] ?? 0 }}</div></td>
+            <td></td><td></td>
+        </tr>
+    </table>
+    <table class="data">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Company</th>
+                <th>Invoice #</th>
+                <th class="right">Received</th>
+                <th class="right">Invoice</th>
+                <th>Method</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse (($payments['payments'] ?? []) as $row)
+                <tr>
+                    <td>{{ $row['paid_at'] }}</td>
+                    <td>{{ $row['client_name'] }}</td>
+                    <td>{{ $row['company_name'] ?: '—' }}</td>
+                    <td>{{ $row['invoice_number'] }}</td>
+                    <td class="right green">${{ number_format($row['amount_received'], 2) }}</td>
+                    <td class="right">${{ number_format($row['invoice_amount'], 2) }}</td>
+                    <td>{{ $row['payment_method'] ?: '—' }}</td>
+                    <td>{{ $row['status'] }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="8">No payments received in this period</td></tr>
+            @endforelse
+        </tbody>
+    </table>
+
     <h2>Sales by Service</h2>
     <table class="data">
         <thead><tr><th>Service</th><th class="right">Completed</th></tr></thead>

@@ -193,6 +193,8 @@ class ClientController extends Controller
             'tasks.assignedUser',
             'tasks.createdBy',
             'activities.causer',
+            'reminders.createdBy',
+            'customFields',
         ]);
 
         if ($client->clientServices->isEmpty() && $client->lead?->service_required) {
@@ -413,6 +415,21 @@ class ClientController extends Controller
                 'reminder_at'   => $t->reminder_at?->format('Y-m-d\\TH:i'),
                 'is_overdue'    => $t->isOverdue(),
             ])->toArray(),
+            'reminders'        => $client->reminders->map(fn ($r) => [
+                'id'          => $r->id,
+                'remind_at'   => $r->remind_at?->format('Y-m-d\\TH:i'),
+                'date'        => $r->remind_at?->toDateString(),
+                'time'        => $r->remind_at?->format('H:i'),
+                'description' => $r->description,
+                'created_by'  => $r->createdBy?->name,
+                'notified_at' => $r->notified_at?->format('Y-m-d\\TH:i'),
+                'is_due'      => $r->remind_at?->isPast() && ! $r->notified_at,
+            ])->toArray(),
+            'custom_fields'    => $client->customFields->map(fn ($f) => [
+                'id'    => $f->id,
+                'label' => $f->label,
+                'value' => $f->value,
+            ])->values()->toArray(),
             'activities'       => $client->activities->map(fn ($a) => [
                 'id'          => $a->id,
                 'action'      => $a->action,
@@ -480,11 +497,7 @@ class ClientController extends Controller
             'next_action'                  => $client->next_action,
             'next_action_due_at'           => $client->next_action_due_at?->toDateString(),
             'login_gov_email'              => $client->login_gov_email,
-            'motus_account_email'          => $client->motus_account_email,
-            'fmcsa_account_email'          => $client->fmcsa_account_email,
-            'portal_username'              => $client->portal_username,
-            'account_status'               => $client->account_status,
-            'account_last_verified_at'     => $client->account_last_verified_at?->toDateString(),
+            'login_gov_password'           => $client->login_gov_password,
         ];
     }
 

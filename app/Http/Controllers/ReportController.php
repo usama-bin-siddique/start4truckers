@@ -28,6 +28,7 @@ class ReportController extends Controller
 
         return Inertia::render('Reports/Index', [
             'revenue'          => $report['revenue'],
+            'payments'         => $report['payments'],
             'sales_by_service' => $report['sales_by_service'],
             'lead_conversion'  => $report['lead_conversion'],
             'outstanding'      => $report['outstanding'],

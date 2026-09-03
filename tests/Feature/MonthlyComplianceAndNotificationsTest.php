@@ -23,7 +23,7 @@ class MonthlyComplianceAndNotificationsTest extends TestCase
         $this->assertSame(['project' => 'One-Time', 'monthly' => 'Monthly'], ClientProfile::COMPLIANCE_TYPES);
     }
 
-    public function test_converting_a_client_to_monthly_records_dates_creates_a_task_and_notifies_assignee_and_admin(): void
+    public function test_converting_a_client_to_monthly_records_dates_and_notifies_assignee_and_admin(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'is_active' => true, 'name' => 'Admin User']);
         $sales = User::factory()->create(['role' => 'sales', 'is_active' => true, 'name' => 'Assigned Sales']);
@@ -48,15 +48,12 @@ class MonthlyComplianceAndNotificationsTest extends TestCase
         $this->assertSame(now()->toDateString(), $client->monthly_compliance_started_at?->toDateString());
         $this->assertSame(now()->addDays(30)->toDateString(), $client->next_compliance_due_at?->toDateString());
 
-        $task = Task::query()
-            ->where('client_id', $client->id)
-            ->where('kind', Task::KIND_MONTHLY_COMPLIANCE)
-            ->where('status', '!=', Task::STATUS_COMPLETED)
-            ->first();
-
-        $this->assertNotNull($task);
-        $this->assertSame($sales->id, $task->assigned_to);
-        $this->assertSame($client->next_compliance_due_at->toDateString(), $task->due_date?->toDateString());
+        $this->assertFalse(
+            Task::query()
+                ->where('client_id', $client->id)
+                ->where('kind', Task::KIND_MONTHLY_COMPLIANCE)
+                ->exists()
+        );
 
         $this->assertDatabaseHas('crm_notifications', [
             'user_id' => $sales->id,
@@ -68,20 +65,28 @@ class MonthlyComplianceAndNotificationsTest extends TestCase
         ]);
     }
 
-    public function test_completing_a_monthly_compliance_task_schedules_the_next_30_day_cycle(): void
+    public function test_completing_a_monthly_compliance_task_does_not_schedule_the_next_30_day_cycle(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
         $client = Client::create([
-            'name'        => 'Cycle Client',
-            'status'      => 'onboarding',
-            'assigned_to' => $admin->id,
+            'name'                         => 'Cycle Client',
+            'status'                       => 'compliance',
+            'assigned_to'                  => $admin->id,
+            'compliance_type'              => 'monthly',
+            'monthly_compliance_started_at' => now()->subDays(30),
+            'next_compliance_due_at'       => now()->addDays(10),
         ]);
 
-        $this->actingAs($admin)
-            ->post("/clients/{$client->id}/compliance", ['compliance_type' => 'monthly']);
-
-        $task = Task::where('client_id', $client->id)->where('kind', Task::KIND_MONTHLY_COMPLIANCE)->first();
-        $this->assertNotNull($task);
+        $task = Task::create([
+            'client_id'   => $client->id,
+            'title'       => 'Leftover monthly compliance',
+            'assigned_to' => $admin->id,
+            'created_by'  => $admin->id,
+            'priority'    => Task::PRIORITY_HIGH,
+            'status'      => Task::STATUS_PENDING,
+            'kind'        => Task::KIND_MONTHLY_COMPLIANCE,
+            'due_date'    => now()->addDay(),
+        ]);
 
         $this->actingAs($admin)
             ->patch("/tasks/{$task->id}/complete")
@@ -92,20 +97,18 @@ class MonthlyComplianceAndNotificationsTest extends TestCase
 
         $this->assertSame(Task::STATUS_COMPLETED, $task->status);
         $this->assertSame(now()->toDateString(), $client->last_compliance_completed_at?->toDateString());
-        $this->assertSame(now()->addDays(30)->toDateString(), $client->next_compliance_due_at?->toDateString());
+        $this->assertSame(now()->addDays(10)->toDateString(), $client->next_compliance_due_at?->toDateString());
 
-        $next = Task::query()
-            ->where('client_id', $client->id)
-            ->where('kind', Task::KIND_MONTHLY_COMPLIANCE)
-            ->where('status', '!=', Task::STATUS_COMPLETED)
-            ->first();
-
-        $this->assertNotNull($next);
-        $this->assertNotSame($task->id, $next->id);
-        $this->assertSame($client->next_compliance_due_at->toDateString(), $next->due_date?->toDateString());
+        $this->assertFalse(
+            Task::query()
+                ->where('client_id', $client->id)
+                ->where('kind', Task::KIND_MONTHLY_COMPLIANCE)
+                ->where('status', '!=', Task::STATUS_COMPLETED)
+                ->exists()
+        );
     }
 
-    public function test_due_compliance_reminders_notify_assigned_user_and_admin(): void
+    public function test_due_compliance_reminders_are_not_sent_automatically(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
         $sales = User::factory()->create(['role' => 'sales', 'is_active' => true]);
@@ -125,22 +128,13 @@ class MonthlyComplianceAndNotificationsTest extends TestCase
 
         $this->artisan('compliance:send-reminders')->assertSuccessful();
 
-        $this->assertDatabaseHas('crm_notifications', [
-            'user_id' => $sales->id,
-            'type'    => 'compliance_due',
+        $this->assertDatabaseMissing('crm_notifications', [
+            'type' => 'compliance_due',
         ]);
-        $this->assertDatabaseHas('crm_notifications', [
-            'user_id' => $admin->id,
-            'type'    => 'compliance_due',
-        ]);
-
-        $this->assertSame(
-            now()->subDay()->toDateString(),
-            $client->fresh()->compliance_reminder_sent_for?->toDateString()
+        $this->assertNull($client->fresh()->compliance_reminder_sent_for);
+        $this->assertFalse(
+            Task::where('client_id', $client->id)->where('kind', Task::KIND_MONTHLY_COMPLIANCE)->exists()
         );
-
-        $this->artisan('compliance:send-reminders')->assertSuccessful();
-        $this->assertSame(2, CrmNotification::where('type', 'compliance_due')->count());
     }
 
     public function test_converting_a_lead_to_a_monthly_client_starts_the_compliance_cycle(): void
@@ -164,7 +158,7 @@ class MonthlyComplianceAndNotificationsTest extends TestCase
         $this->assertSame('monthly', $client->compliance_type);
         $this->assertNotNull($client->monthly_compliance_started_at);
         $this->assertNotNull($client->next_compliance_due_at);
-        $this->assertTrue(
+        $this->assertFalse(
             Task::where('client_id', $client->id)->where('kind', Task::KIND_MONTHLY_COMPLIANCE)->exists()
         );
     }

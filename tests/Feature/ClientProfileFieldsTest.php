@@ -75,6 +75,7 @@ class ClientProfileFieldsTest extends TestCase
                 ->where('client.next_action', 'Upload BOC-3')
                 ->has('profile_options.statuses')
                 ->has('client.vehicles')
+                ->has('client.custom_fields')
             );
     }
 
@@ -112,5 +113,72 @@ class ClientProfileFieldsTest extends TestCase
             'Compliance',
             'Inactive',
         ], array_values(ClientProfile::STATUSES));
+    }
+
+    public function test_account_login_section_stores_only_login_gov_credentials(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['name' => 'Login Client', 'status' => 'onboarding']);
+
+        $this->actingAs($admin)
+            ->put("/clients/{$client->id}", [
+                'name'               => 'Login Client',
+                'login_gov_email'    => 'owner@login.gov',
+                'login_gov_password' => 'secret-pass-1',
+            ])
+            ->assertRedirect();
+
+        $client->refresh();
+        $this->assertSame('owner@login.gov', $client->login_gov_email);
+        $this->assertSame('secret-pass-1', $client->login_gov_password);
+
+        $this->actingAs($admin)
+            ->get("/clients/{$client->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('client.login_gov_email', 'owner@login.gov')
+                ->where('client.login_gov_password', 'secret-pass-1')
+                ->missing('client.motus_account_email')
+                ->missing('client.fmcsa_account_email')
+                ->missing('client.portal_username')
+            );
+    }
+
+    public function test_fmcsa_authority_type_accepts_dropdown_values(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['name' => 'Authority Client', 'status' => 'onboarding']);
+
+        $this->actingAs($admin)
+            ->put("/clients/{$client->id}", [
+                'name'                 => 'Authority Client',
+                'fmcsa_authority_type' => 'mx',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('mx', $client->fresh()->fmcsa_authority_type);
+
+        $this->actingAs($admin)
+            ->get("/clients/{$client->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('client.fmcsa_authority_type', 'mx')
+                ->where('profile_options.fmcsa_authority_types.ff', 'FF Number')
+                ->where('profile_options.fmcsa_authority_types.mc', 'MC Number')
+                ->where('profile_options.fmcsa_authority_types.mx', 'MX Number')
+            );
+    }
+
+    public function test_fmcsa_authority_type_rejects_unknown_values(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['name' => 'Authority Client', 'status' => 'onboarding']);
+
+        $this->actingAs($admin)
+            ->put("/clients/{$client->id}", [
+                'name'                 => 'Authority Client',
+                'fmcsa_authority_type' => 'invalid',
+            ])
+            ->assertSessionHasErrors('fmcsa_authority_type');
     }
 }

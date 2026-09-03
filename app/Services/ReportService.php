@@ -51,6 +51,7 @@ class ReportService
             'filters'          => $filters,
             'generated_at'     => now()->timezone(config('app.timezone'))->format('M j, Y g:i A'),
             'revenue'          => $this->revenueReport($from, $to, $userId),
+            'payments'         => $this->paymentsReceived($from, $to, $userId),
             'sales_by_service' => $this->salesByService($from, $to, $userId, $serviceId),
             'lead_conversion'  => $this->leadConversion($from, $to, $userId),
             'outstanding'      => $this->outstandingBalances($userId),
@@ -60,10 +61,16 @@ class ReportService
         ];
     }
 
+    private function paymentsInPeriodQuery(string $from, string $to, ?string $userId)
+    {
+        return Payment::query()
+            ->whereRaw('DATE(COALESCE(paid_at, created_at)) BETWEEN ? AND ?', [$from, $to])
+            ->when($userId, fn ($q) => $q->whereHas('client', fn ($q) => $q->where('assigned_to', $userId)));
+    }
+
     private function revenueReport(string $from, string $to, ?string $userId): array
     {
-        $q = Payment::whereBetween('paid_at', [$from, $to])
-            ->when($userId, fn ($q) => $q->whereHas('client', fn ($q) => $q->where('assigned_to', $userId)));
+        $q = $this->paymentsInPeriodQuery($from, $to, $userId);
 
         $summary = (clone $q)->selectRaw('
             SUM(invoice_amount)  as total_invoiced,
@@ -72,8 +79,8 @@ class ReportService
         ')->first();
 
         $daily = (clone $q)
-            ->selectRaw('DATE(paid_at) as date, SUM(amount_received) as revenue')
-            ->groupBy('date')
+            ->selectRaw('DATE(COALESCE(paid_at, created_at)) as date, SUM(amount_received) as revenue')
+            ->groupByRaw('DATE(COALESCE(paid_at, created_at))')
             ->orderBy('date')
             ->get()
             ->map(fn ($r) => ['date' => $r->date, 'revenue' => (float) $r->revenue])
@@ -85,6 +92,42 @@ class ReportService
             'total_balance'   => (float) (($summary->total_invoiced ?? 0) - ($summary->total_received ?? 0)),
             'payment_count'   => (int) ($summary->payment_count ?? 0),
             'daily'           => $daily,
+        ];
+    }
+
+    /**
+     * @return array{total_received: float, count: int, payments: list<array<string, mixed>>}
+     */
+    private function paymentsReceived(string $from, string $to, ?string $userId): array
+    {
+        $payments = $this->paymentsInPeriodQuery($from, $to, $userId)
+            ->with(['client.lead', 'createdBy'])
+            ->orderByRaw('DATE(COALESCE(paid_at, created_at)) DESC')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (Payment $p) => [
+                'id'                    => $p->id,
+                'invoice_number'        => $p->invoice_number,
+                'client_id'             => $p->client_id,
+                'client_number'         => $p->client?->client_number,
+                'client_name'           => $p->client?->display_name ?? 'Unknown client',
+                'company_name'          => $p->client?->company ?: $p->client?->lead?->company,
+                'invoice_amount'        => (float) $p->invoice_amount,
+                'amount_received'       => (float) $p->amount_received,
+                'balance_due'           => $p->balance_due,
+                'payment_method'        => $p->payment_method,
+                'status'                => $p->payment_status,
+                'transaction_reference' => $p->transaction_reference,
+                'paid_at'               => ($p->paid_at ?? $p->created_at)?->toDateString(),
+                'recorded_by'           => $p->createdBy?->name,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'total_received' => (float) collect($payments)->sum('amount_received'),
+            'count'          => count($payments),
+            'payments'       => $payments,
         ];
     }
 
@@ -186,8 +229,7 @@ class ReportService
             $leadsAssigned = Lead::where('assigned_to', $user->id)->whereBetween('created_at', [$from, $to])->count();
             $leadsWon = Lead::where('assigned_to', $user->id)->where('status', 'won')->whereBetween('created_at', [$from, $to])->count();
             $clientsManaged = Client::where('assigned_to', $user->id)->count();
-            $revenueGenerated = Payment::whereHas('client', fn ($q) => $q->where('assigned_to', $user->id))
-                ->whereBetween('paid_at', [$from, $to])
+            $revenueGenerated = $this->paymentsInPeriodQuery($from, $to, (string) $user->id)
                 ->sum('amount_received');
             $tasksCompleted = Task::where('assigned_to', $user->id)->where('status', 'completed')->whereBetween('completed_at', [$from, $to])->count();
             $servicesCompleted = ClientService::where('assigned_to', $user->id)->where('status', 'completed')->whereBetween('completion_date', [$from, $to])->count();
