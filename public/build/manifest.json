@@ -519,7 +519,7 @@
     ]
   },
   "resources/js/Pages/Clients/Index.tsx": {
-    "file": "assets/Index-BiZHgdJU.js",
+    "file": "assets/Index-rrxi4rkZ.js",
     "name": "Index",
     "src": "resources/js/Pages/Clients/Index.tsx",
     "isDynamicEntry": true,
@@ -536,15 +536,18 @@
       "_funnel-B7rrrdAz.js",
       "_git-branch-CRXj_N6R.js",
       "_plus-BKmjH0Qq.js",
+      "_refresh-cw-omqTXXsL.js",
       "_search-D3sBSAPm.js",
       "_Combination-rPYw3cGr.js",
       "_input-BScpXTaC.js",
+      "_label-Cz99YPKV.js",
+      "_dialog-BxyEd8x-.js",
       "_table-6wlIMiaI.js",
       "_badge-CGA9ajrX.js"
     ]
   },
   "resources/js/Pages/Clients/Show.tsx": {
-    "file": "assets/Show-RxBkBeZV.js",
+    "file": "assets/Show-0wcKudVF.js",
     "name": "Show",
     "src": "resources/js/Pages/Clients/Show.tsx",
     "isDynamicEntry": true,
@@ -911,7 +914,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-Dr966Ipu.js",
+    "file": "assets/app-CVbfblqJ.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,

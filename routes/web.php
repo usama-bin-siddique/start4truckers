@@ -61,6 +61,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
     Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
     Route::post('/clients/{client}/compliance', [ClientController::class, 'updateCompliance'])->name('clients.compliance');
+    Route::post('/clients/{client}/status', [ClientController::class, 'updateStatus'])->name('clients.status');
     Route::post('/clients/{client}/vehicles', [ClientVehicleController::class, 'store'])->name('clients.vehicles.store');
     Route::put('/clients/{client}/vehicles/{vehicle}', [ClientVehicleController::class, 'update'])->name('clients.vehicles.update');
     Route::delete('/clients/{client}/vehicles/{vehicle}', [ClientVehicleController::class, 'destroy'])->name('clients.vehicles.destroy');
