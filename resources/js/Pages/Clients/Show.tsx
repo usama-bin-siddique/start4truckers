@@ -133,6 +133,7 @@ export default function ClientShow({ client, users, services, doc_categories, pr
     const [tab, setTab] = useState(addPayment ? 'payments' : (requestedTab === 'reminders' ? 'overview' : (requestedTab || 'overview')));
     const [forcePayment, setForcePayment] = useState(addPayment);
     const [editOpen, setEditOpen] = useState(false);
+    const [statusOpen, setStatusOpen] = useState(false);
     const [complianceOpen, setComplianceOpen] = useState(false);
     const [reminderOpen, setReminderOpen] = useState(false);
     const canEdit = ['admin', 'sales', 'processing', 'manager'].includes(auth.user.role);
@@ -152,6 +153,9 @@ export default function ClientShow({ client, users, services, doc_categories, pr
     });
     const complianceForm = useForm({
         compliance_type: client.compliance_type ?? 'project',
+    });
+    const statusForm = useForm({
+        status: client.status === 'active' ? 'in_progress' : client.status,
     });
 
     useEffect(() => {
@@ -217,6 +221,19 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                                 >
                                     View originating lead
                                 </Link>
+                            )}
+                            {canEdit && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        statusForm.setData('status', client.status === 'active' ? 'in_progress' : client.status);
+                                        statusForm.clearErrors();
+                                        setStatusOpen(true);
+                                    }}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+                                >
+                                    <UserCheck className="h-4 w-4" /> Change status
+                                </button>
                             )}
                             {canEdit && (
                                 <button
@@ -528,6 +545,43 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
                                 <Button type="submit" disabled={editForm.processing}>Save</Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Change Status</DialogTitle>
+                        </DialogHeader>
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                statusForm.post(`/clients/${client.id}/status`, {
+                                    onSuccess: () => setStatusOpen(false),
+                                });
+                            }}
+                            className="space-y-4"
+                        >
+                            <p className="text-sm text-gray-500">
+                                Update this client&apos;s pipeline status. This does not change compliance type.
+                            </p>
+                            <div className="space-y-1">
+                                <Label className="text-xs">Status</Label>
+                                <Select value={statusForm.data.status} onValueChange={(v) => statusForm.setData('status', v)}>
+                                    <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(profile_options.statuses).map(([value, label]) => (
+                                            <SelectItem key={value} value={value}>{label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {statusForm.errors.status && <p className="text-xs text-red-500">{statusForm.errors.status}</p>}
+                            </div>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setStatusOpen(false)}>Cancel</Button>
+                                <Button type="submit" disabled={statusForm.processing}>Save status</Button>
                             </DialogFooter>
                         </form>
                     </DialogContent>

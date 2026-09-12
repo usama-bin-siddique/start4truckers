@@ -181,4 +181,49 @@ class ClientProfileFieldsTest extends TestCase
             ])
             ->assertSessionHasErrors('fmcsa_authority_type');
     }
+
+    public function test_client_status_can_be_updated_from_status_endpoint(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['name' => 'Status Client', 'status' => 'onboarding']);
+
+        $this->actingAs($admin)
+            ->post("/clients/{$client->id}/status", [
+                'status' => 'in_progress',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('in_progress', $client->fresh()->status);
+        $this->assertDatabaseHas('activities', [
+            'subject_type' => Client::class,
+            'subject_id'   => $client->id,
+            'action'       => 'status_changed',
+        ]);
+    }
+
+    public function test_client_status_endpoint_rejects_invalid_status(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['name' => 'Status Client', 'status' => 'onboarding']);
+
+        $this->actingAs($admin)
+            ->post("/clients/{$client->id}/status", [
+                'status' => 'not-a-status',
+            ])
+            ->assertSessionHasErrors('status');
+
+        $this->assertSame('onboarding', $client->fresh()->status);
+    }
+
+    public function test_sales_cannot_update_unassigned_client_status(): void
+    {
+        $sales = User::factory()->create(['role' => 'sales', 'is_active' => true]);
+        $client = Client::create(['name' => 'Other Client', 'status' => 'onboarding']);
+
+        $this->actingAs($sales)
+            ->post("/clients/{$client->id}/status", [
+                'status' => 'in_progress',
+            ])
+            ->assertForbidden();
+    }
 }

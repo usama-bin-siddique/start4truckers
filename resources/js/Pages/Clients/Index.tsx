@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Eye, Filter, X, UserCheck, Users, CheckCircle, CircleOff, GitBranch, Plus, MoreHorizontal, DollarSign } from 'lucide-react';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Search, Eye, Filter, X, UserCheck, Users, CheckCircle, CircleOff, GitBranch, Plus, MoreHorizontal, DollarSign, RefreshCw } from 'lucide-react';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -17,7 +19,7 @@ interface Client {
     id: number; client_number: string; name: string; email: string | null; phone: string | null;
     company: string | null; status: string; status_label?: string; compliance_type: 'project' | 'monthly' | null;
     assigned_user: { name: string } | null;
-    assigned_user: { name: string } | null;
+    can_update_status?: boolean;
     leads_count?: number;
     lead: Lead | null; balance_due: number; created_at: string;
 }
@@ -61,7 +63,29 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
     const canReassign = auth.user.role !== 'sales';
     const [showFilters, setShowFilters] = useState(false);
     const [search, setSearch] = useState(filters.search ?? '');
+    const [statusClient, setStatusClient] = useState<Client | null>(null);
+    const statusForm = useForm({ status: 'onboarding' });
     const hasFilters = Object.values(filters).some(Boolean);
+    const statusOptions = profile_options?.statuses ?? Object.fromEntries(
+        Object.entries(statusConfig)
+            .filter(([value]) => value !== 'active')
+            .map(([value, cfg]) => [value, cfg.label])
+    );
+
+    function openStatus(client: Client) {
+        statusForm.setData('status', client.status === 'active' ? 'in_progress' : client.status);
+        statusForm.clearErrors();
+        setStatusClient(client);
+    }
+
+    function submitStatus(e: React.FormEvent) {
+        e.preventDefault();
+        if (!statusClient) return;
+        statusForm.post(`/clients/${statusClient.id}/status`, {
+            preserveScroll: true,
+            onSuccess: () => setStatusClient(null),
+        });
+    }
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -292,6 +316,11 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                                                                     </Link>
                                                                 </DropdownMenuItem>
                                                             )}
+                                                            {client.can_update_status && (
+                                                                <DropdownMenuItem className="cursor-pointer" onSelect={() => openStatus(client)}>
+                                                                    <RefreshCw size={13} /> Change Status
+                                                                </DropdownMenuItem>
+                                                            )}
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
@@ -322,6 +351,35 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                         )}
                     </section>
                 </div>
+
+                <Dialog open={statusClient !== null} onOpenChange={(open) => { if (!open) setStatusClient(null); }}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Change Status</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={submitStatus} className="space-y-4">
+                            <p className="text-sm text-gray-500">
+                                Update pipeline status for {statusClient?.name || statusClient?.lead?.name || statusClient?.client_number}.
+                            </p>
+                            <div className="space-y-1">
+                                <Label className="text-xs">Status</Label>
+                                <Select value={statusForm.data.status} onValueChange={(v) => statusForm.setData('status', v)}>
+                                    <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(statusOptions).map(([value, label]) => (
+                                            <SelectItem key={value} value={value}>{label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {statusForm.errors.status && <p className="text-xs text-red-500">{statusForm.errors.status}</p>}
+                            </div>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setStatusClient(null)}>Cancel</Button>
+                                <Button type="submit" disabled={statusForm.processing}>Save status</Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
             </AppLayout>
         </>
     );

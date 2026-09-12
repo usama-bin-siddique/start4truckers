@@ -66,7 +66,9 @@ class ClientController extends Controller
         $stats = Client::query()->visibleTo($user);
 
         return Inertia::render('Clients/Index', [
-            'clients'  => $clients->through(fn ($c) => $this->formatClientRow($c)),
+            'clients'  => $clients->through(fn ($c) => array_merge($this->formatClientRow($c), [
+                'can_update_status' => $user->can('update', $c),
+            ])),
             'users'    => User::where('is_active', true)->select('id', 'name', 'role')->get(),
             'filters'  => $request->only(['search', 'status', 'assigned_to', 'compliance_type']),
             'can_create' => $user->can('create', Client::class),
@@ -276,6 +278,28 @@ class ClientController extends Controller
         $label = ClientProfile::complianceLabel($data['compliance_type']);
 
         return back()->with('success', "Compliance updated to {$label}.");
+    }
+
+    public function updateStatus(Request $request, Client $client): RedirectResponse
+    {
+        $this->authorize('update', $client);
+
+        $data = $request->validate([
+            'status' => ['required', 'in:'.implode(',', ClientProfile::statusKeys())],
+        ]);
+
+        $status = ClientProfile::normalizeStatus($data['status'], $client->status);
+        $old = $client->status;
+
+        if ($old !== $status) {
+            $client->update(['status' => $status]);
+            $this->activity->log($client, Activity::ACTION_STATUS_CHANGED,
+                "Client status changed from \"{$old}\" to \"{$status}\"",
+                ['status' => $old], ['status' => $status]
+            );
+        }
+
+        return back()->with('success', 'Status updated to '.ClientProfile::statusLabel($status).'.');
     }
 
     private function formatClientRow(Client $client): array
