@@ -165,7 +165,15 @@ class PaymentController extends Controller
         $this->authorize('update', $payment);
 
         $request->merge(
-            collect($request->except('receipt'))->map(fn ($value) => $value === '' ? null : $value)->all()
+            collect($request->only([
+                'client_id',
+                'invoice_amount',
+                'amount_received',
+                'payment_method',
+                'transaction_reference',
+                'notes',
+                'paid_at',
+            ]))->map(fn ($value) => $value === '' ? null : $value)->all()
         );
 
         $data = $request->validate([

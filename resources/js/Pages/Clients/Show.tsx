@@ -641,15 +641,20 @@ function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { client
     function submit(e: React.FormEvent) {
         e.preventDefault();
         const options = {
-            forceFormData: true,
             preserveScroll: true,
             onSuccess: () => { resetForm(); setOpen(false); },
         };
         if (editing) {
-            form.put(`/payments/${editing.id}`, options);
+            form.post(`/payments/${editing.id}`, {
+                ...options,
+                forceFormData: Boolean(form.data.receipt),
+            });
             return;
         }
-        form.post('/payments', options);
+        form.post('/payments', {
+            ...options,
+            forceFormData: Boolean(form.data.receipt),
+        });
     }
 
     return (

@@ -544,7 +544,7 @@
     ]
   },
   "resources/js/Pages/Clients/Show.tsx": {
-    "file": "assets/Show-D6fXyCUM.js",
+    "file": "assets/Show-RxBkBeZV.js",
     "name": "Show",
     "src": "resources/js/Pages/Clients/Show.tsx",
     "isDynamicEntry": true,
@@ -756,7 +756,7 @@
     ]
   },
   "resources/js/Pages/Payments/Index.tsx": {
-    "file": "assets/Index-COfxC_Ue.js",
+    "file": "assets/Index-CFjR3tTm.js",
     "name": "Index",
     "src": "resources/js/Pages/Payments/Index.tsx",
     "isDynamicEntry": true,
@@ -911,7 +911,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-87yPITLc.js",
+    "file": "assets/app-Dr966Ipu.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
