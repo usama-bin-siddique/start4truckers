@@ -46,6 +46,37 @@ class PaymentRecordUpdateTest extends TestCase
         $this->assertSame('Corrected amount', $payment->notes);
     }
 
+    public function test_payment_can_be_updated_via_post_with_a_decimal_invoice_amount(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['name' => 'Decimal Client', 'status' => 'onboarding']);
+        $payment = Payment::create([
+            'client_id'       => $client->id,
+            'invoice_amount'  => 12223.43,
+            'amount_received' => 0,
+            'payment_method'  => 'check',
+            'created_by'      => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->from('/payments')
+            ->post("/payments/{$payment->id}", [
+                'client_id'             => $client->id,
+                'invoice_amount'        => '12223.43',
+                'amount_received'       => '0',
+                'payment_method'        => 'check',
+                'transaction_reference' => 'TR43333',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success')
+            ->assertSessionDoesntHaveErrors();
+
+        $payment->refresh();
+        $this->assertEquals(12223.43, (float) $payment->invoice_amount);
+        $this->assertEquals(0, (float) $payment->amount_received);
+        $this->assertSame('TR43333', $payment->transaction_reference);
+    }
+
     public function test_admin_can_delete_a_saved_payment(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);

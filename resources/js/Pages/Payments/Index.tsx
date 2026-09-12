@@ -571,7 +571,6 @@ function PaymentFormDialog({
     function submit(e: React.FormEvent) {
         e.preventDefault();
         const options = {
-            forceFormData: true,
             onSuccess: () => {
                 form.reset();
                 setClientQuery('');
@@ -579,10 +578,16 @@ function PaymentFormDialog({
             },
         };
         if (payment) {
-            form.put(`/payments/${payment.id}`, options);
+            form.post(`/payments/${payment.id}`, {
+                ...options,
+                forceFormData: Boolean(form.data.receipt),
+            });
             return;
         }
-        form.post('/payments', options);
+        form.post('/payments', {
+            ...options,
+            forceFormData: Boolean(form.data.receipt),
+        });
     }
 
     return (
