@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 interface MonthlyRevenue { month: string; revenue: number }
 interface LeadConversion  { name: string; value: number; color: string }
 interface RecentActivity  { id: number; action: string; description: string; causer: string; subject_type: string; created_at: string }
-interface TaskItem        { id: number; title: string; priority: string; client: string; due_date: string | null }
+interface TaskItem        { id: number; title: string; priority: string; client: string; due_date: string | null; is_overdue?: boolean }
 
 interface Stats {
     leads_today: number;
@@ -150,6 +150,7 @@ export default function Dashboard({ stats, monthly_revenue, lead_conversion, rec
                                     <div className="rounded-xl bg-white/6 px-4 py-3 ring-1 ring-white/8">
                                         <p className="text-xs text-white/45">Year to date</p>
                                         <p className="mt-1 text-sm font-semibold">{fmt(stats.revenue_year)}</p>
+                                        <p className="mt-1 text-[11px] text-white/35">Jan 1 – today</p>
                                     </div>
                                 </div>
                                 <div className="mt-5 flex items-center gap-2 text-[13px] text-amber-200/80">
@@ -177,7 +178,7 @@ export default function Dashboard({ stats, monthly_revenue, lead_conversion, rec
                             <StatCard
                                 label="Tasks due"
                                 value={stats.tasks_due_today}
-                                hint="Needs attention"
+                                hint="Overdue and due today"
                                 icon={<ClipboardList className="h-4 w-4 text-orange-700" />}
                                 iconClass="bg-orange-100"
                             />
@@ -321,7 +322,7 @@ export default function Dashboard({ stats, monthly_revenue, lead_conversion, rec
 
                         <section className="rounded-2xl border border-gray-200/80 bg-white shadow-sm">
                             <div className="flex items-center justify-between px-6 py-5">
-                                <h3 className="text-base font-semibold text-gray-950">Tasks due today</h3>
+                                <h3 className="text-base font-semibold text-gray-950">Tasks due</h3>
                                 <Link href="/tasks" className="text-sm text-gray-400 transition-colors hover:text-gray-700">
                                     See all
                                 </Link>
@@ -336,7 +337,12 @@ export default function Dashboard({ stats, monthly_revenue, lead_conversion, rec
                                             </div>
                                             <div className="flex shrink-0 items-center gap-2">
                                                 {t.due_date && (
-                                                    <span className="text-xs text-gray-400">{t.due_date}</span>
+                                                    <span className={cn('text-xs', t.is_overdue ? 'font-medium text-red-600' : 'text-gray-400')}>
+                                                        {t.due_date}
+                                                    </span>
+                                                )}
+                                                {t.is_overdue && (
+                                                    <Badge variant="destructive" className="text-[10px]">Overdue</Badge>
                                                 )}
                                                 <Badge variant={priorityVariant[t.priority] ?? 'secondary'} className="text-[10px] capitalize">
                                                     {t.priority}
@@ -346,7 +352,7 @@ export default function Dashboard({ stats, monthly_revenue, lead_conversion, rec
                                     ))
                                 ) : (
                                     <div className="flex h-44 items-center justify-center text-sm text-gray-400">
-                                        No tasks due today
+                                        No tasks due
                                     </div>
                                 )}
                             </div>

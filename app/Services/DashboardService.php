@@ -7,6 +7,8 @@ use App\Models\Lead;
 use App\Models\Payment;
 use App\Models\Task;
 use App\Models\Activity;
+use App\Support\ClientProfile;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardService
@@ -24,7 +26,7 @@ class DashboardService
             'monthly_revenue'  => $this->getMonthlyRevenue($user),
             'lead_conversion'  => $this->getLeadConversion($user),
             'recent_activities'=> $this->getRecentActivities($user),
-            'tasks_due_today'  => $this->getTasksDueToday($user, $today),
+            'tasks_due_today'  => $this->getDueTasks($user, $today),
         ];
     }
 
@@ -37,18 +39,15 @@ class DashboardService
         return [
             'leads_today'       => (clone $leadsQuery)->whereDate('created_at', $today)->count(),
             'leads_this_week'   => (clone $leadsQuery)->whereDate('created_at', '>=', $startOfWeek)->count(),
-            'active_clients'    => (clone $clientsQuery)->whereIn('status', \App\Support\ClientProfile::OPEN_STATUSES)->count(),
-            'revenue_today'     => (clone $paymentsQuery)->whereDate('paid_at', $today)->sum('amount_received'),
-            'revenue_month'     => (clone $paymentsQuery)->whereDate('paid_at', '>=', $startOfMonth)->sum('amount_received'),
-            'revenue_year'      => (clone $paymentsQuery)->whereDate('paid_at', '>=', $startOfYear)->sum('amount_received'),
+            'active_clients'    => (clone $clientsQuery)->whereIn('status', ClientProfile::OPEN_STATUSES)->count(),
+            'revenue_today'     => (float) $this->paymentsInPeriod(clone $paymentsQuery, $today, $today)->sum('amount_received'),
+            'revenue_month'     => (float) $this->paymentsInPeriod(clone $paymentsQuery, $startOfMonth, $today)->sum('amount_received'),
+            'revenue_year'      => (float) $this->paymentsInPeriod(clone $paymentsQuery, $startOfYear, $today)->sum('amount_received'),
             'pending_payments'  => (clone $clientsQuery)->withSum('payments', 'invoice_amount')
                                     ->withSum('payments', 'amount_received')
                                     ->get()
                                     ->sum(fn ($c) => max(0, $c->payments_sum_invoice_amount - $c->payments_sum_amount_received)),
-            'tasks_due_today'   => Task::where('status', '!=', Task::STATUS_COMPLETED)
-                                    ->whereDate('due_date', $today)
-                                    ->when($user->role !== 'admin', fn ($q) => $q->where('assigned_to', $user->id))
-                                    ->count(),
+            'tasks_due_today'   => $this->dueTasksQuery($user, $today)->count(),
         ];
     }
 
@@ -56,10 +55,14 @@ class DashboardService
     {
         $months = collect(range(11, 0))->map(function ($i) use ($user) {
             $date = now()->subMonths($i);
-            $revenue = Payment::query()->visibleTo($user)
-                ->whereYear('paid_at', $date->year)
-                ->whereMonth('paid_at', $date->month)
+            $from = $date->copy()->startOfMonth()->toDateString();
+            $to = $date->isSameMonth(now())
+                ? now()->toDateString()
+                : $date->copy()->endOfMonth()->toDateString();
+
+            $revenue = $this->paymentsInPeriod(Payment::query()->visibleTo($user), $from, $to)
                 ->sum('amount_received');
+
             return [
                 'month'   => $date->format('M Y'),
                 'revenue' => (float) $revenue,
@@ -112,21 +115,39 @@ class DashboardService
             ->toArray();
     }
 
-    private function getTasksDueToday($user, $today): array
+    private function getDueTasks($user, $today): array
     {
-        return Task::with(['assignedUser', 'client'])
-            ->where('status', '!=', Task::STATUS_COMPLETED)
-            ->whereDate('due_date', $today)
-            ->when($user->role !== 'admin', fn ($q) => $q->where('assigned_to', $user->id))
-            ->limit(5)
+        return $this->dueTasksQuery($user, $today)
+            ->with(['assignedUser', 'client'])
+            ->orderBy('due_date')
+            ->limit(8)
             ->get()
             ->map(fn ($t) => [
-                'id'       => $t->id,
-                'title'    => $t->title,
-                'priority' => $t->priority,
-                'client'   => $t->client?->display_name ?? '—',
-                'due_date' => $t->due_date?->format('H:i'),
+                'id'         => $t->id,
+                'title'      => $t->title,
+                'priority'   => $t->priority,
+                'client'     => $t->client?->display_name ?? '—',
+                'due_date'   => $t->due_date?->format('M j, Y'),
+                'is_overdue' => $t->due_date?->toDateString() < $today,
             ])
             ->toArray();
+    }
+
+    private function dueTasksQuery($user, string $today): Builder
+    {
+        return Task::query()
+            ->where('status', '!=', Task::STATUS_COMPLETED)
+            ->whereNotNull('due_date')
+            ->whereDate('due_date', '<=', $today)
+            ->when($user->role !== 'admin', fn ($q) => $q->where('assigned_to', $user->id));
+    }
+
+    private function paymentsInPeriod(Builder $query, string $from, string $to): Builder
+    {
+        $date = 'DATE(COALESCE(paid_at, created_at))';
+
+        return $query
+            ->whereRaw("{$date} >= ?", [$from])
+            ->whereRaw("{$date} <= ?", [$to]);
     }
 }
