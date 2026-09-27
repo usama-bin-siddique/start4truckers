@@ -1,6 +1,6 @@
 {
-  "_ActivityTimeline-TYIofQ8M.js": {
-    "file": "assets/ActivityTimeline-TYIofQ8M.js",
+  "_ActivityTimeline-DYJ33oSe.js": {
+    "file": "assets/ActivityTimeline-DYJ33oSe.js",
     "name": "ActivityTimeline",
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
@@ -10,6 +10,7 @@
       "_AppLayout-CH1eZ3OY.js",
       "_clock-CMKm14Us.js",
       "_dollar-sign-KnkXAMG7.js",
+      "_mail-BRmS-IX9.js",
       "_refresh-cw-omqTXXsL.js",
       "_upload-Bl3afBe4.js",
       "_user-B4zd5LYj.js"
@@ -65,6 +66,22 @@
       "_Combination-rPYw3cGr.js",
       "_input-BScpXTaC.js",
       "_label-Cz99YPKV.js"
+    ]
+  },
+  "_EmailComposer-B9KZY7ht.js": {
+    "file": "assets/EmailComposer-B9KZY7ht.js",
+    "name": "EmailComposer",
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_jsx-runtime-Dvf2IK11.js",
+      "_createLucideIcon-D2xe6SvF.js",
+      "_select-BOSisLuP.js",
+      "_chevron-left-nVQ3wPS2.js",
+      "_mail-BRmS-IX9.js",
+      "_Combination-rPYw3cGr.js",
+      "_input-BScpXTaC.js",
+      "_label-Cz99YPKV.js",
+      "_textarea-DMTmtAH7.js"
     ]
   },
   "_LeadStatusBadge-XhTIpOFP.js": {
@@ -430,7 +447,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-CeIyz6m2.css",
+    "file": "assets/app-D4eIUhVp.css",
     "name": "app",
     "names": [
       "app.css"
@@ -547,7 +564,7 @@
     ]
   },
   "resources/js/Pages/Clients/Show.tsx": {
-    "file": "assets/Show-0wcKudVF.js",
+    "file": "assets/Show-CUqvWxVY.js",
     "name": "Show",
     "src": "resources/js/Pages/Clients/Show.tsx",
     "isDynamicEntry": true,
@@ -558,7 +575,7 @@
       "_LeadStatusBadge-XhTIpOFP.js",
       "_bell-nGum6pdq.js",
       "_AppLayout-CH1eZ3OY.js",
-      "_ActivityTimeline-TYIofQ8M.js",
+      "_ActivityTimeline-DYJ33oSe.js",
       "_select-BOSisLuP.js",
       "_chevron-left-nVQ3wPS2.js",
       "_circle-alert-BM7svWpV.js",
@@ -653,8 +670,20 @@
       "_textarea-DMTmtAH7.js"
     ]
   },
+  "resources/js/Pages/Leads/Email.tsx": {
+    "file": "assets/Email-mgaMCMqH.js",
+    "name": "Email",
+    "src": "resources/js/Pages/Leads/Email.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_jsx-runtime-Dvf2IK11.js",
+      "_AppLayout-CH1eZ3OY.js",
+      "_EmailComposer-B9KZY7ht.js"
+    ]
+  },
   "resources/js/Pages/Leads/Index.tsx": {
-    "file": "assets/Index-DER-dy-J.js",
+    "file": "assets/Index-DlqWpaor.js",
     "name": "Index",
     "src": "resources/js/Pages/Leads/Index.tsx",
     "isDynamicEntry": true,
@@ -682,7 +711,7 @@
     ]
   },
   "resources/js/Pages/Leads/Show.tsx": {
-    "file": "assets/Show-COmfZ1XJ.js",
+    "file": "assets/Show-CyXsFjRV.js",
     "name": "Show",
     "src": "resources/js/Pages/Leads/Show.tsx",
     "isDynamicEntry": true,
@@ -693,7 +722,7 @@
       "_LeadStatusBadge-XhTIpOFP.js",
       "_AppLayout-CH1eZ3OY.js",
       "_building-2-DeCrrvcL.js",
-      "_ActivityTimeline-TYIofQ8M.js",
+      "_ActivityTimeline-DYJ33oSe.js",
       "_select-BOSisLuP.js",
       "_chevron-left-nVQ3wPS2.js",
       "_message-circle-BJE0c9Le.js",
@@ -758,8 +787,20 @@
       "_badge-CGA9ajrX.js"
     ]
   },
+  "resources/js/Pages/Payments/Email.tsx": {
+    "file": "assets/Email-fvyRs4Yz.js",
+    "name": "Email",
+    "src": "resources/js/Pages/Payments/Email.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_jsx-runtime-Dvf2IK11.js",
+      "_AppLayout-CH1eZ3OY.js",
+      "_EmailComposer-B9KZY7ht.js"
+    ]
+  },
   "resources/js/Pages/Payments/Index.tsx": {
-    "file": "assets/Index-CFjR3tTm.js",
+    "file": "assets/Index-CHnTQNfO.js",
     "name": "Index",
     "src": "resources/js/Pages/Payments/Index.tsx",
     "isDynamicEntry": true,
@@ -774,6 +815,7 @@
       "_file-text-_Ncd3b5u.js",
       "_funnel-B7rrrdAz.js",
       "_git-branch-CRXj_N6R.js",
+      "_mail-BRmS-IX9.js",
       "_plus-BKmjH0Qq.js",
       "_PrintInvoiceLink-B9WiVnMO.js",
       "_receipt-CCuFCRws.js",
@@ -914,7 +956,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-78v6x9Bm.js",
+    "file": "assets/app-B88-dJOL.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
@@ -934,10 +976,12 @@
       "resources/js/Pages/Dashboard.tsx",
       "resources/js/Pages/Documents/Index.tsx",
       "resources/js/Pages/Leads/Create.tsx",
+      "resources/js/Pages/Leads/Email.tsx",
       "resources/js/Pages/Leads/Index.tsx",
       "resources/js/Pages/Leads/Show.tsx",
       "resources/js/Pages/Notifications/Index.tsx",
       "resources/js/Pages/Operations/Index.tsx",
+      "resources/js/Pages/Payments/Email.tsx",
       "resources/js/Pages/Payments/Index.tsx",
       "resources/js/Pages/Reports/Index.tsx",
       "resources/js/Pages/RequestLogs/Index.tsx",
@@ -946,7 +990,7 @@
       "resources/js/Pages/Tasks/Index.tsx"
     ],
     "css": [
-      "assets/app-CeIyz6m2.css"
+      "assets/app-D4eIUhVp.css"
     ]
   }
 }

@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use App\Models\Client;
+use App\Mail\CustomerEmail;
 use App\Models\Document;
+use App\Models\EmailTemplate;
 use App\Models\Lead;
 use App\Models\LeadInvoice;
 use App\Models\Payment;
@@ -18,6 +20,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -304,6 +307,69 @@ class LeadController extends Controller
         $this->sla->complete($lead, 'call');
 
         return back()->with('success', 'Call logged.');
+    }
+
+    public function composeEmail(Lead $lead): Response
+    {
+        $this->authorize('update', $lead);
+
+        return Inertia::render('Leads/Email', [
+            'lead'      => [
+                'id'               => $lead->id,
+                'name'             => $lead->name,
+                'email'            => $lead->email,
+                'phone'            => $lead->phone,
+                'company'          => $lead->company,
+                'service_required' => $lead->service_required,
+            ],
+            'templates' => EmailTemplate::orderBy('name')->get(['id', 'name', 'slug', 'subject', 'body']),
+        ]);
+    }
+
+    public function sendEmail(Request $request, Lead $lead): RedirectResponse
+    {
+        $this->authorize('update', $lead);
+
+        if (! $lead->email) {
+            return back()->with('error', 'This lead has no email address.');
+        }
+
+        $data = $request->validate([
+            'subject'       => ['required', 'string', 'max:255'],
+            'body'          => ['required', 'string', 'max:20000'],
+            'attachments'   => ['nullable', 'array', 'max:10'],
+            'attachments.*' => ['file', 'max:10240'],
+        ]);
+
+        $files = $request->file('attachments', []);
+        $user = Auth::user();
+
+        try {
+            Mail::to($lead->email, $lead->name)->send(
+                new CustomerEmail($data['subject'], $data['body'], $files, $user->email, $user->name)
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Email could not be sent. Please check the mail configuration.');
+        }
+
+        $attachmentNames = array_map(fn ($f) => $f->getClientOriginalName(), $files);
+
+        $this->activity->log(
+            $lead,
+            Activity::ACTION_EMAIL_SENT,
+            "Email sent: {$data['subject']}",
+            null,
+            array_filter([
+                'subject'     => $data['subject'],
+                'attachments' => $attachmentNames ? implode(', ', $attachmentNames) : null,
+            ])
+        );
+
+        $this->sla->complete($lead, 'email');
+
+        return redirect()->route('leads.show', $lead)->with('success', 'Email sent to '.$lead->email.'.');
     }
 
     public function followUp(Request $request, Lead $lead): RedirectResponse

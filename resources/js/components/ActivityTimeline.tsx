@@ -2,7 +2,7 @@ import React from 'react';
 import {
     UserPlus, RefreshCw, StickyNote, DollarSign,
     UserCheck, Upload, CheckSquare, Settings, User, Zap, Clock, Phone,
-    Trophy, Ban, Briefcase, Link2,
+    Trophy, Ban, Briefcase, Link2, Mail,
 } from 'lucide-react';
 
 interface Activity {
@@ -27,6 +27,7 @@ const actionIcon: Record<string, React.ReactNode> = {
     sla_met:            <CheckSquare size={13} />,
     sla_breached:       <Zap size={13} />,
     call_logged:        <Phone size={13} />,
+    email_sent:         <Mail size={13} />,
     follow_up:          <RefreshCw size={13} />,
     invoice_created:    <DollarSign size={13} />,
     converted_to_client:<UserCheck size={13} />,
@@ -55,6 +56,7 @@ const actionColor: Record<string, string> = {
     sla_met:            'bg-emerald-100 text-emerald-700',
     sla_breached:       'bg-red-100 text-red-600',
     call_logged:        'bg-sky-100 text-sky-700',
+    email_sent:         'bg-blue-100 text-blue-700',
     follow_up:          'bg-orange-100 text-orange-600',
     invoice_created:    'bg-green-100 text-green-700',
     converted_to_client:'bg-purple-100 text-purple-600',

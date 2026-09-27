@@ -47,6 +47,8 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('/leads/{lead}/status',[LeadController::class, 'updateStatus'])->name('leads.status');
         Route::post('/leads/{lead}/note',   [LeadController::class, 'addNote'])->name('leads.note');
         Route::post('/leads/{lead}/call',   [LeadController::class, 'logCall'])->name('leads.call');
+        Route::get('/leads/{lead}/email',   [LeadController::class, 'composeEmail'])->name('leads.email');
+        Route::post('/leads/{lead}/email',  [LeadController::class, 'sendEmail'])->name('leads.email.send');
         Route::post('/leads/{lead}/follow-up', [LeadController::class, 'followUp'])->name('leads.follow-up');
         Route::post('/leads/{lead}/invoices', [LeadController::class, 'storeInvoice'])->name('leads.invoices.store');
         Route::post('/leads/{lead}/assign', [LeadController::class, 'assign'])->name('leads.assign');
@@ -79,6 +81,8 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/payments/{payment}',  [PaymentController::class, 'destroy'])->name('payments.destroy');
         Route::post('/payments/{payment}/receipt', [PaymentController::class, 'uploadReceipt'])->name('payments.receipt');
         Route::get('/payments/{payment}/receipt',  [PaymentController::class, 'downloadReceipt'])->name('payments.receipt.download');
+        Route::get('/payments/{payment}/email',    [PaymentController::class, 'composeEmail'])->name('payments.email');
+        Route::post('/payments/{payment}/email',   [PaymentController::class, 'sendEmail'])->name('payments.email.send');
     });
 
     Route::get('/payments/{payment}/invoice', [PaymentController::class, 'invoice'])->name('payments.invoice');

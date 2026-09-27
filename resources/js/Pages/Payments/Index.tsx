@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Filter, X, DollarSign, TrendingUp, AlertCircle, Download, Receipt, GitBranch, Plus, FileText, Upload, SquarePen, Trash2 } from 'lucide-react';
+import { Search, Filter, X, DollarSign, TrendingUp, AlertCircle, Download, Receipt, GitBranch, Plus, FileText, Upload, SquarePen, Trash2, Mail } from 'lucide-react';
 import PrintInvoiceLink from '@/components/PrintInvoiceLink';
 import { cn } from '@/lib/utils';
 
@@ -140,6 +140,9 @@ function PaymentDetail({
                                     <Download size={13} /> Receipt
                                 </a>
                             )}
+                            <a href={`/payments/${payment.id}/email`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">
+                                <Mail size={13} /> Email
+                            </a>
                         </div>
                         <div className="flex items-center gap-2">
                             {canManage && (
@@ -436,6 +439,9 @@ export default function PaymentsIndex({
                                                             <Download size={13} />
                                                         </a>
                                                     )}
+                                                    <a href={`/payments/${p.id}/email`} target="_blank" rel="noreferrer" className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800" title="Email client">
+                                                        <Mail size={14} />
+                                                    </a>
                                                     {can_create && (
                                                         <>
                                                             <Button type="button" size="icon" variant="ghost" className="h-8 w-8" title="Edit payment" onClick={() => setEditing(p)}>

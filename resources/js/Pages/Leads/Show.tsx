@@ -194,7 +194,7 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                                 </Button>
                             )}
                             {lead.email && (
-                                <Button size="sm" variant="outline" onClick={() => window.open(`mailto:${lead.email}`)}>
+                                <Button size="sm" variant="outline" onClick={() => window.open(`/leads/${lead.id}/email`, '_blank')}>
                                     <Mail size={13} /> Email
                                 </Button>
                             )}

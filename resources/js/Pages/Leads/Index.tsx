@@ -89,8 +89,8 @@ export default function LeadsIndex({ leads, users, statuses, filters, stats }: P
     function callLead(phone: string | null) {
         if (phone) window.open(`tel:${phone}`);
     }
-    function emailLead(email: string | null) {
-        if (email) window.open(`mailto:${email}`);
+    function emailLead(lead: { id: number; email: string | null }) {
+        if (lead.email) window.open(`/leads/${lead.id}/email`, '_blank');
     }
     function whatsappLead(phone: string | null) {
         if (phone) window.open(`https://wa.me/${phone.replace(/\D/g, '')}`);
@@ -302,7 +302,7 @@ export default function LeadsIndex({ leads, users, statuses, filters, stats }: P
                                                         <DropdownMenuItem onClick={() => callLead(lead.phone)}>
                                                             <Phone size={13} /> Call
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => emailLead(lead.email)}>
+                                                        <DropdownMenuItem onClick={() => emailLead(lead)}>
                                                             <Mail size={13} /> Email
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => whatsappLead(lead.phone)}>

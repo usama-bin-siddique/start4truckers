@@ -32,6 +32,7 @@ class Activity extends Model
     const ACTION_STATUS_CHANGED     = 'status_changed';
     const ACTION_NOTE_ADDED         = 'note_added';
     const ACTION_CALL_LOGGED        = 'call_logged';
+    const ACTION_EMAIL_SENT         = 'email_sent';
     const ACTION_FOLLOW_UP          = 'follow_up';
     const ACTION_INVOICE_CREATED    = 'invoice_created';
     const ACTION_SLA_STARTED        = 'sla_started';

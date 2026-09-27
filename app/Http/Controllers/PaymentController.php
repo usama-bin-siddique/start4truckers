@@ -2,16 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\CustomerEmail;
 use App\Models\Activity;
 use App\Models\Client;
+use App\Models\EmailTemplate;
 use App\Models\Payment;
 use App\Models\Setting;
 use App\Services\ActivityService;
 use App\Services\NotificationService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Attachment;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -256,6 +261,91 @@ class PaymentController extends Controller
         $payment->load(['client.lead', 'createdBy']);
         $this->authorize('view', $payment->client);
 
+        return response()->view('payments.invoice', $this->invoiceData($payment));
+    }
+
+    public function composeEmail(Payment $payment): Response
+    {
+        $this->authorize('view', $payment);
+
+        $payment->load('client.lead');
+
+        return Inertia::render('Payments/Email', [
+            'payment'   => [
+                'id'              => $payment->id,
+                'invoice_number'  => $payment->invoice_number,
+                'customer_name'   => $payment->client?->display_name ?? 'Unknown client',
+                'email'           => $this->recipientEmail($payment),
+                'invoice_amount'  => (float) $payment->invoice_amount,
+                'amount_received' => (float) $payment->amount_received,
+                'balance_due'     => $payment->balance_due,
+                'has_receipt'     => ! empty($payment->receipt_path),
+            ],
+            'templates' => EmailTemplate::orderBy('name')->get(['id', 'name', 'slug', 'subject', 'body']),
+        ]);
+    }
+
+    public function sendEmail(Request $request, Payment $payment): RedirectResponse
+    {
+        $this->authorize('view', $payment);
+
+        $payment->load(['client.lead', 'createdBy']);
+        $to = $this->recipientEmail($payment);
+
+        if (! $to) {
+            return back()->with('error', 'This client has no email address.');
+        }
+
+        $data = $request->validate([
+            'subject'         => ['required', 'string', 'max:255'],
+            'body'            => ['required', 'string', 'max:20000'],
+            'attachments'     => ['nullable', 'array', 'max:10'],
+            'attachments.*'   => ['file', 'max:10240'],
+            'attach_invoice'  => ['boolean'],
+            'attach_receipt'  => ['boolean'],
+        ]);
+
+        $files = $request->file('attachments', []);
+
+        if ($request->boolean('attach_invoice')) {
+            $pdf = Pdf::loadView('payments.invoice-pdf', $this->invoiceData($payment))->output();
+            $files[] = Attachment::fromData(fn () => $pdf, "Invoice-{$payment->invoice_number}.pdf")
+                ->withMime('application/pdf');
+        }
+
+        if ($request->boolean('attach_receipt') && $payment->receipt_path && Storage::disk('private')->exists($payment->receipt_path)) {
+            $files[] = Attachment::fromStorageDisk('private', $payment->receipt_path)
+                ->as('Receipt-'.$payment->invoice_number.'.'.pathinfo($payment->receipt_path, PATHINFO_EXTENSION));
+        }
+
+        $user = Auth::user();
+
+        try {
+            Mail::to($to, $payment->client->display_name)->send(
+                new CustomerEmail($data['subject'], $data['body'], $files, $user->email, $user->name)
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Email could not be sent. Please check the mail configuration.');
+        }
+
+        $this->activity->log(
+            $payment->client,
+            Activity::ACTION_EMAIL_SENT,
+            "Email sent for invoice {$payment->invoice_number}: {$data['subject']}"
+        );
+
+        return redirect()->route('payments.index')->with('success', "Email sent to {$to}.");
+    }
+
+    private function recipientEmail(Payment $payment): ?string
+    {
+        return $payment->client?->email ?: $payment->client?->lead?->email;
+    }
+
+    private function invoiceData(Payment $payment): array
+    {
         $methods = [
             'cash'          => 'Cash',
             'check'         => 'Check',
@@ -266,7 +356,7 @@ class PaymentController extends Controller
             'other'         => 'Other',
         ];
 
-        return response()->view('payments.invoice', [
+        return [
             'payment' => $payment,
             'client'  => $payment->client,
             'company' => [
@@ -275,7 +365,7 @@ class PaymentController extends Controller
                 'phone' => Setting::get('company_phone'),
             ],
             'method_label' => $methods[$payment->payment_method] ?? $payment->payment_method,
-        ]);
+        ];
     }
 
     public function destroy(Payment $payment): RedirectResponse
