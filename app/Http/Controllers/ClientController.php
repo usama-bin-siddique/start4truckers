@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\CustomerEmail;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Document;
+use App\Models\EmailTemplate;
 use App\Models\Payment;
 use App\Models\Service;
 use App\Models\User;
@@ -16,7 +18,9 @@ use App\Support\ClientProfile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -300,6 +304,71 @@ class ClientController extends Controller
         }
 
         return back()->with('success', 'Status updated to '.ClientProfile::statusLabel($status).'.');
+    }
+
+    public function composeEmail(Client $client): Response
+    {
+        $this->authorize('view', $client);
+
+        $client->load('lead');
+
+        return Inertia::render('Clients/Email', [
+            'client'    => [
+                'id'            => $client->id,
+                'client_number' => $client->client_number,
+                'name'          => $client->display_name,
+                'email'         => $client->email ?: $client->lead?->email,
+                'company'       => $client->company,
+            ],
+            'templates' => EmailTemplate::orderBy('name')->get(['id', 'name', 'slug', 'subject', 'body']),
+        ]);
+    }
+
+    public function sendEmail(Request $request, Client $client): RedirectResponse
+    {
+        $this->authorize('view', $client);
+
+        $client->load('lead');
+        $to = $client->email ?: $client->lead?->email;
+
+        if (! $to) {
+            return back()->with('error', 'This client has no email address.');
+        }
+
+        $data = $request->validate([
+            'subject'       => ['required', 'string', 'max:255'],
+            'body'          => ['required', 'string', 'max:20000'],
+            'attachments'   => ['nullable', 'array', 'max:10'],
+            'attachments.*' => ['file', 'max:10240'],
+        ]);
+
+        $files = $request->file('attachments', []);
+        $user = Auth::user();
+
+        try {
+            Mail::to($to, $client->display_name)->send(
+                new CustomerEmail($data['subject'], $data['body'], $files, $user->email, $user->name)
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Email could not be sent. Please check the mail configuration.');
+        }
+
+        $attachmentNames = array_map(fn ($f) => $f->getClientOriginalName(), $files);
+
+        $this->activity->log(
+            $client,
+            Activity::ACTION_EMAIL_SENT,
+            "Email sent: {$data['subject']}",
+            null,
+            array_filter([
+                'subject'     => $data['subject'],
+                'attachments' => $attachmentNames ? implode(', ', $attachmentNames) : null,
+            ])
+        );
+
+        return redirect()->route('clients.index')->with('success', "Email sent to {$to}.");
     }
 
     private function formatClientRow(Client $client): array

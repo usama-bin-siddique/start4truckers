@@ -769,7 +769,12 @@ function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { client
                                     )}
                                 </TableCell>
                                 <TableCell>
-                                    <PrintInvoiceLink paymentId={p.id} />
+                                    <div className="flex items-center gap-3">
+                                        <PrintInvoiceLink paymentId={p.id} />
+                                        <a href={`/payments/${p.id}/email`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800" title="Email client">
+                                            <Mail size={13} /> Email
+                                        </a>
+                                    </div>
                                 </TableCell>
                                 {canEdit && (
                                     <TableCell>

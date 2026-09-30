@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Eye, Filter, X, UserCheck, Users, CheckCircle, CircleOff, GitBranch, Plus, MoreHorizontal, DollarSign, RefreshCw } from 'lucide-react';
+import { Search, Eye, Filter, X, UserCheck, Users, CheckCircle, CircleOff, GitBranch, Plus, MoreHorizontal, DollarSign, RefreshCw, Mail } from 'lucide-react';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -314,6 +314,13 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                                                                     <Link href={`/clients/${client.id}?add_payment=1`} className="cursor-pointer">
                                                                         <DollarSign size={13} /> Add Payment
                                                                     </Link>
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                            {(client.email || client.lead?.email) && (
+                                                                <DropdownMenuItem asChild>
+                                                                    <a href={`/clients/${client.id}/email`} target="_blank" rel="noreferrer" className="cursor-pointer">
+                                                                        <Mail size={13} /> Send Email
+                                                                    </a>
                                                                 </DropdownMenuItem>
                                                             )}
                                                             {client.can_update_status && (

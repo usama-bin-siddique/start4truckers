@@ -64,6 +64,8 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
     Route::post('/clients/{client}/compliance', [ClientController::class, 'updateCompliance'])->name('clients.compliance');
     Route::post('/clients/{client}/status', [ClientController::class, 'updateStatus'])->name('clients.status');
+    Route::get('/clients/{client}/email', [ClientController::class, 'composeEmail'])->name('clients.email');
+    Route::post('/clients/{client}/email', [ClientController::class, 'sendEmail'])->name('clients.email.send');
     Route::post('/clients/{client}/vehicles', [ClientVehicleController::class, 'store'])->name('clients.vehicles.store');
     Route::put('/clients/{client}/vehicles/{vehicle}', [ClientVehicleController::class, 'update'])->name('clients.vehicles.update');
     Route::delete('/clients/{client}/vehicles/{vehicle}', [ClientVehicleController::class, 'destroy'])->name('clients.vehicles.destroy');

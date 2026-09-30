@@ -447,7 +447,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-D4eIUhVp.css",
+    "file": "assets/app-CBo7Ooyi.css",
     "name": "app",
     "names": [
       "app.css"
@@ -535,8 +535,20 @@
       "_alert-dialog-8ynknxQV.js"
     ]
   },
+  "resources/js/Pages/Clients/Email.tsx": {
+    "file": "assets/Email-69f9hQmO.js",
+    "name": "Email",
+    "src": "resources/js/Pages/Clients/Email.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_jsx-runtime-Dvf2IK11.js",
+      "_AppLayout-CH1eZ3OY.js",
+      "_EmailComposer-B9KZY7ht.js"
+    ]
+  },
   "resources/js/Pages/Clients/Index.tsx": {
-    "file": "assets/Index-rrxi4rkZ.js",
+    "file": "assets/Index-BRFp6FBx.js",
     "name": "Index",
     "src": "resources/js/Pages/Clients/Index.tsx",
     "isDynamicEntry": true,
@@ -552,6 +564,7 @@
       "_eye-ByMVmFbL.js",
       "_funnel-B7rrrdAz.js",
       "_git-branch-CRXj_N6R.js",
+      "_mail-BRmS-IX9.js",
       "_plus-BKmjH0Qq.js",
       "_refresh-cw-omqTXXsL.js",
       "_search-D3sBSAPm.js",
@@ -564,7 +577,7 @@
     ]
   },
   "resources/js/Pages/Clients/Show.tsx": {
-    "file": "assets/Show-CUqvWxVY.js",
+    "file": "assets/Show-ZGFFtENV.js",
     "name": "Show",
     "src": "resources/js/Pages/Clients/Show.tsx",
     "isDynamicEntry": true,
@@ -956,7 +969,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-B88-dJOL.js",
+    "file": "assets/app-C3n8mArU.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
@@ -971,6 +984,7 @@
       "resources/js/Pages/Clients/ClientProfileForms.tsx",
       "resources/js/Pages/Clients/Create.tsx",
       "resources/js/Pages/Clients/CustomReminders.tsx",
+      "resources/js/Pages/Clients/Email.tsx",
       "resources/js/Pages/Clients/Index.tsx",
       "resources/js/Pages/Clients/Show.tsx",
       "resources/js/Pages/Dashboard.tsx",
@@ -990,7 +1004,7 @@
       "resources/js/Pages/Tasks/Index.tsx"
     ],
     "css": [
-      "assets/app-D4eIUhVp.css"
+      "assets/app-CBo7Ooyi.css"
     ]
   }
 }
