@@ -224,6 +224,36 @@ class PaymentController extends Controller
         return back()->with('success', 'Payment updated.');
     }
 
+    public function refund(Request $request, Payment $payment): RedirectResponse
+    {
+        $this->authorize('update', $payment);
+
+        $data = $request->validate([
+            'refund_reason' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        if ($payment->refunded_at) {
+            return back()->with('error', 'This payment has already been refunded.');
+        }
+
+        $payment->update([
+            'refunded_at'   => now(),
+            'refunded_by'   => Auth::id(),
+            'refund_reason' => $data['refund_reason'] ?? null,
+        ]);
+
+        $payment->loadMissing('client');
+        if ($payment->client) {
+            $this->activity->log(
+                $payment->client,
+                Activity::ACTION_PAYMENT_UPDATED,
+                "Payment #{$payment->id} marked as refunded (amount: \${$payment->amount_received})"
+            );
+        }
+
+        return back()->with('success', 'Payment marked as refunded.');
+    }
+
     public function uploadReceipt(Request $request, Payment $payment): RedirectResponse
     {
         $this->authorize('update', $payment);

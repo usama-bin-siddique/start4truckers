@@ -37,6 +37,12 @@ class Web3FormsController extends Controller
         $company = $payload['company']          ?? $payload['company_name']   ?? $payload['your-company']  ?? null;
         $service = $payload['service']          ?? $payload['service_required'] ?? $payload['what_service'] ?? null;
         $message = $payload['message']          ?? $payload['notes']          ?? $payload['your-message']  ?? null;
+        $address = $payload['address'] ?? implode(', ', array_filter([
+            $payload['address_street'] ?? null,
+            $payload['address_city'] ?? null,
+            $payload['address_state'] ?? null,
+            $payload['address_zip'] ?? null,
+        ]));
 
         if (empty($name) && empty($email)) {
             Log::warning('Web3Forms: received submission with no name or email.', $payload);
@@ -47,8 +53,22 @@ class Web3FormsController extends Controller
             'name'             => $name ?? 'Unknown',
             'email'            => $email,
             'phone'            => $phone,
-            'state'            => $state,
+            'date_of_birth'    => $payload['date_of_birth'] ?? $payload['dob'] ?? null,
+            'state'            => $state ?: ($payload['address_state'] ?? null),
+            'address'          => $address ?: null,
+            'ssn_itin'         => $payload['ssn_itin'] ?? null,
             'company'          => $company,
+            'business_name_1'  => $payload['business_name_1'] ?? null,
+            'business_name_2'  => $payload['business_name_2'] ?? null,
+            'business_name_3'  => $payload['business_name_3'] ?? null,
+            'state_of_formation' => $payload['state_of_formation'] ?? $payload['formation_state'] ?? null,
+            'business_purpose' => $payload['business_purpose'] ?? null,
+            'truck_type'       => $payload['truck_type'] ?? null,
+            'truck_vin'        => $payload['truck_vin'] ?? null,
+            'operation_area'   => $payload['operation_area'] ?? null,
+            'operation_type'   => $payload['operation_type'] ?? null,
+            'hear_about_us'    => $payload['hear_about_us'] ?? null,
+            'reference_id'     => $payload['reference_id'] ?? null,
             'service_required' => $service,
             'notes'            => $message,
         ]);

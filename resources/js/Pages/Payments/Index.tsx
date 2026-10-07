@@ -25,7 +25,7 @@ interface Payment {
     amount_received: number;
     balance_due: number;
     payment_method: string | null;
-    status: 'paid' | 'partial' | 'unpaid';
+    status: 'paid' | 'partial' | 'unpaid' | 'refunded';
     services: string[];
     assigned_user: string | null;
     transaction_reference: string | null;
@@ -60,6 +60,7 @@ const STATUS_LABELS: Record<Payment['status'], string> = {
     paid: 'Paid',
     partial: 'Partial',
     unpaid: 'Unpaid',
+    refunded: 'Refunded',
 };
 
 function fmt(n: number): string {
@@ -74,7 +75,7 @@ function formatDate(value: string | null): string {
 }
 
 function StatusBadge({ status }: { status: Payment['status'] }) {
-    const variant = status === 'paid' ? 'success' : status === 'partial' ? 'warning' : 'secondary';
+    const variant = status === 'paid' ? 'success' : status === 'partial' ? 'warning' : status === 'refunded' ? 'destructive' : 'secondary';
     return <Badge variant={variant}>{STATUS_LABELS[status]}</Badge>;
 }
 
@@ -84,12 +85,14 @@ function PaymentDetail({
     onClose,
     onEdit,
     onDelete,
+    onRefund,
 }: {
     payment: Payment | null;
     canManage: boolean;
     onClose: () => void;
     onEdit: (payment: Payment) => void;
     onDelete: (payment: Payment) => void;
+    onRefund: (payment: Payment) => void;
 }) {
     return (
         <Dialog open={payment !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -147,6 +150,11 @@ function PaymentDetail({
                         <div className="flex items-center gap-2">
                             {canManage && (
                                 <>
+                                    {payment.status !== 'refunded' && (
+                                        <Button type="button" variant="outline" className="text-orange-600 hover:text-orange-700" onClick={() => onRefund(payment)}>
+                                            Refund
+                                        </Button>
+                                    )}
                                     <Button type="button" variant="outline" onClick={() => onEdit(payment)}>
                                         <SquarePen className="h-4 w-4" /> Edit
                                     </Button>
@@ -444,7 +452,16 @@ export default function PaymentsIndex({
                                                     </a>
                                                     {can_create && (
                                                         <>
-                                                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" title="Edit payment" onClick={() => setEditing(p)}>
+                                                            {p.status !== 'refunded' && (
+                                                                <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-orange-500 hover:text-orange-700" title="Mark payment as refunded" onClick={() => {
+                                                                    if (window.confirm(`Mark payment #${p.id} as refunded?`)) {
+                                                                        router.post(`/payments/${p.id}/refund`, {}, { preserveScroll: true });
+                                                                    }
+                                                                }}>
+                                                                    <span className="text-xs font-bold">↩</span>
+                                                                </Button>
+                                                            )}
+                                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8" title="Edit payment" onClick={() => setEditing(p)}>
                                                                 <SquarePen className="h-4 w-4" />
                                                             </Button>
                                                             <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600" title="Delete payment" onClick={() => setDeleteTarget(p)}>
@@ -488,6 +505,12 @@ export default function PaymentsIndex({
                 onClose={() => setSelected(null)}
                 onEdit={(payment) => { setSelected(null); setEditing(payment); }}
                 onDelete={(payment) => { setSelected(null); setDeleteTarget(payment); }}
+                onRefund={(payment) => {
+                    if (window.confirm(`Mark payment #${payment.id} as refunded?`)) {
+                        setSelected(null);
+                        router.post(`/payments/${payment.id}/refund`, {}, { preserveScroll: true });
+                    }
+                }}
             />
             {can_create && (
                 <PaymentFormDialog

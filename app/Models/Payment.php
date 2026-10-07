@@ -20,6 +20,9 @@ class Payment extends Model
         'receipt_path',
         'notes',
         'paid_at',
+        'refunded_at',
+        'refunded_by',
+        'refund_reason',
         'created_by',
     ];
 
@@ -29,6 +32,7 @@ class Payment extends Model
             'invoice_amount'  => 'decimal:2',
             'amount_received' => 'decimal:2',
             'paid_at'         => 'datetime',
+            'refunded_at'     => 'datetime',
         ];
     }
 
@@ -45,6 +49,10 @@ class Payment extends Model
 
     public function getPaymentStatusAttribute(): string
     {
+        if ($this->refunded_at) {
+            return 'refunded';
+        }
+
         $received = (float) $this->amount_received;
         $invoice = (float) $this->invoice_amount;
 
@@ -87,5 +95,10 @@ class Payment extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function refundedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'refunded_by');
     }
 }

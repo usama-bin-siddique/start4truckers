@@ -80,6 +80,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/payments',               [PaymentController::class, 'index'])->name('payments.index');
         Route::post('/payments',              [PaymentController::class, 'store'])->name('payments.store');
         Route::match(['put', 'post'], '/payments/{payment}', [PaymentController::class, 'update'])->name('payments.update');
+        Route::post('/payments/{payment}/refund', [PaymentController::class, 'refund'])->name('payments.refund');
         Route::delete('/payments/{payment}',  [PaymentController::class, 'destroy'])->name('payments.destroy');
         Route::post('/payments/{payment}/receipt', [PaymentController::class, 'uploadReceipt'])->name('payments.receipt');
         Route::get('/payments/{payment}/receipt',  [PaymentController::class, 'downloadReceipt'])->name('payments.receipt.download');

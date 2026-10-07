@@ -36,7 +36,12 @@ interface LeadInvoice {
 }
 interface Lead {
     id: number; name: string; phone: string | null; email: string | null;
-    state: string | null; company: string | null; service_required: string | null;
+    date_of_birth: string | null; state: string | null; address: string | null; ssn_itin: string | null;
+    company: string | null; business_name_1: string | null; business_name_2: string | null;
+    business_name_3: string | null; state_of_formation: string | null; business_purpose: string | null;
+    truck_type: string | null; truck_vin: string | null; operation_area: string | null;
+    operation_type: string | null; hear_about_us: string | null; reference_id: string | null;
+    service_required: string | null;
     notes: string | null; source: string; status: string; assigned_to: number | null;
     assigned_user: { id: number; name: string } | null;
     converted_at: string | null; converted_by: string | null;
@@ -278,6 +283,26 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                                     <InfoRow icon={<MapPin size={14} />} label="State" value={lead.state} />
                                     <InfoRow icon={<Briefcase size={14} />} label="Service" value={lead.service_required} />
                                     <InfoRow icon={<Globe size={14} />} label="Source" value={lead.source} />
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader className="pb-2"><CardTitle className="text-sm">Starter Package Details</CardTitle></CardHeader>
+                                <CardContent className="space-y-3">
+                                    <InfoRow icon={<MapPin size={14} />} label="Date of birth" value={lead.date_of_birth} />
+                                    <InfoRow icon={<MapPin size={14} />} label="Address" value={lead.address} />
+                                    <InfoRow icon={<Briefcase size={14} />} label="SSN / ITIN" value={lead.ssn_itin} />
+                                    <InfoRow icon={<Building size={14} />} label="Business name 1" value={lead.business_name_1} />
+                                    <InfoRow icon={<Building size={14} />} label="Business name 2" value={lead.business_name_2} />
+                                    <InfoRow icon={<Building size={14} />} label="Business name 3" value={lead.business_name_3} />
+                                    <InfoRow icon={<MapPin size={14} />} label="Formation state" value={lead.state_of_formation} />
+                                    <InfoRow icon={<Briefcase size={14} />} label="Business purpose" value={lead.business_purpose} />
+                                    <InfoRow icon={<Briefcase size={14} />} label="Truck type" value={lead.truck_type} />
+                                    <InfoRow icon={<Briefcase size={14} />} label="Truck VIN" value={lead.truck_vin} />
+                                    <InfoRow icon={<MapPin size={14} />} label="Operation area" value={lead.operation_area} />
+                                    <InfoRow icon={<Briefcase size={14} />} label="Operation type" value={lead.operation_type} />
+                                    <InfoRow icon={<Globe size={14} />} label="How they heard about us" value={lead.hear_about_us} />
+                                    <InfoRow icon={<FileText size={14} />} label="Reference ID" value={lead.reference_id} />
                                 </CardContent>
                             </Card>
 
