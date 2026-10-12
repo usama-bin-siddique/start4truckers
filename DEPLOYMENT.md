@@ -54,13 +54,6 @@
 
 ### 5. Third-Party Services
 
-- [ ] Configure Web3Forms credentials:
-  ```
-  web3forms_key=your-api-key
-  web3forms_secret=your-webhook-secret
-  ```
-- [ ] Update webhook URL in Web3Forms dashboard
-- [ ] Test webhook integration
 
 ### 6. Frontend Build
 

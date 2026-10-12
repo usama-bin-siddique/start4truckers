@@ -127,6 +127,21 @@ class MonthlyComplianceService
 
     public function sendDueReminders(): int
     {
-        return 0;
+        $clients = Client::query()->where('compliance_type', Client::COMPLIANCE_MONTHLY)
+            ->whereNotNull('next_compliance_due_at')->whereDate('next_compliance_due_at', '<=', now())
+            ->where(function ($q) {
+                $q->whereNull('compliance_reminder_sent_for')
+                    ->orWhereDate('compliance_reminder_sent_for', '<', now()->toDateString());
+            })->get();
+        foreach ($clients as $client) {
+            $this->notification->notifyClientStakeholders($client, NotificationService::TYPE_COMPLIANCE_DUE, [
+                'client_id' => $client->id, 'client_name' => $client->display_name,
+                'client_number' => $client->client_number,
+                'due_date' => $client->next_compliance_due_at->toDateString(),
+                'message' => "Monthly compliance is due for {$client->display_name}.",
+            ]);
+            $client->update(['compliance_reminder_sent_for' => now()->toDateString()]);
+        }
+        return $clients->count();
     }
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -75,6 +75,7 @@ function notificationUrl(notification: Notification): string | null {
 }
 
 export default function NotificationsIndex({ notifications, unread_count }: Props) {
+    const [selected, setSelected] = useState<number[]>([]);
     const readCount = notifications.filter((n) => n.is_read).length;
 
     function markAsRead(id: number) {
@@ -87,6 +88,10 @@ export default function NotificationsIndex({ notifications, unread_count }: Prop
 
     function markAllAsRead() {
         router.post('/notifications/mark-all-read');
+    }
+
+    function clearSelected() {
+        router.delete('/notifications', { data: { ids: selected }, onSuccess: () => setSelected([]) });
     }
 
     const kpis = [
@@ -116,7 +121,10 @@ export default function NotificationsIndex({ notifications, unread_count }: Prop
                                     : 'All caught up — nothing new to review.'}
                             </p>
                         </div>
-                        {unread_count > 0 && (
+                        {(unread_count > 0 || selected.length > 0) && (
+                            <div className="flex gap-2">
+                            {selected.length > 0 && <button type="button" onClick={clearSelected} className="rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-700">Clear selected</button>}
+                            {unread_count > 0 && (
                             <button
                                 type="button"
                                 onClick={markAllAsRead}
@@ -125,7 +133,7 @@ export default function NotificationsIndex({ notifications, unread_count }: Prop
                                 <CheckCheck className="h-4 w-4" />
                                 Mark all read
                             </button>
-                        )}
+                            )}</div>)}
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -167,6 +175,7 @@ export default function NotificationsIndex({ notifications, unread_count }: Prop
                                             )}
                                             onClick={() => openNotification(notif)}
                                         >
+                                            <input type="checkbox" checked={selected.includes(notif.id)} onClick={(e) => e.stopPropagation()} onChange={() => setSelected((s) => s.includes(notif.id) ? s.filter((id) => id !== notif.id) : [...s, notif.id])} className="mt-2 h-4 w-4" />
                                             <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', config.bg)}>
                                                 <span className={config.color}>{config.icon}</span>
                                             </div>

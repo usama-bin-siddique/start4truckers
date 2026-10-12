@@ -36,7 +36,7 @@ interface Payment {
     created_at: string;
 }
 interface Paginator<T> { data: T[]; total: number; last_page: number; links: { url: string | null; label: string; active: boolean }[] }
-interface Totals { invoiced: number; received: number; balance: number }
+interface Totals { invoiced: number; received: number; balance: number; refunded: number }
 interface Filters {
     search?: string | null;
     payment_method?: string | null;
@@ -236,6 +236,7 @@ export default function PaymentsIndex({
         { label: 'Invoiced', value: fmt(totals.invoiced), icon: <DollarSign className="h-4 w-4 text-sky-700" />, iconClass: 'bg-sky-100' },
         { label: 'Received', value: fmt(totals.received), icon: <TrendingUp className="h-4 w-4 text-emerald-700" />, iconClass: 'bg-emerald-100' },
         { label: 'Outstanding', value: fmt(totals.balance), icon: <AlertCircle className="h-4 w-4 text-red-600" />, iconClass: 'bg-red-100' },
+        { label: 'Refunded', value: fmt(totals.refunded), icon: <TrendingUp className="h-4 w-4 text-orange-600" />, iconClass: 'bg-orange-100' },
         { label: 'Payments', value: payments.total, icon: <Receipt className="h-4 w-4 text-amber-700" />, iconClass: 'bg-amber-100' },
     ];
 

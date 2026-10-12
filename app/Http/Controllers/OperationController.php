@@ -79,6 +79,7 @@ class OperationController extends Controller
             ],
             'assigned_to' => ['nullable', 'exists:users,id'],
             'notes'       => ['nullable', 'string', 'max:1000'],
+            'custom_fields' => ['nullable', 'array'],
         ], [
             'service_id.unique' => 'That service is already assigned to this client.',
         ]);
@@ -110,6 +111,7 @@ class OperationController extends Controller
             'assigned_to'     => ['nullable', 'exists:users,id'],
             'completion_date' => ['nullable', 'date'],
             'notes'           => ['nullable', 'string', 'max:1000'],
+            'custom_fields'   => ['nullable', 'array'],
         ]);
 
         $old = $operation->status;

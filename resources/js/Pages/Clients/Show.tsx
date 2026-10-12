@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 
 interface Lead { id: number; name: string; email: string | null; phone: string | null; state: string | null; company: string | null; service_required: string | null; source: string; status: string; created_at: string }
 interface Payment { id: number; invoice_amount: number; amount_received: number; balance_due: number; payment_method: string | null; transaction_reference: string | null; notes: string | null; paid_at: string | null; created_by: string | null; has_receipt: boolean; created_at: string }
-interface ClientService { id: number; service_id: number; service_name: string; status: string; assigned_to: number | null; assigned_user: { name: string } | null; completion_date: string | null; notes: string | null }
+interface ClientService { id: number; service_id: number; service_name: string; status: string; assigned_to: number | null; assigned_user: { name: string } | null; completion_date: string | null; notes: string | null; custom_fields?: Record<string, string> | null }
 interface Document { id: number; category: string; category_label: string; original_filename: string; file_size: string; uploaded_by: string | null; created_at: string }
 interface Task { id: number; title: string; description: string | null; priority: string; status: string; kind?: string | null; assigned_user: { name: string } | null; due_date: string | null; is_overdue: boolean }
 interface Activity { id: number; action: string; description: string; causer: string; old_value: Record<string, string> | null; new_value: Record<string, string> | null; created_at: string }
@@ -884,12 +884,12 @@ function OperationsTab({
 }) {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [addOpen, setAddOpen] = useState(false);
-    const form = useForm({ status: '', assigned_to: '', completion_date: '', notes: '' });
-    const addForm = useForm({ client_id: String(clientId), service_id: '', assigned_to: '', notes: '' });
+    const form = useForm({ status: '', assigned_to: '', completion_date: '', notes: '', custom_fields: {} as Record<string, string> });
+    const addForm = useForm({ client_id: String(clientId), service_id: '', assigned_to: '', notes: '', custom_fields: {} as Record<string, string> });
     const available = catalog.filter((s) => !assigned.some((cs) => cs.service_id === s.id));
 
     function openEdit(cs: ClientService) {
-        form.setData({ status: cs.status, assigned_to: cs.assigned_to ? String(cs.assigned_to) : '', completion_date: cs.completion_date ?? '', notes: cs.notes ?? '' });
+        form.setData({ status: cs.status, assigned_to: cs.assigned_to ? String(cs.assigned_to) : '', completion_date: cs.completion_date ?? '', notes: cs.notes ?? '', custom_fields: cs.custom_fields ?? {} });
         setEditingId(cs.id);
     }
 
@@ -974,6 +974,9 @@ function OperationsTab({
                         <Field label="Notes" error={addForm.errors.notes}>
                             <Textarea rows={2} placeholder="Optional" value={addForm.data.notes} onChange={(e) => addForm.setData('notes', e.target.value)} />
                         </Field>
+                        <Field label="Custom field (JSON)" error={addForm.errors.custom_fields}>
+                            <Textarea rows={2} placeholder='{"key":"value"}' onChange={(e) => { try { addForm.setData('custom_fields', JSON.parse(e.target.value || '{}')); } catch {} }} />
+                        </Field>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={addForm.processing || !addForm.data.service_id}>Assign</Button>
@@ -1014,6 +1017,9 @@ function OperationsTab({
                         </Field>
                         <Field label="Notes">
                             <Textarea rows={2} value={form.data.notes} onChange={(e) => form.setData('notes', e.target.value)} />
+                        </Field>
+                        <Field label="Custom field (JSON)">
+                            <Textarea rows={2} defaultValue={JSON.stringify(form.data.custom_fields)} onChange={(e) => { try { form.setData('custom_fields', JSON.parse(e.target.value || '{}')); } catch {} }} />
                         </Field>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>

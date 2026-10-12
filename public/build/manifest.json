@@ -577,7 +577,7 @@
     ]
   },
   "resources/js/Pages/Clients/Show.tsx": {
-    "file": "assets/Show-ZGFFtENV.js",
+    "file": "assets/Show-CiYe_5mY.js",
     "name": "Show",
     "src": "resources/js/Pages/Clients/Show.tsx",
     "isDynamicEntry": true,
@@ -757,7 +757,7 @@
     ]
   },
   "resources/js/Pages/Notifications/Index.tsx": {
-    "file": "assets/Index-4LsDqOAA.js",
+    "file": "assets/Index-Wd6VJrpX.js",
     "name": "Index",
     "src": "resources/js/Pages/Notifications/Index.tsx",
     "isDynamicEntry": true,
@@ -813,7 +813,7 @@
     ]
   },
   "resources/js/Pages/Payments/Index.tsx": {
-    "file": "assets/Index-DsJzpNx9.js",
+    "file": "assets/Index-CNoOHx2e.js",
     "name": "Index",
     "src": "resources/js/Pages/Payments/Index.tsx",
     "isDynamicEntry": true,
@@ -969,7 +969,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-Cb7xWoo_.js",
+    "file": "assets/app-CjcT14bw.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,

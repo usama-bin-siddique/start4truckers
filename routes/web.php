@@ -125,6 +125,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/notifications/{id}/open',           [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/{id}/read',          [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/mark-all-read',      [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllRead');
+    Route::delete('/notifications',                  [NotificationController::class, 'destroy'])->name('notifications.destroy');
     Route::get('/api/notifications/unread-count',    [NotificationController::class, 'getUnreadCount'])->name('notifications.unreadCount');
 
     // Settings — admin only

@@ -7,6 +7,7 @@ use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -56,5 +57,13 @@ class NotificationController extends Controller
         return response()->json([
             'count' => $this->notificationService->getUnreadCount(Auth::id()),
         ]);
+    }
+
+    public function destroy(Request $request): RedirectResponse
+    {
+        $ids = $request->input('ids', []);
+        abort_unless(is_array($ids) && count($ids) > 0, 422);
+        CrmNotification::where('user_id', Auth::id())->whereIn('id', $ids)->delete();
+        return back()->with('success', 'Selected notifications cleared.');
     }
 }

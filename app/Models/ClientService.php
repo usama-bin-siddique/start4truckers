@@ -21,6 +21,7 @@ class ClientService extends Model
         'completion_date',
         'renewal_date',
         'notes',
+        'custom_fields',
     ];
 
     protected function casts(): array
@@ -32,6 +33,7 @@ class ClientService extends Model
             'renewal_date'    => 'date',
             'service_price'   => 'decimal:2',
             'government_fee'  => 'decimal:2',
+            'custom_fields'   => 'array',
         ];
     }
 

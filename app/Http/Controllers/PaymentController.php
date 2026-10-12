@@ -78,6 +78,7 @@ class PaymentController extends Controller
                 'balance_due'           => $p->balance_due,
                 'payment_method'        => $p->payment_method,
                 'status'                => $p->payment_status,
+                'refund_amount'         => (float) ($p->refund_amount ?? 0),
                 'services'              => ($p->client?->clientServices ?? collect())
                     ->map(fn ($s) => $s->service?->name)
                     ->filter()
@@ -103,6 +104,7 @@ class PaymentController extends Controller
                 'invoiced'  => (float) ($totals->total_invoiced ?? 0),
                 'received'  => (float) ($totals->total_received ?? 0),
                 'balance'   => (float) ($totals->total_balance ?? 0),
+                'refunded'  => (float) $base->clone()->whereNotNull('refunded_at')->sum('refund_amount'),
             ],
             'filters'  => $filters,
         ]);
@@ -230,6 +232,7 @@ class PaymentController extends Controller
 
         $data = $request->validate([
             'refund_reason' => ['nullable', 'string', 'max:2000'],
+            'refund_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         if ($payment->refunded_at) {
@@ -238,6 +241,7 @@ class PaymentController extends Controller
 
         $payment->update([
             'refunded_at'   => now(),
+            'refund_amount' => $data['refund_amount'] ?? $payment->amount_received,
             'refunded_by'   => Auth::id(),
             'refund_reason' => $data['refund_reason'] ?? null,
         ]);
@@ -496,6 +500,7 @@ class PaymentController extends Controller
                 'paid' => $query->where('amount_received', '>', 0)->whereColumn('amount_received', '>=', 'invoice_amount'),
                 'partial' => $query->where('amount_received', '>', 0)->whereColumn('amount_received', '<', 'invoice_amount'),
                 'unpaid' => $query->where('amount_received', '<=', 0),
+                'refunded' => $query->whereNotNull('refunded_at'),
                 default => null,
             };
         }

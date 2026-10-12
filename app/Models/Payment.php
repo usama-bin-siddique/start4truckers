@@ -21,6 +21,7 @@ class Payment extends Model
         'notes',
         'paid_at',
         'refunded_at',
+        'refund_amount',
         'refunded_by',
         'refund_reason',
         'created_by',
@@ -33,6 +34,7 @@ class Payment extends Model
             'amount_received' => 'decimal:2',
             'paid_at'         => 'datetime',
             'refunded_at'     => 'datetime',
+            'refund_amount'   => 'decimal:2',
         ];
     }
 
