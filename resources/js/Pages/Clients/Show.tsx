@@ -869,6 +869,29 @@ function PaymentsTab({ clientId, payments, canEdit, autoOpen = false }: { client
     );
 }
 
+function CustomFieldsEditor({ fields, setFields }: { fields: { name: string; value: string }[]; setFields: (fields: { name: string; value: string }[]) => void }) {
+    function update(index: number, key: 'name' | 'value', value: string) {
+        setFields(fields.map((field, i) => i === index ? { ...field, [key]: value } : field));
+    }
+
+    return (
+        <div className="space-y-2 rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700">Custom fields</p>
+                <button type="button" className="text-xs font-medium text-amber-700 hover:text-amber-900" onClick={() => setFields([...fields, { name: '', value: '' }])}>+ Add field</button>
+            </div>
+            {fields.map((field, index) => (
+                <div key={index} className="flex items-center gap-2">
+                    <Input placeholder="Field name" value={field.name} onChange={(e) => update(index, 'name', e.target.value)} />
+                    <Input placeholder="Value" value={field.value} onChange={(e) => update(index, 'value', e.target.value)} />
+                    <button type="button" className="px-1 text-lg text-gray-400 hover:text-red-600" onClick={() => setFields(fields.filter((_, i) => i !== index))} aria-label="Remove custom field">×</button>
+                </div>
+            ))}
+            {fields.length === 0 && <p className="text-xs text-gray-400">No custom fields added.</p>}
+        </div>
+    );
+}
+
 function OperationsTab({
     clientId,
     assigned,
@@ -882,13 +905,18 @@ function OperationsTab({
     users: { id: number; name: string; role: string }[];
     canEdit: boolean;
 }) {
+    type CustomFieldRow = { name: string; value: string };
     const [editingId, setEditingId] = useState<number | null>(null);
     const [addOpen, setAddOpen] = useState(false);
+    const [addFields, setAddFields] = useState<CustomFieldRow[]>([]);
+    const [editFields, setEditFields] = useState<CustomFieldRow[]>([]);
     const form = useForm({ status: '', assigned_to: '', completion_date: '', notes: '', custom_fields: {} as Record<string, string> });
     const addForm = useForm({ client_id: String(clientId), service_id: '', assigned_to: '', notes: '', custom_fields: {} as Record<string, string> });
     const available = catalog.filter((s) => !assigned.some((cs) => cs.service_id === s.id));
 
     function openEdit(cs: ClientService) {
+        const fields = Object.entries(cs.custom_fields ?? {}).map(([name, value]) => ({ name, value: String(value) }));
+        setEditFields(fields);
         form.setData({ status: cs.status, assigned_to: cs.assigned_to ? String(cs.assigned_to) : '', completion_date: cs.completion_date ?? '', notes: cs.notes ?? '', custom_fields: cs.custom_fields ?? {} });
         setEditingId(cs.id);
     }
@@ -901,7 +929,7 @@ function OperationsTab({
     function submitAdd(e: React.FormEvent) {
         e.preventDefault();
         addForm.post('/operations', {
-            onSuccess: () => { addForm.reset(); setAddOpen(false); },
+            onSuccess: () => { addForm.reset(); setAddFields([]); setAddOpen(false); },
         });
     }
 
@@ -935,6 +963,15 @@ function OperationsTab({
                                     {cs.completion_date ? ` · Completed: ${cs.completion_date}` : ''}
                                 </p>
                                 {cs.notes && <p className="mt-1 text-xs italic text-gray-500">{cs.notes}</p>}
+                                {cs.custom_fields && Object.keys(cs.custom_fields).length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                                        {Object.entries(cs.custom_fields).map(([name, value]) => (
+                                            <span key={name} className="text-xs text-gray-600">
+                                                <span className="font-medium text-gray-500">{name}:</span> {value}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
@@ -974,9 +1011,7 @@ function OperationsTab({
                         <Field label="Notes" error={addForm.errors.notes}>
                             <Textarea rows={2} placeholder="Optional" value={addForm.data.notes} onChange={(e) => addForm.setData('notes', e.target.value)} />
                         </Field>
-                        <Field label="Custom field (JSON)" error={addForm.errors.custom_fields}>
-                            <Textarea rows={2} placeholder='{"key":"value"}' onChange={(e) => { try { addForm.setData('custom_fields', JSON.parse(e.target.value || '{}')); } catch {} }} />
-                        </Field>
+                        <CustomFieldsEditor fields={addFields} setFields={(fields) => { setAddFields(fields); addForm.setData('custom_fields', Object.fromEntries(fields.filter((f) => f.name.trim()).map((f) => [f.name.trim(), f.value]))); }} />
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={addForm.processing || !addForm.data.service_id}>Assign</Button>
@@ -1018,9 +1053,7 @@ function OperationsTab({
                         <Field label="Notes">
                             <Textarea rows={2} value={form.data.notes} onChange={(e) => form.setData('notes', e.target.value)} />
                         </Field>
-                        <Field label="Custom field (JSON)">
-                            <Textarea rows={2} defaultValue={JSON.stringify(form.data.custom_fields)} onChange={(e) => { try { form.setData('custom_fields', JSON.parse(e.target.value || '{}')); } catch {} }} />
-                        </Field>
+                        <CustomFieldsEditor fields={editFields} setFields={(fields) => { setEditFields(fields); form.setData('custom_fields', Object.fromEntries(fields.filter((f) => f.name.trim()).map((f) => [f.name.trim(), f.value]))); }} />
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
                             <Button type="submit" disabled={form.processing}>Save</Button>

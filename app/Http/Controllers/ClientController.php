@@ -486,6 +486,7 @@ class ClientController extends Controller
                 'assigned_user'   => $cs->assignedUser ? ['name' => $cs->assignedUser->name] : null,
                 'completion_date' => $cs->completion_date?->toDateString(),
                 'notes'           => $cs->notes,
+                'custom_fields'   => $cs->custom_fields,
             ])->toArray(),
             'documents'        => $client->documents->map(fn ($d) => [
                 'id'                => $d->id,
