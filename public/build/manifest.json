@@ -68,8 +68,8 @@
       "_label-Cz99YPKV.js"
     ]
   },
-  "_EmailComposer-B9KZY7ht.js": {
-    "file": "assets/EmailComposer-B9KZY7ht.js",
+  "_EmailComposer-CZbBpTJq.js": {
+    "file": "assets/EmailComposer-CZbBpTJq.js",
     "name": "EmailComposer",
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
@@ -536,7 +536,7 @@
     ]
   },
   "resources/js/Pages/Clients/Email.tsx": {
-    "file": "assets/Email-69f9hQmO.js",
+    "file": "assets/Email-DXafPvw3.js",
     "name": "Email",
     "src": "resources/js/Pages/Clients/Email.tsx",
     "isDynamicEntry": true,
@@ -544,7 +544,7 @@
       "_rolldown-runtime-hePW80VL.js",
       "_jsx-runtime-Dvf2IK11.js",
       "_AppLayout-CH1eZ3OY.js",
-      "_EmailComposer-B9KZY7ht.js"
+      "_EmailComposer-CZbBpTJq.js"
     ]
   },
   "resources/js/Pages/Clients/Index.tsx": {
@@ -577,7 +577,7 @@
     ]
   },
   "resources/js/Pages/Clients/Show.tsx": {
-    "file": "assets/Show-BssCpsAD.js",
+    "file": "assets/Show-BOfxfzHr.js",
     "name": "Show",
     "src": "resources/js/Pages/Clients/Show.tsx",
     "isDynamicEntry": true,
@@ -684,7 +684,7 @@
     ]
   },
   "resources/js/Pages/Leads/Email.tsx": {
-    "file": "assets/Email-mgaMCMqH.js",
+    "file": "assets/Email-CaqeYrKe.js",
     "name": "Email",
     "src": "resources/js/Pages/Leads/Email.tsx",
     "isDynamicEntry": true,
@@ -692,7 +692,7 @@
       "_rolldown-runtime-hePW80VL.js",
       "_jsx-runtime-Dvf2IK11.js",
       "_AppLayout-CH1eZ3OY.js",
-      "_EmailComposer-B9KZY7ht.js"
+      "_EmailComposer-CZbBpTJq.js"
     ]
   },
   "resources/js/Pages/Leads/Index.tsx": {
@@ -757,7 +757,7 @@
     ]
   },
   "resources/js/Pages/Notifications/Index.tsx": {
-    "file": "assets/Index-Wd6VJrpX.js",
+    "file": "assets/Index-8jJNNQfJ.js",
     "name": "Index",
     "src": "resources/js/Pages/Notifications/Index.tsx",
     "isDynamicEntry": true,
@@ -801,7 +801,7 @@
     ]
   },
   "resources/js/Pages/Payments/Email.tsx": {
-    "file": "assets/Email-fvyRs4Yz.js",
+    "file": "assets/Email-DLNYtOCd.js",
     "name": "Email",
     "src": "resources/js/Pages/Payments/Email.tsx",
     "isDynamicEntry": true,
@@ -809,7 +809,7 @@
       "_rolldown-runtime-hePW80VL.js",
       "_jsx-runtime-Dvf2IK11.js",
       "_AppLayout-CH1eZ3OY.js",
-      "_EmailComposer-B9KZY7ht.js"
+      "_EmailComposer-CZbBpTJq.js"
     ]
   },
   "resources/js/Pages/Payments/Index.tsx": {
@@ -969,7 +969,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-sPtq8hQo.js",
+    "file": "assets/app-7XBI2E-F.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,

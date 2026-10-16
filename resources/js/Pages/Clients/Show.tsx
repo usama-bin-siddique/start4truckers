@@ -988,16 +988,20 @@ function OperationsTab({
                 <DialogContent className="max-w-sm">
                     <DialogHeader><DialogTitle>Assign service</DialogTitle></DialogHeader>
                     <form onSubmit={submitAdd} className="space-y-3">
-                        <Field label="Service *" error={addForm.errors.service_id}>
+                        <Field label="Service *" error={addForm.errors.service_id || addForm.errors.custom_service_name}>
                             <Select value={addForm.data.service_id} onValueChange={(v) => addForm.setData('service_id', v)}>
                                 <SelectTrigger><SelectValue placeholder="Select a service" /></SelectTrigger>
                                 <SelectContent>
                                     {available.map((s) => (
                                         <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                                     ))}
+                                    <SelectItem value="custom">Custom Service</SelectItem>
                                 </SelectContent>
                             </Select>
                         </Field>
+                        {addForm.data.service_id === 'custom' && <Field label="Custom service name *" error={addForm.errors.custom_service_name}>
+                            <Input value={addForm.data.custom_service_name ?? ''} onChange={(e) => addForm.setData('custom_service_name', e.target.value)} placeholder="Enter service name" />
+                        </Field>}
                         <Field label="Assign to" error={addForm.errors.assigned_to}>
                             <Select value={addForm.data.assigned_to} onValueChange={(v) => addForm.setData('assigned_to', v)}>
                                 <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
@@ -1014,7 +1018,7 @@ function OperationsTab({
                         <CustomFieldsEditor fields={addFields} setFields={(fields) => { setAddFields(fields); addForm.setData('custom_fields', Object.fromEntries(fields.filter((f) => f.name.trim()).map((f) => [f.name.trim(), f.value]))); }} />
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-                            <Button type="submit" disabled={addForm.processing || !addForm.data.service_id}>Assign</Button>
+                            <Button type="submit" disabled={addForm.processing || (!addForm.data.service_id || (addForm.data.service_id === 'custom' && !addForm.data.custom_service_name?.trim()))}>Assign</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>

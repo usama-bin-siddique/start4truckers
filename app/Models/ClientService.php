@@ -10,6 +10,7 @@ class ClientService extends Model
     protected $fillable = [
         'client_id',
         'service_id',
+        'custom_service_name',
         'package',
         'purchase_date',
         'service_price',
@@ -51,6 +52,8 @@ class ClientService extends Model
     {
         return $this->belongsTo(Service::class);
     }
+
+    public function getDisplayNameAttribute(): string { return $this->custom_service_name ?: ($this->service?->name ?? 'Custom service'); }
 
     public function assignedUser(): BelongsTo
     {

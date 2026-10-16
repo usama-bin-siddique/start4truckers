@@ -10,6 +10,7 @@ import { ChevronLeft, Mail, Paperclip, Send, X } from 'lucide-react';
 export interface EmailTemplate { id: number; name: string; slug: string; subject: string; body: string }
 
 export interface EmailOption { name: string; label: string; defaultChecked?: boolean }
+export interface EmailRecipient { label: string; email: string }
 
 interface Props {
     title: string;
@@ -21,6 +22,7 @@ interface Props {
     placeholders: Record<string, string>;
     defaultTemplate?: string;
     options?: EmailOption[];
+    recipients?: EmailRecipient[];
     missingRecipientMessage: string;
 }
 
@@ -33,7 +35,7 @@ const MAX_FILES = 10;
 
 export default function EmailComposer({
     title, recipient, postUrl, backHref, backLabel, templates, placeholders,
-    defaultTemplate, options = [], missingRecipientMessage,
+    defaultTemplate, options = [], recipients = [], missingRecipientMessage,
 }: Props) {
     const fileInput = useRef<HTMLInputElement>(null);
 
@@ -47,6 +49,7 @@ export default function EmailComposer({
         subject: initialTemplate ? fill(initialTemplate.subject) : '',
         body: initialTemplate ? fill(initialTemplate.body) : '',
         attachments: [],
+        to: recipient ?? '',
         ...Object.fromEntries(options.map((o) => [o.name, o.defaultChecked ?? true])),
     });
 
@@ -95,6 +98,7 @@ export default function EmailComposer({
                 <h2 className="mt-3 text-[32px] leading-none font-semibold tracking-tight text-gray-950">
                     {title}
                 </h2>
+                {recipients.length > 0 && <Field label="Send to *"><Select value={String(data.to ?? '')} onValueChange={(v) => setData('to', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{recipients.map((r) => <SelectItem key={r.email} value={r.email}>{r.label}: {r.email}</SelectItem>)}</SelectContent></Select></Field>}
                 {recipient && <p className="mt-2 text-sm text-gray-500">{recipient}</p>}
             </div>
 

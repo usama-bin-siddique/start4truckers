@@ -35,6 +35,7 @@ class Client extends Model
         'company',
         'business_phone',
         'business_email',
+        'additional_emails',
         'company_address',
         'entity_type',
         'state_of_formation',
@@ -82,6 +83,7 @@ class Client extends Model
         'notes',
         'client_notes',
     ];
+
 
     const STATUS_LEAD              = 'lead';
     const STATUS_ONBOARDING        = 'onboarding';
@@ -145,6 +147,7 @@ class Client extends Model
             'irp_due_at'                   => 'date',
             'form_2290_due_at'             => 'date',
             'next_compliance_due_at'       => 'date',
+            'additional_emails'            => 'array',
             'last_compliance_completed_at' => 'date',
             'monthly_compliance_started_at' => 'date',
             'compliance_reminder_sent_for' => 'date',

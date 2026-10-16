@@ -77,6 +77,7 @@ function notificationUrl(notification: Notification): string | null {
 export default function NotificationsIndex({ notifications, unread_count }: Props) {
     const [selected, setSelected] = useState<number[]>([]);
     const readCount = notifications.filter((n) => n.is_read).length;
+    const clearAll = () => router.delete('/notifications/clear-all');
 
     function markAsRead(id: number) {
         router.post(`/notifications/${id}/read`, {}, { preserveState: true });
@@ -153,7 +154,7 @@ export default function NotificationsIndex({ notifications, unread_count }: Prop
                     <section className="rounded-2xl border border-gray-200/80 bg-white shadow-sm">
                         <div className="flex items-center justify-between px-5 py-4">
                             <p className="text-[11px] font-medium tracking-[0.14em] text-gray-400 uppercase">Recent</p>
-                            <p className="text-sm text-gray-400">{notifications.length} notifications</p>
+                            <p className="text-sm text-gray-400">{notifications.length} notifications</p><button type="button" onClick={clearAll} className="text-sm text-red-600 hover:underline">Clear all</button>
                         </div>
 
                         {notifications.length === 0 ? (

@@ -311,6 +311,12 @@ class ClientController extends Controller
         $this->authorize('view', $client);
 
         $client->load('lead');
+        $emails = collect([
+            ['label' => 'Personal', 'email' => $client->email],
+            ['label' => 'Business', 'email' => $client->business_email],
+            ['label' => 'Lead', 'email' => $client->lead?->email],
+        ])->merge(collect($client->additional_emails ?? [])->map(fn ($email) => ['label' => 'Additional', 'email' => $email]))
+            ->filter(fn ($item) => filter_var($item['email'], FILTER_VALIDATE_EMAIL))->unique('email')->values();
 
         return Inertia::render('Clients/Email', [
             'client'    => [
@@ -318,6 +324,7 @@ class ClientController extends Controller
                 'client_number' => $client->client_number,
                 'name'          => $client->display_name,
                 'email'         => $client->email ?: $client->lead?->email,
+                'emails'        => $emails,
                 'company'       => $client->company,
             ],
             'templates' => EmailTemplate::orderBy('name')->get(['id', 'name', 'slug', 'subject', 'body']),
@@ -329,13 +336,16 @@ class ClientController extends Controller
         $this->authorize('view', $client);
 
         $client->load('lead');
-        $to = $client->email ?: $client->lead?->email;
+        $to = $request->input('to');
+        $allowed = collect([$client->email, $client->business_email, $client->lead?->email])
+            ->merge($client->additional_emails ?? [])->filter(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))->unique();
 
-        if (! $to) {
+        if (! $to || ! $allowed->contains($to)) {
             return back()->with('error', 'This client has no email address.');
         }
 
         $data = $request->validate([
+            'to'            => ['required', 'email'],
             'subject'       => ['required', 'string', 'max:255'],
             'body'          => ['required', 'string', 'max:20000'],
             'attachments'   => ['nullable', 'array', 'max:10'],
@@ -479,7 +489,7 @@ class ClientController extends Controller
             'client_services'  => $client->clientServices->map(fn ($cs) => [
                 'id'              => $cs->id,
                 'service_id'      => $cs->service_id,
-                'service_name'    => $cs->service->name,
+                'service_name'    => $cs->display_name,
                 'package'         => $cs->package,
                 'status'          => $cs->status,
                 'assigned_to'     => $cs->assigned_to,

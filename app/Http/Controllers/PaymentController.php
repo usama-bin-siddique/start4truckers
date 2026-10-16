@@ -505,7 +505,7 @@ class PaymentController extends Controller
             };
         }
 
-        $dateExpr = 'DATE(COALESCE(paid_at, created_at))';
+        $dateExpr = 'DATE(COALESCE(refunded_at, paid_at, created_at))';
 
         if ($filters['date_from']) {
             $query->whereRaw("{$dateExpr} >= ?", [$filters['date_from']]);

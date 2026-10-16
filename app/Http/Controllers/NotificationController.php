@@ -66,4 +66,10 @@ class NotificationController extends Controller
         CrmNotification::where('user_id', Auth::id())->whereIn('id', $ids)->delete();
         return back()->with('success', 'Selected notifications cleared.');
     }
+
+    public function clearAll(): RedirectResponse
+    {
+        CrmNotification::where('user_id', Auth::id())->delete();
+        return back()->with('success', 'All notifications cleared.');
+    }
 }

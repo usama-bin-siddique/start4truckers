@@ -68,15 +68,20 @@ class OperationController extends Controller
     {
         $this->authorize('create', ClientService::class);
 
+        if ($request->input('service_id') === 'custom') {
+            $request->merge(['service_id' => null]);
+        }
+
         $data = $request->validate([
             'client_id'   => ['required', 'exists:clients,id'],
             'service_id'  => [
-                'required',
+                'nullable',
                 'exists:services,id',
                 Rule::unique('client_services', 'service_id')->where(
                     fn ($q) => $q->where('client_id', $request->integer('client_id'))
                 ),
             ],
+            'custom_service_name' => ['nullable', 'required_without:service_id', 'string', 'max:255'],
             'assigned_to' => ['nullable', 'exists:users,id'],
             'notes'       => ['nullable', 'string', 'max:1000'],
             'custom_fields' => ['nullable', 'array'],
@@ -85,6 +90,7 @@ class OperationController extends Controller
         ]);
 
         $data['status'] = ClientService::STATUS_PENDING;
+        $data['service_id'] = $data['service_id'] ?: null;
 
         $operation = ClientService::create($data)->load('service');
         $client    = Client::findOrFail($data['client_id']);
@@ -96,7 +102,7 @@ class OperationController extends Controller
         $this->activity->log(
             $client,
             Activity::ACTION_SERVICE_ASSIGNED,
-            "Service \"{$operation->service->name}\" assigned"
+            "Service \"{$operation->display_name}\" assigned"
         );
 
         return Inertia::flash('success', 'Service assigned.')->back()->with('success', 'Service assigned.');
