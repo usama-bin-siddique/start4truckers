@@ -178,16 +178,11 @@ class LeadController extends Controller
             );
         }
 
-        if ($lead->assigned_to) {
+        if ($lead->assigned_to && $lead->assignedUser) {
             $this->activity->log($lead, Activity::ACTION_LEAD_ASSIGNED,
                 "Lead assigned to " . $lead->assignedUser->name
             );
-            
-            // Notify assigned user
-            $this->notification->notify($lead->assigned_to, NotificationService::TYPE_LEAD_ASSIGNED, [
-                'lead_id'   => $lead->id,
-                'lead_name' => $lead->name,
-            ]);
+            $this->notifyLeadAssignee($lead, $lead->assignedUser);
         }
 
         return redirect()->route('leads.show', $lead)
@@ -238,12 +233,14 @@ class LeadController extends Controller
             $this->sla->complete($lead, 'status update');
         }
 
-        // Log assignment change
-        if ($old['assigned_to'] != ($data['assigned_to'] ?? null) && !empty($data['assigned_to'])) {
+        if ($old['assigned_to'] != ($data['assigned_to'] ?? null) && ! empty($data['assigned_to'])) {
             $assignee = User::find($data['assigned_to']);
-            $this->activity->log($lead, Activity::ACTION_LEAD_ASSIGNED,
-                "Lead assigned to {$assignee->name}"
-            );
+            if ($assignee) {
+                $this->activity->log($lead, Activity::ACTION_LEAD_ASSIGNED,
+                    "Lead assigned to {$assignee->name}"
+                );
+                $this->notifyLeadAssignee($lead, $assignee);
+            }
         }
 
         return back()->with('success', 'Lead updated successfully.');
@@ -438,18 +435,16 @@ class LeadController extends Controller
             'assigned_to' => ['required', 'exists:users,id'],
         ]);
 
+        $previousAssignee = $lead->assigned_to;
         $lead->update(['assigned_to' => $data['assigned_to']]);
         $assignee = User::find($data['assigned_to']);
 
-        $this->activity->log($lead, Activity::ACTION_LEAD_ASSIGNED,
-            "Lead assigned to {$assignee->name}"
-        );
-        
-        // Notify assigned user
-        $this->notification->notify($assignee->id, NotificationService::TYPE_LEAD_ASSIGNED, [
-            'lead_id'   => $lead->id,
-            'lead_name' => $lead->name,
-        ]);
+        if ((int) $previousAssignee !== (int) $assignee->id) {
+            $this->activity->log($lead, Activity::ACTION_LEAD_ASSIGNED,
+                "Lead assigned to {$assignee->name}"
+            );
+            $this->notifyLeadAssignee($lead, $assignee);
+        }
 
         return back()->with('success', "Lead assigned to {$assignee->name}.");
     }
@@ -584,6 +579,55 @@ class LeadController extends Controller
         $this->authorize('delete', $lead);
         $lead->delete();
         return redirect()->route('leads.index')->with('success', 'Lead deleted.');
+    }
+
+    private function notifyLeadAssignee(Lead $lead, User $assignee): void
+    {
+        $this->notification->notify($assignee->id, NotificationService::TYPE_LEAD_ASSIGNED, [
+            'lead_id'   => $lead->id,
+            'lead_name' => $lead->name,
+        ]);
+
+        if (! filter_var($assignee->email, FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+
+        $template = EmailTemplate::query()->where('slug', 'lead_assigned')->first();
+        $leadUrl = route('leads.show', $lead);
+        $replacements = [
+            '{{user_name}}'        => $assignee->name,
+            '{{lead_name}}'        => $lead->name,
+            '{{lead_phone}}'       => $lead->phone ?: '—',
+            '{{lead_email}}'       => $lead->email ?: '—',
+            '{{service_required}}' => $lead->service_required ?: '—',
+            '{{company}}'          => $lead->company ?: '—',
+            '{{lead_url}}'         => $leadUrl,
+        ];
+
+        $subject = strtr($template?->subject ?? 'Lead Assigned to You: {{lead_name}}', $replacements);
+        $body = strtr($template?->body ?? implode("\n", [
+            'Hello {{user_name}},',
+            '',
+            'A lead has been assigned to you.',
+            '',
+            'Lead: {{lead_name}}',
+            'Phone: {{lead_phone}}',
+            'Email: {{lead_email}}',
+            'Company: {{company}}',
+            'Service: {{service_required}}',
+            '',
+            'Open the lead: {{lead_url}}',
+        ]), $replacements);
+
+        if (! str_contains($body, $leadUrl)) {
+            $body .= "\n\nOpen the lead: {$leadUrl}";
+        }
+
+        try {
+            Mail::to($assignee->email, $assignee->name)->send(new CustomerEmail($subject, $body));
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function formatLead(Lead $lead): array

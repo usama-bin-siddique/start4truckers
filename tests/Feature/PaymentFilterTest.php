@@ -150,6 +150,51 @@ class PaymentFilterTest extends TestCase
             );
     }
 
+    public function test_status_filter_excludes_refunded_payments_and_updates_cards(): void
+    {
+        $admin = $this->admin();
+        $paid = $this->payment($admin, ['name' => 'Paid Client', 'invoice' => 300, 'amount' => 300]);
+        $refunded = $this->payment($admin, ['name' => 'Refunded Client', 'invoice' => 500, 'amount' => 500]);
+        $refunded->update(['refunded_at' => now(), 'refund_amount' => 500]);
+        $this->payment($admin, ['name' => 'Partial Client', 'invoice' => 200, 'amount' => 50]);
+
+        $this->actingAs($admin)
+            ->get('/payments?status=paid')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('payments.data', 1)
+                ->where('payments.data.0.id', $paid->id)
+                ->where('payments.total', 1)
+                ->where('totals.invoiced', 300)
+                ->where('totals.received', 300)
+                ->where('totals.balance', 0)
+                ->where('totals.refunded', 0)
+            );
+
+        $this->actingAs($admin)
+            ->get('/payments?status=refunded')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('payments.data', 1)
+                ->where('payments.data.0.id', $refunded->id)
+                ->where('payments.data.0.status', 'refunded')
+                ->where('totals.invoiced', 500)
+                ->where('totals.balance', 0)
+                ->where('totals.refunded', 500)
+            );
+
+        $this->actingAs($admin)
+            ->get('/payments?status=partial')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('payments.data', 1)
+                ->where('totals.invoiced', 200)
+                ->where('totals.received', 50)
+                ->where('totals.balance', 150)
+                ->where('totals.refunded', 0)
+            );
+    }
+
     private function admin(): User
     {
         return User::factory()->create(['role' => 'admin', 'is_active' => true]);

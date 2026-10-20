@@ -151,4 +151,25 @@ class OperationController extends Controller
 
         return back()->with('success', 'Service updated.');
     }
+
+    public function destroy(ClientService $operation): RedirectResponse
+    {
+        $this->authorize('delete', $operation);
+
+        $operation->loadMissing(['client', 'service']);
+        $name = $operation->display_name;
+        $client = $operation->client;
+
+        $operation->delete();
+
+        if ($client) {
+            $this->activity->log(
+                $client,
+                Activity::ACTION_SERVICE_REMOVED,
+                "Service \"{$name}\" removed"
+            );
+        }
+
+        return back()->with('success', 'Service removed.');
+    }
 }

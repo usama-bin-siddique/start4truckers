@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 interface Lead { name: string; email: string | null; phone: string | null; company: string | null; service_required: string | null }
 interface Client {
-    id: number; client_number: string; name: string; email: string | null; phone: string | null;
+    id: number; client_number: string; name: string; email: string | null; has_email?: boolean; phone: string | null;
     company: string | null; status: string; status_label?: string; compliance_type: 'project' | 'monthly' | null;
     assigned_user: { name: string } | null;
     can_update_status?: boolean;
@@ -316,7 +316,7 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                                                                     </Link>
                                                                 </DropdownMenuItem>
                                                             )}
-                                                            {(client.email || client.lead?.email) && (
+                                                            {(client.has_email || client.email || client.lead?.email) && (
                                                                 <DropdownMenuItem asChild>
                                                                     <a href={`/clients/${client.id}/email`} target="_blank" rel="noreferrer" className="cursor-pointer">
                                                                         <Mail size={13} /> Send Email

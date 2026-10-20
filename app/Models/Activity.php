@@ -47,6 +47,7 @@ class Activity extends Model
     const ACTION_TASK_CREATED       = 'task_created';
     const ACTION_SERVICE_UPDATED    = 'service_updated';
     const ACTION_SERVICE_ASSIGNED   = 'service_assigned';
+    const ACTION_SERVICE_REMOVED    = 'service_removed';
     const ACTION_CLIENT_CREATED     = 'client_created';
     const ACTION_LEAD_LINKED        = 'lead_linked';
     const ACTION_REMINDER_CREATED   = 'reminder_created';

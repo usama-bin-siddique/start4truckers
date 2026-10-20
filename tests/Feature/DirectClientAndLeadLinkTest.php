@@ -129,6 +129,35 @@ class DirectClientAndLeadLinkTest extends TestCase
         $this->assertDatabaseMissing('leads', ['name' => 'Stolen link']);
     }
 
+    public function test_client_list_offers_email_when_only_business_email_exists(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $businessOnly = Client::create([
+            'name'           => 'Business Only',
+            'status'         => 'active',
+            'business_email' => 'office@example.com',
+        ]);
+        $noEmail = Client::create([
+            'name'   => 'No Email',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/clients')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Clients/Index')
+                ->where('clients.data', function ($rows) use ($businessOnly, $noEmail) {
+                    $rows = collect($rows)->keyBy('id');
+
+                    return $rows[$businessOnly->id]['has_email'] === true
+                        && $rows[$businessOnly->id]['email'] === 'office@example.com'
+                        && $rows[$noEmail->id]['has_email'] === false
+                        && $rows[$noEmail->id]['email'] === null;
+                })
+            );
+    }
+
     public function test_client_show_lists_related_leads(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);

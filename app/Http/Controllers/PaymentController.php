@@ -48,7 +48,7 @@ class PaymentController extends Controller
         $totals = $base->clone()->selectRaw('
             SUM(invoice_amount) as total_invoiced,
             SUM(amount_received) as total_received,
-            SUM(invoice_amount - amount_received) as total_balance
+            SUM(CASE WHEN refunded_at IS NULL AND invoice_amount > amount_received THEN invoice_amount - amount_received ELSE 0 END) as total_balance
         ')->first();
 
         $clients = Client::query()
@@ -497,9 +497,9 @@ class PaymentController extends Controller
 
         if ($filters['status']) {
             match ($filters['status']) {
-                'paid' => $query->where('amount_received', '>', 0)->whereColumn('amount_received', '>=', 'invoice_amount'),
-                'partial' => $query->where('amount_received', '>', 0)->whereColumn('amount_received', '<', 'invoice_amount'),
-                'unpaid' => $query->where('amount_received', '<=', 0),
+                'paid' => $query->whereNull('refunded_at')->where('amount_received', '>', 0)->whereColumn('amount_received', '>=', 'invoice_amount'),
+                'partial' => $query->whereNull('refunded_at')->where('amount_received', '>', 0)->whereColumn('amount_received', '<', 'invoice_amount'),
+                'unpaid' => $query->whereNull('refunded_at')->where('amount_received', '<=', 0),
                 'refunded' => $query->whereNotNull('refunded_at'),
                 default => null,
             };

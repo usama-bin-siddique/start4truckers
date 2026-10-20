@@ -457,7 +457,7 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                             <PaymentsTab clientId={client.id} payments={client.payments} canEdit={['admin', 'sales'].includes(auth.user.role)} autoOpen={forcePayment} />
                         </TabsContent>
                         <TabsContent value="operations" className="mt-5">
-                            <OperationsTab clientId={client.id} assigned={client.client_services} catalog={services} users={users} canEdit={['admin', 'processing'].includes(auth.user.role)} />
+                            <OperationsTab clientId={client.id} assigned={client.client_services} catalog={services} users={users} canEdit={['admin', 'processing'].includes(auth.user.role)} canDelete={auth.user.role === 'admin'} />
                         </TabsContent>
                         <TabsContent value="documents" className="mt-5">
                             <DocumentsTab clientId={client.id} documents={client.documents} categories={doc_categories} canUpload={['admin', 'processing'].includes(auth.user.role)} />
@@ -898,15 +898,18 @@ function OperationsTab({
     catalog,
     users,
     canEdit,
+    canDelete,
 }: {
     clientId: number;
     assigned: ClientService[];
     catalog: { id: number; name: string; slug: string }[];
     users: { id: number; name: string; role: string }[];
     canEdit: boolean;
+    canDelete: boolean;
 }) {
     type CustomFieldRow = { name: string; value: string };
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<ClientService | null>(null);
     const [addOpen, setAddOpen] = useState(false);
     const [addFields, setAddFields] = useState<CustomFieldRow[]>([]);
     const [editFields, setEditFields] = useState<CustomFieldRow[]>([]);
@@ -978,6 +981,11 @@ function OperationsTab({
                             <ServiceStatusBadge status={cs.status} />
                             {canEdit && (
                                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(cs)}>Update</Button>
+                            )}
+                            {canDelete && (
+                                <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600" title="Delete service" onClick={() => setDeleteTarget(cs)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
                             )}
                         </div>
                     </div>
@@ -1065,6 +1073,30 @@ function OperationsTab({
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={deleteTarget !== null} onOpenChange={() => setDeleteTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this service?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Remove <strong>{deleteTarget?.service_name}</strong> from this client? This cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={() => {
+                                if (deleteTarget) {
+                                    router.delete(`/operations/${deleteTarget.id}`, { preserveScroll: true, onFinish: () => setDeleteTarget(null) });
+                                }
+                            }}
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

@@ -383,11 +383,14 @@ class ClientController extends Controller
 
     private function formatClientRow(Client $client): array
     {
+        $contactEmails = $this->clientContactEmails($client);
+
         return [
             'id'               => $client->id,
             'client_number'    => $client->client_number,
             'name'             => $client->display_name,
-            'email'            => $client->email ?: $client->lead?->email,
+            'email'            => $contactEmails[0] ?? null,
+            'has_email'        => $contactEmails !== [],
             'phone'            => $client->phone ?: $client->lead?->phone,
             'company'          => $client->company ?: $client->lead?->company,
             'status'           => $client->status,
@@ -405,6 +408,20 @@ class ClientController extends Controller
             'balance_due'    => $client->balance_due,
             'created_at'     => $client->created_at->toDateString(),
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function clientContactEmails(Client $client): array
+    {
+        return collect([$client->email, $client->business_email])
+            ->merge($client->additional_emails ?? [])
+            ->push($client->lead?->email)
+            ->filter(fn ($email) => is_string($email) && filter_var($email, FILTER_VALIDATE_EMAIL))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function formatClientFull(Client $client): array

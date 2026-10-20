@@ -95,6 +95,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/operations',              [OperationController::class, 'index'])->name('operations.index');
         Route::post('/operations',             [OperationController::class, 'store'])->name('operations.store');
         Route::put('/operations/{operation}',  [OperationController::class, 'update'])->name('operations.update');
+        Route::delete('/operations/{operation}', [OperationController::class, 'destroy'])->name('operations.destroy');
     });
 
     // Documents — all roles view; upload/delete enforced by policy

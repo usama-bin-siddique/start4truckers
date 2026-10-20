@@ -21,4 +21,9 @@ class OperationPolicy
     {
         return in_array($user->role, ['admin', 'processing']);
     }
+
+    public function delete(User $user, ClientService $clientService): bool
+    {
+        return $user->isAdmin();
+    }
 }

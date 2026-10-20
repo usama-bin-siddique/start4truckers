@@ -81,6 +81,36 @@ class AssignClientServiceTest extends TestCase
         ]);
     }
 
+    public function test_only_admin_can_delete_a_client_service(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $processing = User::factory()->create(['role' => 'processing', 'is_active' => true]);
+        $client = Client::create(['name' => 'Service Client', 'status' => 'active']);
+        $service = Service::create(['name' => 'EIN', 'slug' => 'ein', 'is_active' => true, 'order' => 1]);
+        $assigned = $client->clientServices()->create([
+            'service_id' => $service->id,
+            'status'     => 'pending',
+        ]);
+
+        $this->actingAs($processing)
+            ->delete("/operations/{$assigned->id}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('client_services', ['id' => $assigned->id]);
+
+        $this->actingAs($admin)
+            ->from("/clients/{$client->id}")
+            ->delete("/operations/{$assigned->id}")
+            ->assertRedirect("/clients/{$client->id}")
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('client_services', ['id' => $assigned->id]);
+        $this->assertDatabaseHas('activities', [
+            'subject_id' => $client->id,
+            'action'     => 'service_removed',
+        ]);
+    }
+
     public function test_does_not_assign_the_same_service_twice(): void
     {
         $user = User::factory()->create(['role' => 'admin', 'is_active' => true]);
