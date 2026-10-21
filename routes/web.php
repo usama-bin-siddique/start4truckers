@@ -8,6 +8,7 @@ use App\Http\Controllers\ClientVehicleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\LeadController;
+use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperationController;
 use App\Http\Controllers\PaymentController;
@@ -129,6 +130,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/notifications',                  [NotificationController::class, 'destroy'])->name('notifications.destroy');
     Route::delete('/notifications/clear-all',        [NotificationController::class, 'clearAll'])->name('notifications.clearAll');
     Route::get('/api/notifications/unread-count',    [NotificationController::class, 'getUnreadCount'])->name('notifications.unreadCount');
+    Route::post('/notifications/device-token',       [DeviceTokenController::class, 'store'])->name('notifications.device-token');
 
     // Settings — admin only
     Route::middleware('role:admin')->group(function () {

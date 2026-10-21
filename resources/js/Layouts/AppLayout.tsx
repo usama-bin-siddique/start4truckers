@@ -18,6 +18,7 @@ import {
     ScrollText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { registerFirebaseMessaging } from '@/lib/firebaseNotifications';
 import BrandLogo from '@/components/BrandLogo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -119,13 +120,18 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children, title }: AppLayoutProps) {
-    const page = usePage<PageProps>();
+    const page = usePage<PageProps & { firebase?: { vapid_key?: string | null } }>();
     const { auth, flash } = page.props;
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [flashMsg, setFlashMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
     const currentPath = window.location.pathname;
     const userRole = auth?.user?.role || 'admin';
+
+    useEffect(() => {
+        if (!auth?.user) return;
+        registerFirebaseMessaging(page.props.firebase?.vapid_key).catch(() => {});
+    }, [auth?.user?.id, page.props.firebase?.vapid_key]);
 
     useEffect(() => {
         const success = flash?.success ?? (typeof page.flash?.success === 'string' ? page.flash.success : undefined);

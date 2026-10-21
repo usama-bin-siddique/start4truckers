@@ -34,6 +34,9 @@ class HandleInertiaRequests extends Middleware
                         ->count()
                     : 0,
             ],
+            'firebase' => [
+                'vapid_key' => config('services.firebase.vapid_key'),
+            ],
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error'   => $request->session()->get('error'),

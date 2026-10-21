@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\SendsPushNotifications;
 use App\Models\Client;
 use App\Models\CrmNotification;
 use App\Models\Task;
@@ -21,6 +22,8 @@ class NotificationService
     const TYPE_COMPLIANCE_STARTED   = 'compliance_started';
     const TYPE_CLIENT_REMINDER      = 'client_reminder';
 
+    public function __construct(private SendsPushNotifications $push) {}
+
     public function notify(int|User $user, string $type, array $data): CrmNotification
     {
         $userId = $user instanceof User ? $user->id : $user;
@@ -29,11 +32,20 @@ class NotificationService
             $data['url'] = self::urlFor($type, $data);
         }
 
-        return CrmNotification::create([
+        $notification = CrmNotification::create([
             'user_id' => $userId,
             'type'    => $type,
             'data'    => $data,
         ]);
+
+        try {
+            $url = $data['url'] ? url($data['url']) : url('/notifications');
+            $this->push->send($userId, self::titleFor($type), self::messageFor($type, $data), $url, $notification->id);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $notification;
     }
 
     public function notifyMultiple(array $userIds, string $type, array $data): void
@@ -64,6 +76,45 @@ class NotificationService
         }
 
         return array_values(array_unique($ids));
+    }
+
+    public static function titleFor(string $type): string
+    {
+        return match ($type) {
+            self::TYPE_NEW_LEAD => 'New lead',
+            self::TYPE_LEAD_ASSIGNED => 'Lead assigned to you',
+            self::TYPE_TASK_DUE => 'Task due',
+            self::TYPE_PAYMENT_RECEIVED => 'Payment received',
+            self::TYPE_DOCUMENT_UPLOADED => 'Document uploaded',
+            self::TYPE_SERVICE_COMPLETED => 'Service completed',
+            self::TYPE_LEAD_CONVERTED => 'Lead converted',
+            self::TYPE_SLA_BREACHED => 'SLA missed',
+            self::TYPE_COMPLIANCE_DUE => 'Compliance due',
+            self::TYPE_COMPLIANCE_STARTED => 'Monthly compliance',
+            self::TYPE_CLIENT_REMINDER => 'Reminder',
+            default => 'Notification',
+        };
+    }
+
+    public static function messageFor(string $type, array $data): string
+    {
+        $lead = $data['lead_name'] ?? 'Unknown';
+        $client = $data['client_name'] ?? 'client';
+
+        return match ($type) {
+            self::TYPE_NEW_LEAD => "New lead: {$lead}",
+            self::TYPE_LEAD_ASSIGNED => "You've been assigned lead: {$lead}",
+            self::TYPE_TASK_DUE => $data['message'] ?? ('Task due: '.($data['task_title'] ?? 'Untitled')),
+            self::TYPE_PAYMENT_RECEIVED => 'Payment received: $'.($data['amount'] ?? '0')." from {$client}",
+            self::TYPE_DOCUMENT_UPLOADED => 'Document uploaded for '.($data['client_name'] ?? $data['lead_name'] ?? 'client').': '.($data['filename'] ?? 'document'),
+            self::TYPE_SERVICE_COMPLETED => "Service completed for {$client}: ".($data['service_name'] ?? 'service'),
+            self::TYPE_LEAD_CONVERTED => 'Lead converted to client: '.($data['client_name'] ?? 'Unknown'),
+            self::TYPE_SLA_BREACHED => "SLA missed for lead: {$lead}. No action was taken in time.",
+            self::TYPE_COMPLIANCE_DUE => $data['message'] ?? "Client {$client} has a compliance task due.",
+            self::TYPE_COMPLIANCE_STARTED => $data['message'] ?? "Client {$client} is now a Monthly Compliance Client.",
+            self::TYPE_CLIENT_REMINDER => $data['message'] ?? "Reminder for {$client}: ".($data['description'] ?? 'Custom reminder'),
+            default => $data['message'] ?? 'New notification',
+        };
     }
 
     public static function urlFor(string $type, array $data): ?string

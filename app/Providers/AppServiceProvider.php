@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\SendsPushNotifications;
 use App\Models\Client;
+use App\Services\FirebasePush;
 use App\Models\ClientService;
 use App\Models\Document;
 use App\Models\Lead;
@@ -21,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->bind(SendsPushNotifications::class, FirebasePush::class);
     }
 
     public function boot(): void
