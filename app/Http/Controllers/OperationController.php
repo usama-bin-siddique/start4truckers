@@ -47,7 +47,7 @@ class OperationController extends Controller
                 'client_id'       => $cs->client_id,
                 'client_number'   => $cs->client->client_number,
                 'client_name'     => $cs->client->display_name,
-                'service_name'    => $cs->service->name,
+                'service_name'    => $cs->display_name,
                 'status'          => $cs->status,
                 'assigned_user'   => $cs->assignedUser ? ['name' => $cs->assignedUser->name] : null,
                 'completion_date' => $cs->completion_date?->toDateString(),
@@ -126,7 +126,7 @@ class OperationController extends Controller
         $this->activity->log(
             $operation->client,
             Activity::ACTION_SERVICE_UPDATED,
-            "Service \"{$operation->service->name}\" updated to \"{$data['status']}\"",
+            "Service \"{$operation->display_name}\" updated to \"{$data['status']}\"",
             ['status' => $old],
             ['status' => $data['status']]
         );
