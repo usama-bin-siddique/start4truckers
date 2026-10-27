@@ -583,10 +583,15 @@ class LeadController extends Controller
 
     private function notifyLeadAssignee(Lead $lead, User $assignee): void
     {
-        $this->notification->notify($assignee->id, NotificationService::TYPE_LEAD_ASSIGNED, [
-            'lead_id'   => $lead->id,
-            'lead_name' => $lead->name,
-        ]);
+        try {
+            $this->notification->notify($assignee->id, NotificationService::TYPE_LEAD_ASSIGNED, [
+                'lead_id'   => $lead->id,
+                'lead_name' => $lead->name,
+                'url'       => "/leads/{$lead->id}",
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('notifyLeadAssignee push notification failed: ' . $e->getMessage(), ['exception' => $e]);
+        }
 
         if (! filter_var($assignee->email, FILTER_VALIDATE_EMAIL)) {
             return;
