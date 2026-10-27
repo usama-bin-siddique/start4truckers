@@ -35,15 +35,28 @@ export async function requestAndRegisterToken(vapidKey: string | null | undefine
             return { ok: false, message: `Notification permission was ${permission}. Please allow notifications in site settings.` };
         }
 
+        console.log('[FCM-Client] Registering service worker and setting up listener...');
         const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        console.log('[FCM-Client] Service Worker registered:', registration);
+
         const messaging = getMessaging(initializeApp(firebaseConfig));
 
         onMessage(messaging, (payload) => {
+            console.log('[FCM-Client] Foreground message received:', payload);
             const title = payload.notification?.title || 'Start4Truckers';
             const body = payload.notification?.body || 'You have a new notification.';
             const url = payload.data?.url || payload.fcmOptions?.link;
 
-            new Notification(title, { body, icon: '/images/logo.png', data: { url } });
+            if (Notification.permission === 'granted') {
+                try {
+                    new Notification(title, { body, icon: '/images/logo.png', data: { url } });
+                    console.log('[FCM-Client] Foreground Notification constructor called successfully');
+                } catch (e) {
+                    console.warn('[FCM-Client] Could not call new Notification(), using ServiceWorker showNotification:', e);
+                    registration.showNotification(title, { body, icon: '/images/logo.png', data: { url } });
+                }
+            }
+
             router.reload({ only: ['auth'] });
         });
 
@@ -74,7 +87,7 @@ export async function requestAndRegisterToken(vapidKey: string | null | undefine
 }
 
 export async function registerFirebaseMessaging(vapidKey: string | null | undefined): Promise<void> {
-    if (started || !vapidKey || !('Notification' in window) || !('serviceWorker' in navigator)) {
+    if (!vapidKey || !('Notification' in window) || !('serviceWorker' in navigator)) {
         return;
     }
 
@@ -82,6 +95,11 @@ export async function registerFirebaseMessaging(vapidKey: string | null | undefi
         return;
     }
 
+    if (started) {
+        return;
+    }
+
     started = true;
+    console.log('[FCM-Client] Auto-registering messaging since permission is granted');
     await requestAndRegisterToken(vapidKey);
 }

@@ -37,10 +37,21 @@ class FirebasePush implements SendsPushNotifications
                             'body' => $body,
                         ],
                         'data' => array_filter([
+                            'title' => $title,
+                            'body' => $body,
                             'url' => $url,
                             'notification_id' => (string) $notificationId,
                         ]),
                         'webpush' => [
+                            'headers' => [
+                                'Urgency' => 'high',
+                            ],
+                            'notification' => [
+                                'title' => $title,
+                                'body' => $body,
+                                'icon' => url('/images/logo.png'),
+                                'requireInteraction' => true,
+                            ],
                             'fcm_options' => [
                                 'link' => $url ?: url('/notifications'),
                             ],
