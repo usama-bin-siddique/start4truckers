@@ -43,17 +43,28 @@ export async function requestAndRegisterToken(vapidKey: string | null | undefine
 
         onMessage(messaging, (payload) => {
             console.log('[FCM-Client] Foreground message received:', payload);
-            const title = payload.notification?.title || 'Start4Truckers';
-            const body = payload.notification?.body || 'You have a new notification.';
+            const title = payload.notification?.title || (payload.data as any)?.title || 'Start4Truckers';
+            const body = payload.notification?.body || (payload.data as any)?.body || 'You have a new notification.';
             const url = payload.data?.url || payload.fcmOptions?.link;
 
+            // 1. Dispatch custom DOM event for in-app floating toast banner
+            window.dispatchEvent(
+                new CustomEvent('fcm-push-received', {
+                    detail: { title, body, url },
+                })
+            );
+
+            // 2. Also trigger OS/Desktop notification via ServiceWorker (works universally)
             if (Notification.permission === 'granted') {
                 try {
-                    new Notification(title, { body, icon: '/images/logo.png', data: { url } });
-                    console.log('[FCM-Client] Foreground Notification constructor called successfully');
+                    registration.showNotification(title, {
+                        body,
+                        icon: '/images/logo.png',
+                        data: { url },
+                    });
+                    console.log('[FCM-Client] ServiceWorker showNotification executed');
                 } catch (e) {
-                    console.warn('[FCM-Client] Could not call new Notification(), using ServiceWorker showNotification:', e);
-                    registration.showNotification(title, { body, icon: '/images/logo.png', data: { url } });
+                    console.warn('[FCM-Client] Could not show SW notification:', e);
                 }
             }
 

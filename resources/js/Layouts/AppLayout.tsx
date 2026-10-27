@@ -128,8 +128,27 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [flashMsg, setFlashMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+    const [pushToast, setPushToast] = useState<{ title: string; body: string; url?: string } | null>(null);
     const currentPath = window.location.pathname;
     const userRole = auth?.user?.role || 'admin';
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail?.title || detail?.body) {
+                setPushToast(detail);
+            }
+        };
+        window.addEventListener('fcm-push-received', handler);
+        return () => window.removeEventListener('fcm-push-received', handler);
+    }, []);
+
+    useEffect(() => {
+        if (pushToast) {
+            const t = setTimeout(() => setPushToast(null), 8000);
+            return () => clearTimeout(t);
+        }
+    }, [pushToast]);
 
     useEffect(() => {
         if (!auth?.user) return;
@@ -361,6 +380,38 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                                 className="shrink-0 opacity-60 transition-opacity hover:opacity-100"
                             >
                                 <X size={16} />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {pushToast && (
+                    <div className="pointer-events-none fixed top-4 right-4 z-[110] flex max-w-md animate-in slide-in-from-top-3 duration-300">
+                        <div className="pointer-events-auto flex w-full items-start gap-3.5 rounded-xl border border-amber-200/80 bg-white p-4 shadow-xl ring-1 ring-black/5">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm">
+                                <Bell size={18} />
+                            </div>
+                            <div className="min-w-0 flex-1 pt-0.5">
+                                <p className="text-sm font-semibold text-gray-900">{pushToast.title}</p>
+                                <p className="mt-0.5 text-xs leading-relaxed text-gray-600">{pushToast.body}</p>
+                                {pushToast.url && (
+                                    <div className="mt-2.5">
+                                        <Link
+                                            href={pushToast.url}
+                                            onClick={() => setPushToast(null)}
+                                            className="inline-flex items-center text-xs font-semibold text-amber-700 hover:text-amber-800 hover:underline"
+                                        >
+                                            View Details &rarr;
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setPushToast(null)}
+                                className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                aria-label="Dismiss notification"
+                            >
+                                <X size={15} />
                             </button>
                         </div>
                     </div>
