@@ -142,6 +142,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/notifications/clear-all',        [NotificationController::class, 'clearAll'])->name('notifications.clearAll');
     Route::get('/api/notifications/unread-count',    [NotificationController::class, 'getUnreadCount'])->name('notifications.unreadCount');
     Route::post('/notifications/device-token',       [DeviceTokenController::class, 'store'])->name('notifications.device-token');
+    Route::post('/notifications/test-push',          [DeviceTokenController::class, 'testPush'])->name('notifications.test-push');
 
     // Settings — admin only
     Route::middleware('role:admin')->group(function () {

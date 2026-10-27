@@ -22,4 +22,36 @@ class DeviceTokenController extends Controller
 
         return response()->json(['saved' => true]);
     }
+
+    public function testPush(Request $request, \App\Services\FirebasePush $push): JsonResponse
+    {
+        $userId = Auth::id();
+        $tokenCount = DeviceToken::where('user_id', $userId)->count();
+
+        if ($tokenCount === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No registered device token found for your user. Please grant browser notification permission first.',
+            ], 422);
+        }
+
+        try {
+            $push->send(
+                $userId,
+                '🔔 Test Push Notification',
+                'FCM is working! Desktop push notification received successfully.',
+                url('/notifications')
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Test push notification sent successfully!',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send push: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

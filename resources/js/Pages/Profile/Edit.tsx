@@ -4,7 +4,9 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Lock, Shield, CheckCircle2 } from 'lucide-react';
+import { User, Lock, Shield, CheckCircle2, Bell, Send } from 'lucide-react';
+import { requestAndRegisterToken } from '@/lib/firebaseNotifications';
+import { usePage } from '@inertiajs/react';
 
 interface Props {
     user: {
@@ -17,6 +19,10 @@ interface Props {
 }
 
 export default function Edit({ user }: Props) {
+    const page = usePage<{ firebase?: { vapid_key?: string | null } }>();
+    const [pushStatus, setPushStatus] = useState<string | null>(null);
+    const [pushLoading, setPushLoading] = useState(false);
+    const [testLoading, setTestLoading] = useState(false);
     const profileForm = useForm({
         name: user.name,
         email: user.email,
@@ -43,6 +49,36 @@ export default function Edit({ user }: Props) {
                 passwordForm.reset();
             },
         });
+    };
+
+    const handleEnablePush = async () => {
+        setPushLoading(true);
+        setPushStatus(null);
+        const res = await requestAndRegisterToken(page.props.firebase?.vapid_key);
+        setPushStatus(res.message);
+        setPushLoading(false);
+    };
+
+    const handleSendTestPush = async () => {
+        setTestLoading(true);
+        setPushStatus(null);
+        try {
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+            const res = await fetch('/notifications/test-push', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                    Accept: 'application/json',
+                },
+            });
+            const data = await res.json();
+            setPushStatus(data.message || (data.success ? 'Test push sent!' : 'Failed to send test push.'));
+        } catch (err: any) {
+            setPushStatus(err?.message || 'Error triggering test push.');
+        } finally {
+            setTestLoading(false);
+        }
     };
 
     return (
@@ -206,6 +242,54 @@ export default function Edit({ user }: Props) {
                             </Button>
                         </div>
                     </form>
+                </div>
+
+                {/* Push Notifications Card */}
+                <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                    <div className="border-b border-gray-100 px-6 py-4">
+                        <div className="flex items-center gap-2">
+                            <Bell className="h-5 w-5 text-amber-600" />
+                            <h3 className="text-base font-semibold text-gray-900">Desktop Push Notifications (FCM)</h3>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                            Enable browser push notifications to receive real-time alerts for new leads, tasks, and client reminders.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4 px-6 py-5">
+                        <p className="text-sm text-gray-600">
+                            Click <span className="font-semibold text-gray-800">&quot;Enable Notifications on this Device&quot;</span> to allow browser notifications and register your desktop device token. Once enabled, use the test button to verify that incoming notifications are received and listened to.
+                        </p>
+
+                        {pushStatus && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
+                                {pushStatus}
+                            </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-3 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={pushLoading}
+                                onClick={handleEnablePush}
+                                className="border-gray-300"
+                            >
+                                <Bell className="mr-2 h-4 w-4 text-amber-600" />
+                                {pushLoading ? 'Registering...' : 'Enable Notifications on this Device'}
+                            </Button>
+
+                            <Button
+                                type="button"
+                                disabled={testLoading}
+                                onClick={handleSendTestPush}
+                                className="bg-[#12141D] text-white hover:bg-black"
+                            >
+                                <Send className="mr-2 h-4 w-4" />
+                                {testLoading ? 'Sending...' : 'Send Test Notification'}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </AppLayout>
