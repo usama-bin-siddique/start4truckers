@@ -183,6 +183,18 @@ class LeadController extends Controller
                 "Lead assigned to " . $lead->assignedUser->name
             );
             $this->notifyLeadAssignee($lead, $lead->assignedUser);
+        } else {
+            // If lead created without an assignee, notify admins and managers that a new lead is created
+            $recipients = User::whereIn('role', ['admin', 'manager'])
+                ->where('is_active', true)
+                ->pluck('id')
+                ->all();
+
+            $this->notification->notifyMultiple($recipients, NotificationService::TYPE_NEW_LEAD, [
+                'lead_id'   => $lead->id,
+                'lead_name' => $lead->name,
+                'source'    => $lead->source ?? 'manual',
+            ]);
         }
 
         return redirect()->route('leads.show', $lead)

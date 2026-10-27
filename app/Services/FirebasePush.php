@@ -30,45 +30,51 @@ class FirebasePush implements SendsPushNotifications
         Log::info("FirebasePush: Dispatching push to User #{$userId} ({$tokens->count()} token(s)): {$title}");
 
         foreach ($tokens as $token) {
-            $response = Http::withToken($accessToken)
-                ->acceptJson()
-                ->post("https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send", [
-                    'message' => [
-                        'token' => $token,
-                        'notification' => [
-                            'title' => $title,
-                            'body' => $body,
-                        ],
-                        'data' => array_filter([
-                            'title' => $title,
-                            'body' => $body,
-                            'url' => $url,
-                            'notification_id' => (string) $notificationId,
-                        ]),
-                        'webpush' => [
-                            'headers' => [
-                                'Urgency' => 'high',
-                            ],
+            try {
+                $response = Http::timeout(10)
+                    ->retry(2, 200)
+                    ->withToken($accessToken)
+                    ->acceptJson()
+                    ->post("https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send", [
+                        'message' => [
+                            'token' => $token,
                             'notification' => [
                                 'title' => $title,
                                 'body' => $body,
-                                'icon' => url('/images/logo.png'),
-                                'requireInteraction' => true,
                             ],
-                            'fcm_options' => [
-                                'link' => $url ?: url('/notifications'),
+                            'data' => array_filter([
+                                'title' => $title,
+                                'body' => $body,
+                                'url' => $url,
+                                'notification_id' => (string) $notificationId,
+                            ]),
+                            'webpush' => [
+                                'headers' => [
+                                    'Urgency' => 'high',
+                                ],
+                                'notification' => [
+                                    'title' => $title,
+                                    'body' => $body,
+                                    'icon' => url('/images/logo.png'),
+                                    'requireInteraction' => true,
+                                ],
+                                'fcm_options' => [
+                                    'link' => $url ?: url('/notifications'),
+                                ],
                             ],
                         ],
-                    ],
-                ]);
+                    ]);
 
-            if ($response->status() === 404 || str_contains($response->body(), 'UNREGISTERED')) {
-                DeviceToken::query()->where('token', $token)->delete();
-            } elseif ($response->failed()) {
-                Log::warning('Firebase push failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
+                if ($response->status() === 404 || str_contains($response->body(), 'UNREGISTERED')) {
+                    DeviceToken::query()->where('token', $token)->delete();
+                } elseif ($response->failed()) {
+                    Log::warning('Firebase push failed', [
+                        'status' => $response->status(),
+                        'body' => $response->body(),
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::error('FirebasePush HTTP Exception: ' . $e->getMessage());
             }
         }
     }
