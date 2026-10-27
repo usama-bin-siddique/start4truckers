@@ -30,6 +30,16 @@ class ClientReminder extends Model
         return $this->belongsTo(Client::class);
     }
 
+    public function scopeUpcoming($query)
+    {
+        return $query->whereNull('notified_at')->where('remind_at', '>=', now());
+    }
+
+    public function scopeOverdue($query)
+    {
+        return $query->whereNull('notified_at')->where('remind_at', '<', now());
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

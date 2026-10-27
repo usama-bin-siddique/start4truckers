@@ -136,6 +136,8 @@ export default function ClientShow({ client, users, services, doc_categories, pr
     const [statusOpen, setStatusOpen] = useState(false);
     const [complianceOpen, setComplianceOpen] = useState(false);
     const [reminderOpen, setReminderOpen] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const isAdmin = auth.user.role === 'admin';
     const canEdit = ['admin', 'sales', 'processing', 'manager'].includes(auth.user.role);
     const canReassign = ['admin', 'manager'].includes(auth.user.role);
     const canCreateLead = ['admin', 'sales', 'manager'].includes(auth.user.role);
@@ -263,6 +265,15 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                                     className="inline-flex items-center gap-2 rounded-lg bg-[#12141D] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black"
                                 >
                                     <Edit className="h-4 w-4" /> Edit
+                                </button>
+                            )}
+                            {isAdmin && (
+                                <button
+                                    type="button"
+                                    onClick={() => setDeleteOpen(true)}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:border-red-300"
+                                >
+                                    <Trash2 className="h-4 w-4" /> Delete
                                 </button>
                             )}
                         </div>
@@ -626,6 +637,28 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                         </form>
                     </DialogContent>
                 </Dialog>
+
+                <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete client account?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete <span className="font-semibold text-gray-950">{client.name || client.client_number}</span>? This action removes the client profile, vehicles, reminders, and custom fields. Originating lead records will remain safely intact.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setDeleteOpen(false)}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                className="bg-red-600 text-white hover:bg-red-700"
+                                onClick={() => {
+                                    router.delete(`/clients/${client.id}`);
+                                }}
+                            >
+                                Delete Client
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </AppLayout>
         </>
     );

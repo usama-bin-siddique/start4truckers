@@ -12,6 +12,8 @@ use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperationController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RequestLogController;
 use App\Http\Controllers\SettingsController;
@@ -75,6 +77,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/clients/{client}/custom-fields', [ClientCustomFieldController::class, 'store'])->name('clients.custom-fields.store');
     Route::put('/clients/{client}/custom-fields/{customField}', [ClientCustomFieldController::class, 'update'])->name('clients.custom-fields.update');
     Route::delete('/clients/{client}/custom-fields/{customField}', [ClientCustomFieldController::class, 'destroy'])->name('clients.custom-fields.destroy');
+    Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->middleware('role:admin')->name('clients.destroy');
+
+    // Profile settings (for all authenticated users)
+    Route::get('/profile',          [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile',          [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
 
     // Payments — admin + sales
     Route::middleware('role:admin,sales')->group(function () {
@@ -112,6 +120,9 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/tasks/{task}',         [TaskController::class, 'update'])->name('tasks.update');
     Route::patch('/tasks/{task}/complete', [TaskController::class, 'complete'])->name('tasks.complete');
     Route::delete('/tasks/{task}',      [TaskController::class, 'destroy'])->name('tasks.destroy');
+
+    // Reminders — all roles see their own; admins see all
+    Route::get('/reminders', [ReminderController::class, 'index'])->name('reminders.index');
 
     // Reports — admin only
     Route::middleware('role:admin')->group(function () {

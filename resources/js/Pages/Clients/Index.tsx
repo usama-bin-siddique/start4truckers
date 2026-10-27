@@ -8,7 +8,17 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Eye, Filter, X, UserCheck, Users, CheckCircle, CircleOff, GitBranch, Plus, MoreHorizontal, DollarSign, RefreshCw, Mail } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Search, Eye, Filter, X, UserCheck, Users, CheckCircle, CircleOff, GitBranch, Plus, MoreHorizontal, DollarSign, RefreshCw, Mail, Trash2 } from 'lucide-react';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -60,10 +70,12 @@ const statusConfig: Record<string, { label: string; badge: 'success' | 'secondar
 
 export default function ClientsIndex({ clients, users, filters, stats, can_create = false, can_add_payment = false, profile_options }: Props) {
     const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
+    const isAdmin = auth.user.role === 'admin';
     const canReassign = auth.user.role !== 'sales';
     const [showFilters, setShowFilters] = useState(false);
     const [search, setSearch] = useState(filters.search ?? '');
     const [statusClient, setStatusClient] = useState<Client | null>(null);
+    const [deleteClient, setDeleteClient] = useState<Client | null>(null);
     const statusForm = useForm({ status: 'onboarding' });
     const hasFilters = Object.values(filters).some(Boolean);
     const statusOptions = profile_options?.statuses ?? Object.fromEntries(
@@ -328,6 +340,14 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                                                                     <RefreshCw size={13} /> Change Status
                                                                 </DropdownMenuItem>
                                                             )}
+                                                            {isAdmin && (
+                                                                <DropdownMenuItem
+                                                                    className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                                                                    onSelect={() => setDeleteClient(client)}
+                                                                >
+                                                                    <Trash2 size={13} /> Delete Client
+                                                                </DropdownMenuItem>
+                                                            )}
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
@@ -387,6 +407,32 @@ export default function ClientsIndex({ clients, users, filters, stats, can_creat
                         </form>
                     </DialogContent>
                 </Dialog>
+
+                <AlertDialog open={deleteClient !== null} onOpenChange={(open) => { if (!open) setDeleteClient(null); }}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete client account?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete <span className="font-semibold text-gray-950">{deleteClient?.name || deleteClient?.client_number}</span>? This action removes the client record, vehicles, reminders, and associated custom fields. Originating leads will be preserved.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setDeleteClient(null)}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                className="bg-red-600 text-white hover:bg-red-700"
+                                onClick={() => {
+                                    if (!deleteClient) return;
+                                    router.delete(`/clients/${deleteClient.id}`, {
+                                        preserveScroll: true,
+                                        onFinish: () => setDeleteClient(null),
+                                    });
+                                }}
+                            >
+                                Delete Client
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </AppLayout>
         </>
     );

@@ -16,6 +16,8 @@ import {
     X,
     Columns2,
     ScrollText,
+    AlarmClock,
+    User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { registerFirebaseMessaging } from '@/lib/firebaseNotifications';
@@ -84,6 +86,7 @@ const navGroups: NavGroup[] = [
             { label: 'Operations', href: '/operations', icon: <Briefcase size={18} />, roles: ['admin', 'processing'] },
             { label: 'Documents', href: '/documents', icon: <FolderOpen size={18} /> },
             { label: 'Tasks', href: '/tasks', icon: <CheckSquare size={18} /> },
+            { label: 'Reminders', href: '/reminders', icon: <AlarmClock size={18} /> },
         ],
     },
     {
@@ -260,6 +263,12 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                             </div>
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                            <Link href="/profile" className="flex w-full cursor-pointer items-center gap-2 text-gray-700">
+                                <User size={16} />
+                                <span>My Profile</span>
+                            </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link href="/logout" method="post" as="button" className="flex w-full cursor-pointer items-center gap-2 text-red-600">
                                 <LogOut size={16} />

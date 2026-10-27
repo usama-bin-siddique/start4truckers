@@ -741,4 +741,26 @@ class ClientController extends Controller
 
         return $payment;
     }
+
+    public function destroy(Client $client): RedirectResponse
+    {
+        if (Auth::user()?->role !== 'admin') {
+            abort(403, 'Only administrators can delete clients.');
+        }
+
+        $clientName = $client->display_name;
+
+        // Unlink or clean relations safely
+        $client->leads()->update(['client_id' => null]);
+        $client->reminders()->delete();
+        $client->customFields()->delete();
+        $client->vehicles()->delete();
+        $client->clientServices()->delete();
+        $client->tasks()->delete();
+
+        $client->delete();
+
+        return redirect()->route('clients.index')
+            ->with('success', "Client \"{$clientName}\" has been deleted.");
+    }
 }
