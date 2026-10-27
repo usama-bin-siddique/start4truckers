@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Task;
+use App\Models\User;
 
 class TaskReminderService
 {
@@ -42,7 +43,15 @@ class TaskReminderService
 
         $due = $task->due_date?->format('M j, Y g:i A');
 
-        $this->notification->notify($userId, NotificationService::TYPE_TASK_DUE, [
+        $recipientIds = User::query()
+            ->where('is_active', true)
+            ->where('role', 'admin')
+            ->pluck('id')
+            ->push($userId)
+            ->unique()
+            ->all();
+
+        $this->notification->notifyMultiple($recipientIds, NotificationService::TYPE_TASK_DUE, [
             'task_id'     => $task->id,
             'task_title'  => $task->title,
             'task_kind'   => $task->kind,

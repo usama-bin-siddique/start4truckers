@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\DispatchDueReminders;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RequestLoggerMiddleware;
 use App\Http\Middleware\RoleMiddleware;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
             RequestLoggerMiddleware::class,
+            DispatchDueReminders::class,
         ]);
         $middleware->api(append: [
             RequestLoggerMiddleware::class,

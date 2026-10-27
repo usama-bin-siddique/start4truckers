@@ -137,9 +137,13 @@ class FirebasePush implements SendsPushNotifications
      */
     private function credentials(): ?array
     {
-        $path = config('services.firebase.credentials');
+        $path = $this->credentialsPath();
 
-        if (! is_string($path) || $path === '' || ! is_file($path)) {
+        if ($path === null) {
+            Log::warning('Firebase credentials file was not found.', [
+                'configured' => config('services.firebase.credentials'),
+            ]);
+
             return null;
         }
 
@@ -150,6 +154,19 @@ class FirebasePush implements SendsPushNotifications
         }
 
         return $decoded;
+    }
+
+    private function credentialsPath(): ?string
+    {
+        $path = config('services.firebase.credentials');
+
+        if (! is_string($path) || $path === '') {
+            $path = storage_path('app/firebase-credentials.json');
+        } elseif (! str_starts_with($path, DIRECTORY_SEPARATOR)) {
+            $path = base_path($path);
+        }
+
+        return is_file($path) ? $path : null;
     }
 
     private function projectId(): string

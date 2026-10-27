@@ -596,7 +596,15 @@ class LeadController extends Controller
     private function notifyLeadAssignee(Lead $lead, User $assignee): void
     {
         try {
-            $this->notification->notify($assignee->id, NotificationService::TYPE_LEAD_ASSIGNED, [
+            $recipientIds = User::query()
+                ->where('is_active', true)
+                ->whereIn('role', ['admin', 'manager'])
+                ->pluck('id')
+                ->push($assignee->id)
+                ->unique()
+                ->all();
+
+            $this->notification->notifyMultiple($recipientIds, NotificationService::TYPE_LEAD_ASSIGNED, [
                 'lead_id'   => $lead->id,
                 'lead_name' => $lead->name,
                 'url'       => "/leads/{$lead->id}",
