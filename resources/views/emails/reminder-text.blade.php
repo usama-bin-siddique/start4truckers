@@ -7,3 +7,4 @@ Due: {{ $reminder->remind_at->format('M j, Y g:i A') }}
 @endif
 
 Open Client Profile: {{ $clientUrl }}
+

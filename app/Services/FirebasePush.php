@@ -15,16 +15,19 @@ class FirebasePush implements SendsPushNotifications
         $tokens = DeviceToken::query()->where('user_id', $userId)->pluck('token');
 
         if ($tokens->isEmpty()) {
+            Log::info("FirebasePush: No device tokens found for User #{$userId}. Push skipped.");
             return;
         }
 
         $accessToken = $this->accessToken();
 
         if (! $accessToken) {
+            Log::warning("FirebasePush: Could not obtain Google OAuth access token.");
             return;
         }
 
         $projectId = $this->projectId();
+        Log::info("FirebasePush: Dispatching push to User #{$userId} ({$tokens->count()} token(s)): {$title}");
 
         foreach ($tokens as $token) {
             $response = Http::withToken($accessToken)
