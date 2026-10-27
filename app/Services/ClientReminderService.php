@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Mail\ClientReminderMail;
 use App\Models\ClientReminder;
+use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 
 class ClientReminderService
 {
@@ -52,6 +55,23 @@ class ClientReminderService
         ]);
 
         $reminder->update(['notified_at' => now()]);
+
+        // Send Email notification to stakeholders
+        $stakeholders = User::query()
+            ->whereIn('id', $this->notification->stakeholderIds($client))
+            ->where('is_active', true)
+            ->whereNotNull('email')
+            ->get();
+
+        foreach ($stakeholders as $recipient) {
+            try {
+                Mail::to($recipient->email, $recipient->name)->send(
+                    new ClientReminderMail($reminder, $client)
+                );
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         return true;
     }

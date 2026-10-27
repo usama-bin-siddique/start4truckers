@@ -6,6 +6,8 @@ use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientReminder;
 use App\Services\ActivityService;
+use App\Services\ClientReminderService;
+use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -14,7 +16,11 @@ use Illuminate\Validation\ValidationException;
 
 class ClientReminderController extends Controller
 {
-    public function __construct(private ActivityService $activity) {}
+    public function __construct(
+        private ActivityService $activity,
+        private NotificationService $notification,
+        private ClientReminderService $reminderService
+    ) {}
 
     public function store(Request $request, Client $client): RedirectResponse
     {
@@ -43,6 +49,24 @@ class ClientReminderController extends Controller
                 Activity::ACTION_REMINDER_CREATED,
                 "Custom reminder set for {$reminder->remind_at->format('M j, Y g:i A')}: {$reminder->description}"
             );
+
+            // If the reminder date/time is set for right now or in the past, trigger it immediately!
+            if ($reminder->remind_at->lte(now())) {
+                $this->reminderService->notify($reminder);
+            } else {
+                // Also send an instant confirmation push that reminder was scheduled
+                $whenStr = $reminder->remind_at->format('M j, Y g:i A');
+                $this->notification->notify(Auth::id(), NotificationService::TYPE_CLIENT_REMINDER, [
+                    'client_id'     => $client->id,
+                    'client_name'   => $client->display_name,
+                    'client_number' => $client->client_number,
+                    'reminder_id'   => $reminder->id,
+                    'remind_at'     => $whenStr,
+                    'description'   => $reminder->description,
+                    'message'       => "Reminder scheduled for {$client->display_name} on {$whenStr}: {$reminder->description}",
+                    'url'           => "/clients/{$client->id}?tab=overview",
+                ]);
+            }
 
             $created++;
         }
