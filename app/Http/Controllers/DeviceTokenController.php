@@ -40,7 +40,8 @@ class DeviceTokenController extends Controller
                 $userId,
                 '🔔 Test Push Notification',
                 'FCM is working! Desktop push notification received successfully.',
-                url('/notifications')
+                url('/notifications'),
+                0
             );
 
             return response()->json([

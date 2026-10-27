@@ -34,7 +34,7 @@ class FirebaseNotificationTest extends TestCase
         {
             public function __construct(private array &$sent) {}
 
-            public function send(int $userId, string $title, string $body, ?string $url, int $notificationId): void
+            public function send(int $userId, string $title, string $body, ?string $url, ?int $notificationId = null): void
             {
                 $this->sent[] = compact('userId', 'title', 'body', 'url', 'notificationId');
             }

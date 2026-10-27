@@ -38,7 +38,8 @@ class SendTestPushNotification extends Command
                     $device->user_id,
                     '🔔 Test Push Notification',
                     'FCM is listening and working properly on Start4Truckers!',
-                    url('/notifications')
+                    url('/notifications'),
+                    0
                 );
                 $this->info("✓ Sent successfully to User #{$device->user_id}");
             } catch (\Throwable $e) {

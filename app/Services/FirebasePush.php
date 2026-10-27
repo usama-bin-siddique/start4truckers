@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class FirebasePush implements SendsPushNotifications
 {
-    public function send(int $userId, string $title, string $body, ?string $url, int $notificationId): void
+    public function send(int $userId, string $title, string $body, ?string $url, ?int $notificationId = null): void
     {
         $tokens = DeviceToken::query()->where('user_id', $userId)->pluck('token');
 
