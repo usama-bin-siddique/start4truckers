@@ -26,10 +26,11 @@ type ReminderRow = {
     date: string;
     time: string;
     description: string;
+    tz_offset?: number;
 };
 
 export function emptyReminderRow(): ReminderRow {
-    return { date: '', time: '', description: '' };
+    return { date: '', time: '', description: '', tz_offset: new Date().getTimezoneOffset() };
 }
 
 function formatWhen(reminder: ClientReminder): string {
@@ -65,9 +66,22 @@ export function CustomReminderDialog({
         reminders: [emptyReminderRow()],
     });
 
+    function addRow() {
+        if (form.data.reminders.length >= MAX_REMINDERS_PER_BATCH) {
+            return;
+        }
+
+        form.setData('reminders', [...form.data.reminders, emptyReminderRow()]);
+    }
+
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        form.post(`/clients/${clientId}/reminders`, {
+        const offset = new Date().getTimezoneOffset();
+        const payload = form.data.reminders.map(r => ({
+            ...r,
+            tz_offset: offset,
+        }));
+        form.transform(() => ({ reminders: payload })).post(`/clients/${clientId}/reminders`, {
             preserveScroll: true,
             onSuccess: () => {
                 onOpenChange(false);
@@ -75,14 +89,6 @@ export function CustomReminderDialog({
                 form.setData('reminders', [emptyReminderRow()]);
             },
         });
-    }
-
-    function addRow() {
-        if (form.data.reminders.length >= MAX_REMINDERS_PER_BATCH) {
-            return;
-        }
-
-        form.setData('reminders', [...form.data.reminders, emptyReminderRow()]);
     }
 
     function removeRow(index: number) {
