@@ -81,7 +81,8 @@ export function CustomReminderDialog({
             ...r,
             tz_offset: offset,
         }));
-        form.transform(() => ({ reminders: payload })).post(`/clients/${clientId}/reminders`, {
+        form.transform(() => ({ reminders: payload }));
+        form.post(`/clients/${clientId}/reminders`, {
             preserveScroll: true,
             onSuccess: () => {
                 onOpenChange(false);

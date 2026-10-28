@@ -518,7 +518,7 @@
     ]
   },
   "resources/js/Pages/Clients/CustomReminders.tsx": {
-    "file": "assets/CustomReminders-BSxAuDKW.js",
+    "file": "assets/CustomReminders-C1iUj7K7.js",
     "name": "CustomReminders",
     "src": "resources/js/Pages/Clients/CustomReminders.tsx",
     "isDynamicEntry": true,
@@ -579,7 +579,7 @@
     ]
   },
   "resources/js/Pages/Clients/Show.tsx": {
-    "file": "assets/Show-BsUhnJAV.js",
+    "file": "assets/Show-Bw0b0Dbh.js",
     "name": "Show",
     "src": "resources/js/Pages/Clients/Show.tsx",
     "isDynamicEntry": true,
@@ -1011,7 +1011,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-tUgfWQw7.js",
+    "file": "assets/app-CFZdHRid.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
