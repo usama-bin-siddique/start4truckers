@@ -42,7 +42,12 @@ class ClientReminderService
 
         $when = $reminder->remind_at?->format('M j, Y g:i A');
 
-        $this->notification->notifyClientStakeholders($client, NotificationService::TYPE_CLIENT_REMINDER, [
+        $stakeholderIds = $this->notification->stakeholderIds($client);
+        if ($reminder->created_by && ! in_array((int) $reminder->created_by, $stakeholderIds, true)) {
+            $stakeholderIds[] = (int) $reminder->created_by;
+        }
+
+        $this->notification->notifyMultiple($stakeholderIds, NotificationService::TYPE_CLIENT_REMINDER, [
             'client_id'     => $client->id,
             'client_name'   => $client->display_name,
             'client_number' => $client->client_number,
@@ -56,9 +61,9 @@ class ClientReminderService
 
         $reminder->update(['notified_at' => now()]);
 
-        // Send Email notification to stakeholders
+        // Send Email notification to stakeholders + the user who created the reminder
         $stakeholders = User::query()
-            ->whereIn('id', $this->notification->stakeholderIds($client))
+            ->whereIn('id', $stakeholderIds)
             ->where('is_active', true)
             ->whereNotNull('email')
             ->get();
