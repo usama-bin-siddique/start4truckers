@@ -49,8 +49,8 @@ class ReminderController extends Controller
             'reminders' => $reminders->through(fn ($r) => [
                 'id'            => $r->id,
                 'description'   => $r->description,
-                'remind_at'     => $r->remind_at?->format('Y-m-d\\TH:i'),
-                'notified_at'   => $r->notified_at?->format('Y-m-d\\TH:i'),
+                'remind_at'     => $r->remind_at?->toIso8601String(),
+                'notified_at'   => $r->notified_at?->toIso8601String(),
                 'client_id'     => $r->client?->id,
                 'client_name'   => $r->client?->display_name,
                 'client_number' => $r->client?->client_number,

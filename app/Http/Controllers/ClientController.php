@@ -539,12 +539,12 @@ class ClientController extends Controller
             ])->toArray(),
             'reminders'        => $client->reminders->map(fn ($r) => [
                 'id'          => $r->id,
-                'remind_at'   => $r->remind_at?->format('Y-m-d\\TH:i'),
+                'remind_at'   => $r->remind_at?->toIso8601String(),
                 'date'        => $r->remind_at?->toDateString(),
                 'time'        => $r->remind_at?->format('H:i'),
                 'description' => $r->description,
                 'created_by'  => $r->createdBy?->name,
-                'notified_at' => $r->notified_at?->format('Y-m-d\\TH:i'),
+                'notified_at' => $r->notified_at?->toIso8601String(),
                 'is_due'      => $r->remind_at?->isPast() && ! $r->notified_at,
             ])->toArray(),
             'custom_fields'    => $client->customFields->map(fn ($f) => [
