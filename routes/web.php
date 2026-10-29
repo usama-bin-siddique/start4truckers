@@ -123,6 +123,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Reminders — all roles see their own; admins see all
     Route::get('/reminders', [ReminderController::class, 'index'])->name('reminders.index');
+    Route::delete('/reminders/clear-all', [ReminderController::class, 'clearAll'])->name('reminders.clear-all');
 
     // Reports — admin only
     Route::middleware('role:admin')->group(function () {

@@ -81,4 +81,24 @@ class ReminderController extends Controller
 
         return $query;
     }
+
+    public function clearAll(Request $request)
+    {
+        $user = Auth::user();
+        $query = ClientReminder::query();
+
+        // If not admin, only delete their own reminders
+        if ($user->role !== 'admin') {
+            $query->where('created_by', $user->id);
+        }
+
+        // Optional filter: only clear notified/reminded ones if scope=notified
+        if ($request->scope === 'notified') {
+            $query->whereNotNull('notified_at');
+        }
+
+        $count = $query->delete();
+
+        return back()->with('success', "Cleared {$count} reminder(s).");
+    }
 }

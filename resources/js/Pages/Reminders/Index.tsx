@@ -39,6 +39,7 @@ export default function RemindersIndex({ reminders, users, filters, stats }: {
 }) {
     const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
     const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
+    const [clearAllOpen, setClearAllOpen] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [search, setSearch] = useState(filters.search ?? '');
 
@@ -70,6 +71,13 @@ export default function RemindersIndex({ reminders, users, filters, stats }: {
         });
     }
 
+    function confirmClearAll() {
+        router.delete('/reminders/clear-all', {
+            preserveScroll: true,
+            onSuccess: () => setClearAllOpen(false),
+        });
+    }
+
     const kpis = [
         { label: 'Upcoming', value: stats.upcoming, icon: <Clock className="h-4 w-4 text-amber-700" />, iconClass: 'bg-amber-100' },
         { label: 'Overdue', value: stats.overdue, icon: <AlertCircle className="h-4 w-4 text-red-600" />, iconClass: 'bg-red-100' },
@@ -83,17 +91,29 @@ export default function RemindersIndex({ reminders, users, filters, stats }: {
             <AppLayout title="Reminders">
                 <div className="space-y-6">
 
-                    <div>
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-amber-600">
-                            <AlarmClock className="h-3 w-3" />
-                            WORK
-                        </span>
-                        <h2 className="mt-3 text-[32px] leading-none font-semibold tracking-tight text-gray-950">
-                            Reminders
-                        </h2>
-                        <p className="mt-2 text-sm text-gray-500">
-                            Every custom reminder you&rsquo;ve created across all clients.
-                        </p>
+                    <div className="flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-amber-600">
+                                <AlarmClock className="h-3 w-3" />
+                                WORK
+                            </span>
+                            <h2 className="mt-3 text-[32px] leading-none font-semibold tracking-tight text-gray-950">
+                                Reminders
+                            </h2>
+                            <p className="mt-2 text-sm text-gray-500">
+                                Every custom reminder you&rsquo;ve created across all clients.
+                            </p>
+                        </div>
+                        {stats.total > 0 && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setClearAllOpen(true)}
+                                className="h-9 rounded-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            >
+                                <Trash2 size={13} /> Clear All Reminders
+                            </Button>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -268,6 +288,23 @@ export default function RemindersIndex({ reminders, users, filters, stats }: {
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={confirmDelete}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
+                <AlertDialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Clear All Reminders?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete all reminders? This action will permanently remove all reminder records and cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={confirmClearAll}>
+                                Yes, Clear All
+                            </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
