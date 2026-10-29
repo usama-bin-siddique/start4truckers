@@ -447,7 +447,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-DgDbSNHa.css",
+    "file": "assets/app-DyATwi-4.css",
     "name": "app",
     "names": [
       "app.css"
@@ -579,7 +579,7 @@
     ]
   },
   "resources/js/Pages/Clients/Show.tsx": {
-    "file": "assets/Show-CrBfS_7o.js",
+    "file": "assets/Show-CXTuakpO.js",
     "name": "Show",
     "src": "resources/js/Pages/Clients/Show.tsx",
     "isDynamicEntry": true,
@@ -725,7 +725,7 @@
     ]
   },
   "resources/js/Pages/Leads/Show.tsx": {
-    "file": "assets/Show-BbS7dOKf.js",
+    "file": "assets/Show-BsofkrXv.js",
     "name": "Show",
     "src": "resources/js/Pages/Leads/Show.tsx",
     "isDynamicEntry": true,
@@ -1011,7 +1011,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-BXwQMHhA.js",
+    "file": "assets/app-DIvJXZeb.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
@@ -1048,7 +1048,7 @@
       "resources/js/Pages/Tasks/Index.tsx"
     ],
     "css": [
-      "assets/app-DgDbSNHa.css"
+      "assets/app-DyATwi-4.css"
     ]
   }
 }

@@ -42,7 +42,7 @@ interface Lead {
     truck_type: string | null; truck_vin: string | null; operation_area: string | null;
     operation_type: string | null; hear_about_us: string | null; reference_id: string | null;
     service_required: string | null;
-    notes: string | null; source: string; status: string; assigned_to: number | null;
+    notes: string | null; meta?: Record<string, any> | null; source: string; status: string; assigned_to: number | null;
     assigned_user: { id: number; name: string } | null;
     converted_at: string | null; converted_by: string | null;
     client_id: number | null; client_number: string | null; client_name: string | null;
@@ -305,6 +305,31 @@ export default function LeadShow({ lead, users, statuses, doc_categories = {}, s
                                     <InfoRow icon={<FileText size={14} />} label="Reference ID" value={lead.reference_id} />
                                 </CardContent>
                             </Card>
+
+                            {lead.meta && Object.keys(lead.meta).length > 0 && (
+                                <Card>
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm flex items-center justify-between">
+                                            <span>Additional Submission Details</span>
+                                            <Badge variant="outline" className="text-[10px] font-normal uppercase tracking-wider text-amber-700 border-amber-300 bg-amber-50">
+                                                Meta
+                                            </Badge>
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2.5 text-xs">
+                                        {Object.entries(lead.meta).map(([key, val]) => (
+                                            <div key={key} className="flex flex-col sm:flex-row sm:items-baseline justify-between border-b border-gray-100 pb-2 last:border-b-0 gap-1">
+                                                <span className="font-medium text-gray-500 capitalize">
+                                                    {key.replace(/_/g, ' ')}
+                                                </span>
+                                                <span className="font-semibold text-gray-900 break-words max-w-xs text-left sm:text-right">
+                                                    {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            )}
 
                             <Card>
                                 <CardHeader className="pb-2"><CardTitle className="text-sm">Assignment</CardTitle></CardHeader>

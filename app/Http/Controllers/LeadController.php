@@ -491,8 +491,15 @@ class LeadController extends Controller
 
             if ($existing) {
                 $client = $existing;
+                $updates = [];
                 if (! empty($data['compliance_type']) && ! $client->compliance_type) {
-                    $client->update(['compliance_type' => $data['compliance_type']]);
+                    $updates['compliance_type'] = $data['compliance_type'];
+                }
+                if ($lead->meta && empty($client->meta)) {
+                    $updates['meta'] = $lead->meta;
+                }
+                if ($updates !== []) {
+                    $client->update($updates);
                 }
             } else {
                 $client = Client::create([
@@ -505,6 +512,7 @@ class LeadController extends Controller
                     'assigned_to'     => $lead->assigned_to,
                     'status'          => Client::STATUS_ONBOARDING,
                     'compliance_type' => $data['compliance_type'],
+                    'meta'            => $lead->meta,
                 ]);
                 $created = true;
             }
@@ -680,6 +688,7 @@ class LeadController extends Controller
             'reference_id'     => $lead->reference_id,
             'service_required' => $lead->service_required,
             'notes'            => $lead->notes,
+            'meta'             => $lead->meta,
             'source'           => $lead->source,
             'status'           => $lead->status,
             'assigned_to'      => $lead->assigned_to,

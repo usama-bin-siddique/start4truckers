@@ -38,6 +38,7 @@ class LeadIntakeService
             'reference_id'     => $data['reference_id'] ?? null,
             'service_required' => $data['service_required'] ?? null,
             'notes'            => $data['notes'] ?? null,
+            'meta'             => $data['meta'] ?? null,
             'source'           => 'website',
             'status'           => Lead::STATUS_NEW,
         ]);

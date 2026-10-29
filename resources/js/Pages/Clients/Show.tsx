@@ -54,6 +54,7 @@ interface Client {
     lead: Lead | null; leads: RelatedLead[]; payments: Payment[]; client_services: ClientService[];
     documents: Document[]; tasks: Task[]; activities: Activity[]; vehicles: import('./ClientProfileForms').Vehicle[];
     reminders?: ClientReminder[];
+    meta?: Record<string, any> | null;
     [key: string]: unknown;
 }
 interface Props {
@@ -446,6 +447,32 @@ export default function ClientShow({ client, users, services, doc_categories, pr
                                                 >
                                                     {serviceStatusIcon[cs.status]}
                                                     <span className="font-medium text-gray-700">{cs.service_name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                )}
+
+                                {client.meta && Object.keys(client.meta).length > 0 && (
+                                    <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm lg:col-span-2">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-base font-semibold text-gray-950">Additional Submission Details</h3>
+                                                <p className="text-xs text-gray-500 mt-0.5">Extra fields captured from website form submission</p>
+                                            </div>
+                                            <Badge variant="outline" className="text-[10px] font-normal uppercase tracking-wider text-amber-700 border-amber-300 bg-amber-50">
+                                                Meta
+                                            </Badge>
+                                        </div>
+                                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {Object.entries(client.meta).map(([key, val]) => (
+                                                <div key={key} className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+                                                    <p className="text-[11px] font-medium text-gray-500 capitalize">
+                                                        {key.replace(/_/g, ' ')}
+                                                    </p>
+                                                    <p className="mt-1 text-sm font-semibold text-gray-900 break-words">
+                                                        {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                                                    </p>
                                                 </div>
                                             ))}
                                         </div>

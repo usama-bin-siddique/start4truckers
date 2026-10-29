@@ -82,6 +82,7 @@ class Client extends Model
         'compliance_reminder_sent_for',
         'notes',
         'client_notes',
+        'meta',
     ];
 
 
@@ -147,6 +148,7 @@ class Client extends Model
             'irp_due_at'                   => 'date',
             'form_2290_due_at'             => 'date',
             'next_compliance_due_at'       => 'date',
+            'meta'                         => 'array',
             'additional_emails'            => 'array',
             'last_compliance_completed_at' => 'date',
             'monthly_compliance_started_at' => 'date',

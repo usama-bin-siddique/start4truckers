@@ -52,6 +52,21 @@ class Web3FormsController extends Controller
             return response()->json(['message' => 'Missing required fields'], 422);
         }
 
+        // Collect all extra payload fields into meta
+        $knownKeys = [
+            'name', 'full_name', 'your-name', 'email', 'your-email', 'phone', 'phone_number', 'your-phone',
+            'state', 'your-state', 'company', 'company_name', 'your-company', 'service', 'service_required',
+            'what_service', 'message', 'notes', 'your-message', 'address', 'address_street', 'address_city',
+            'address_state', 'address_zip', 'date_of_birth', 'dob', 'ssn_itin', 'business_name_1',
+            'business_name_2', 'business_name_3', 'state_of_formation', 'formation_state', 'business_purpose',
+            'truck_type', 'truck_vin', 'operation_area', 'operation_type', 'hear_about_us', 'reference_id',
+            'subject', 'from_name', 'access_key', 'botcheck',
+        ];
+        $meta = collect($payload)->except($knownKeys)->filter(fn ($v) => $v !== null && $v !== '')->all();
+        if ($request->filled('subject')) {
+            $meta['submission_subject'] = $request->input('subject');
+        }
+
         $lead = $this->intake->createFromWebsite([
             'name'             => $name ?? 'Unknown',
             'email'            => $email,
@@ -74,6 +89,7 @@ class Web3FormsController extends Controller
             'reference_id'     => $payload['reference_id'] ?? null,
             'service_required' => $service,
             'notes'            => $message,
+            'meta'             => $meta ?: null,
         ]);
 
         Log::info("Web3Forms: lead #{$lead->id} created for {$lead->name}");

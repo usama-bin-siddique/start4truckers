@@ -77,6 +77,21 @@ class PayloadLogController extends Controller
             'notes'             => ['nullable', 'string', 'max:5000'],
         ]);
 
+        // Collect all extra payload fields into meta so no submission data is lost
+        $knownKeys = [
+            'name', 'full_name', 'date_of_birth', 'dob', 'email', 'phone', 'phone_number',
+            'state', 'address_state', 'address', 'address_street', 'address_city', 'address_zip',
+            'ssn_itin', 'company', 'business_name_1', 'business_name_2', 'business_name_3',
+            'state_of_formation', 'formation_state', 'business_purpose', 'truck_type', 'truck_vin',
+            'operation_area', 'operation_type', 'hear_about_us', 'reference_id', 'service_required',
+            'notes', 'files', 'files_note', 'subject', 'from_name', 'access_key', 'botcheck',
+        ];
+        $meta = collect($request->all())->except($knownKeys)->filter(fn ($v) => $v !== null && $v !== '')->all();
+        if ($request->filled('subject')) {
+            $meta['submission_subject'] = $request->input('subject');
+        }
+        $data['meta'] = $meta ?: null;
+
         $uploads = $request->file('files', []) ?? [];
         $files   = [];
 
@@ -133,6 +148,10 @@ class PayloadLogController extends Controller
      */
     private function serviceFromSubject(?string $subject): ?string
     {
+        if (preg_match('/New\s+(.+?)\s+Request/i', (string) $subject, $m)) {
+            return trim($m[1]);
+        }
+
         if (preg_match('/New\s+(.+?)\s+Order/i', (string) $subject, $m)) {
             return trim($m[1]);
         }

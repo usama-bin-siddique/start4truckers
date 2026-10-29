@@ -439,6 +439,7 @@ class ClientController extends Controller
             'compliance_type'  => $client->compliance_type,
             'notes'            => $client->notes,
             'client_notes'     => $client->client_notes,
+            'meta'             => $client->meta,
             'assigned_to'      => $client->assigned_to,
             'assigned_user'    => $client->assignedUser ? ['id' => $client->assignedUser->id, 'name' => $client->assignedUser->name] : null,
             'created_at'       => $client->created_at->toDateTimeString(),
