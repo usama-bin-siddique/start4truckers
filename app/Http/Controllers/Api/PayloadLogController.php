@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use App\Models\Lead;
+use App\Services\ActivityService;
 use App\Services\LeadIntakeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +27,7 @@ class PayloadLogController extends Controller
         'signature', 'global_entry', 'social_security_card', 'birth_certificate',
     ];
 
-    public function store(Request $request, LeadIntakeService $intake): JsonResponse
+    public function store(Request $request, LeadIntakeService $intake, ActivityService $activity): JsonResponse
     {
         $request->merge([
             'name'              => $request->input('name', $request->input('full_name')),
@@ -116,6 +118,29 @@ class PayloadLogController extends Controller
 
             return [$lead, $client];
         });
+
+        $activity->log(
+            $lead,
+            Activity::ACTION_WEBHOOK_RECEIVED,
+            "Website lead intake received for {$lead->name} ({$lead->service_required})",
+            null,
+            [
+                'subject'   => $request->input('subject'),
+                'service'   => $lead->service_required,
+                'email'     => $lead->email,
+                'client_ip' => $request->ip(),
+            ]
+        );
+        $activity->log(
+            $client,
+            Activity::ACTION_WEBHOOK_RECEIVED,
+            "Client onboarded automatically via website intake for {$client->name}",
+            null,
+            [
+                'lead_id'       => $lead->id,
+                'client_number' => $client->client_number,
+            ]
+        );
 
         return response()->json([
             'message' => 'Lead received and stored.',

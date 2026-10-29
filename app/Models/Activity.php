@@ -55,6 +55,7 @@ class Activity extends Model
     const ACTION_CUSTOM_FIELD_ADDED    = 'custom_field_added';
     const ACTION_CUSTOM_FIELD_UPDATED  = 'custom_field_updated';
     const ACTION_CUSTOM_FIELD_DELETED  = 'custom_field_deleted';
+    const ACTION_WEBHOOK_RECEIVED      = 'webhook_received';
 
     public function subject(): MorphTo
     {

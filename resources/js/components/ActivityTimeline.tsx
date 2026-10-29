@@ -43,6 +43,7 @@ const actionIcon: Record<string, React.ReactNode> = {
     custom_field_added: <StickyNote size={13} />,
     custom_field_updated: <StickyNote size={13} />,
     custom_field_deleted: <StickyNote size={13} />,
+    webhook_received:   <Zap size={13} />,
 };
 
 const actionColor: Record<string, string> = {
@@ -73,6 +74,7 @@ const actionColor: Record<string, string> = {
     custom_field_added: 'bg-sky-100 text-sky-700',
     custom_field_updated: 'bg-sky-100 text-sky-700',
     custom_field_deleted: 'bg-gray-100 text-gray-600',
+    webhook_received:   'bg-emerald-100 text-emerald-700',
 };
 
 function statusFromActivity(a: Activity): string | null {

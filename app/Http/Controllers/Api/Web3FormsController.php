@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use App\Models\Setting;
+use App\Services\ActivityService;
 use App\Services\LeadIntakeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,7 +14,8 @@ use Illuminate\Support\Facades\Log;
 class Web3FormsController extends Controller
 {
     public function __construct(
-        private LeadIntakeService $intake
+        private LeadIntakeService $intake,
+        private ActivityService $activity
     ) {}
 
     public function receive(Request $request): JsonResponse
@@ -74,6 +77,19 @@ class Web3FormsController extends Controller
         ]);
 
         Log::info("Web3Forms: lead #{$lead->id} created for {$lead->name}");
+
+        $this->activity->log(
+            $lead,
+            Activity::ACTION_WEBHOOK_RECEIVED,
+            "Web3Forms webhook triggered successfully for {$lead->name} (Form submission captured)",
+            null,
+            [
+                'service'   => $service,
+                'email'     => $email,
+                'phone'     => $phone,
+                'client_ip' => $request->ip(),
+            ]
+        );
 
         return response()->json([
             'message' => 'Lead created successfully',
