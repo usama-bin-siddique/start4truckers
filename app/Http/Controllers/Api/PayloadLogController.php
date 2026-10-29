@@ -94,29 +94,11 @@ class PayloadLogController extends Controller
             }
         }
 
-        [$lead, $client] = DB::transaction(function () use ($intake, $data, $files) {
+        $lead = DB::transaction(function () use ($intake, $data, $files) {
             $lead = $intake->createFromWebsite($data, $files);
-
-            // The Client::created hook wires lead.client_id automatically,
-            // so the internal "convert" flow later reuses this client row
-            // instead of creating a duplicate.
-            $client = \App\Models\Client::create([
-                'lead_id'            => $lead->id,
-                'name'               => $data['name'],
-                'phone'              => $data['phone'] ?? null,
-                'email'              => $data['email'] ?? null,
-                'state'              => $data['state'] ?? null,
-                'address'            => $data['address'] ?? null,
-                'ssn'                => $data['ssn_itin'] ?? null,
-                'date_of_birth'      => $data['date_of_birth'] ?? null,
-                'company'            => $data['company'] ?? $data['business_name_1'] ?? null,
-                'state_of_formation' => $data['state_of_formation'] ?? null,
-                'status'             => \App\Models\Client::STATUS_ONBOARDING,
-            ]);
-
             $lead->update(['source' => 'website']);
 
-            return [$lead, $client];
+            return $lead;
         });
 
         $activity->log(
@@ -131,16 +113,6 @@ class PayloadLogController extends Controller
                 'client_ip' => $request->ip(),
             ]
         );
-        $activity->log(
-            $client,
-            Activity::ACTION_WEBHOOK_RECEIVED,
-            "Client onboarded automatically via website intake for {$client->name}",
-            null,
-            [
-                'lead_id'       => $lead->id,
-                'client_number' => $client->client_number,
-            ]
-        );
 
         return response()->json([
             'message' => 'Lead received and stored.',
@@ -150,11 +122,6 @@ class PayloadLogController extends Controller
                     'status'          => $lead->status,
                     'service'         => $lead->service_required,
                     'documents_count' => $lead->documents()->count(),
-                ],
-                'client'          => [
-                    'id'            => $client->id,
-                    'client_number' => $client->client_number,
-                    'status'        => $client->status,
                 ],
             ],
         ], 201);
