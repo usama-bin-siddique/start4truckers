@@ -5,13 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Lead;
-use App\Services\ActivityService;
 use App\Services\LeadIntakeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Website intake endpoint.
@@ -27,7 +27,7 @@ class PayloadLogController extends Controller
         'signature', 'global_entry', 'social_security_card', 'birth_certificate',
     ];
 
-    public function store(Request $request, LeadIntakeService $intake, ActivityService $activity): JsonResponse
+    public function store(Request $request, LeadIntakeService $intake): JsonResponse
     {
         $request->merge([
             'name'              => $request->input('name', $request->input('full_name')),
@@ -43,6 +43,21 @@ class PayloadLogController extends Controller
             ]))),
         ]);
 
+        $webhookLog = Activity::create([
+            'subject_type' => Lead::class,
+            'subject_id'   => 0,
+            'causer_id'    => null,
+            'action'       => Activity::ACTION_WEBHOOK_RECEIVED,
+            'description'  => 'Website webhook /api/leads/log was called.',
+            'new_value'    => [
+                'subject'   => $request->input('subject'),
+                'name'      => $request->input('name'),
+                'email'     => $request->input('email'),
+                'phone'     => $request->input('phone'),
+                'client_ip' => $request->ip(),
+            ],
+        ]);
+
         // Keep the raw payload in the logs so we can debug partner submissions.
         Log::info('--- INCOMING PAYLOG ---', [
             'subject' => $request->input('subject'),
@@ -53,7 +68,8 @@ class PayloadLogController extends Controller
             )->all(),
         ]);
 
-        $data = $request->validate([
+        try {
+            $data = $request->validate([
             'name'              => ['required', 'string', 'max:255'],
             'date_of_birth'     => ['nullable', 'date'],
             'email'             => ['nullable', 'email', 'max:255', 'required_without:phone'],
@@ -75,7 +91,17 @@ class PayloadLogController extends Controller
             'reference_id'      => ['nullable', 'string', 'max:100'],
             'service_required'  => ['nullable', 'string', 'max:255'],
             'notes'             => ['nullable', 'string', 'max:5000'],
-        ]);
+            ]);
+        } catch (ValidationException $e) {
+            $webhookLog->update([
+                'description' => 'Website webhook /api/leads/log was called, but the payload was rejected.',
+                'new_value'   => array_merge($webhookLog->new_value ?? [], [
+                    'errors' => $e->errors(),
+                ]),
+            ]);
+
+            throw $e;
+        }
 
         // Collect all extra payload fields into meta so no submission data is lost
         $knownKeys = [
@@ -116,18 +142,15 @@ class PayloadLogController extends Controller
             return $lead;
         });
 
-        $activity->log(
-            $lead,
-            Activity::ACTION_WEBHOOK_RECEIVED,
-            "Website lead intake received for {$lead->name} ({$lead->service_required})",
-            null,
-            [
-                'subject'   => $request->input('subject'),
-                'service'   => $lead->service_required,
-                'email'     => $lead->email,
-                'client_ip' => $request->ip(),
-            ]
-        );
+        $webhookLog->update([
+            'subject_id'  => $lead->id,
+            'description' => "Website webhook /api/leads/log received a lead for {$lead->name}.",
+            'new_value'   => array_merge($webhookLog->new_value ?? [], [
+                'lead_id' => $lead->id,
+                'service' => $lead->service_required,
+                'email'   => $lead->email,
+            ]),
+        ]);
 
         return response()->json([
             'message' => 'Lead received and stored.',

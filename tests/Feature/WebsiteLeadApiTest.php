@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Activity;
 use App\Models\Lead;
 use App\Models\Setting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,6 +43,34 @@ class WebsiteLeadApiTest extends TestCase
             'email'  => 'jane@example.com',
             'source' => 'website',
             'status' => Lead::STATUS_NEW,
+        ]);
+    }
+
+    public function test_leads_log_webhook_writes_an_activity_even_when_rejected(): void
+    {
+        $this->postJson('/api/leads/log', [])->assertUnprocessable();
+
+        $this->assertDatabaseHas('activities', [
+            'action'      => Activity::ACTION_WEBHOOK_RECEIVED,
+            'description' => 'Website webhook /api/leads/log was called, but the payload was rejected.',
+        ]);
+    }
+
+    public function test_leads_log_webhook_attaches_the_activity_to_the_lead(): void
+    {
+        $this->postJson('/api/leads/log', [
+            'name'  => 'Webhook Driver',
+            'email' => 'driver@example.com',
+            'phone' => '555-0111',
+        ])->assertCreated();
+
+        $lead = Lead::where('email', 'driver@example.com')->first();
+
+        $this->assertNotNull($lead);
+        $this->assertDatabaseHas('activities', [
+            'subject_type' => Lead::class,
+            'subject_id'   => $lead->id,
+            'action'       => Activity::ACTION_WEBHOOK_RECEIVED,
         ]);
     }
 

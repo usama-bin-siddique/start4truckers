@@ -50,13 +50,15 @@ class RequestLoggerMiddleware
 
     private function shouldSkip(Request $request): bool
     {
+        if ($request->is('api', 'api/*')) {
+            return false;
+        }
+
         if ($request->is(...self::SKIP_PATHS)) {
             return true;
         }
 
-        $path = $request->path();
-
-        return str_contains($path, '.') && ! str_starts_with($path, 'api/');
+        return str_contains($request->path(), '.');
     }
 
     private function store(Request $request, Response $response, ?int $userIdBefore, float $duration, array $queries): void
