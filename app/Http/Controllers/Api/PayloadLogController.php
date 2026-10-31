@@ -29,18 +29,37 @@ class PayloadLogController extends Controller
 
     public function store(Request $request, LeadIntakeService $intake): JsonResponse
     {
+        $street = $this->firstFilled($request, ['address_street', 'Street Address', 'Business Physical Address']);
+        $city = $this->firstFilled($request, ['address_city', 'City']);
+        $state = $this->firstFilled($request, ['state', 'address_state', 'State']);
+        $zip = $this->firstFilled($request, ['address_zip', 'ZIP', 'Zip']);
+        $address = $this->firstFilled($request, ['address']);
+
         $request->merge([
-            'name'              => $request->input('name', $request->input('full_name')),
-            'date_of_birth'     => $request->input('date_of_birth', $request->input('dob')),
-            'state'             => $request->input('state', $request->input('address_state')),
-            'state_of_formation'=> $request->input('state_of_formation', $request->input('formation_state')),
-            'service_required'  => $request->input('service_required', $this->serviceFromSubject($request->input('subject'))),
-            'address'           => $request->input('address', implode(', ', array_filter([
-                $request->input('address_street'),
-                $request->input('address_city'),
-                $request->input('address_state'),
-                $request->input('address_zip'),
-            ]))),
+            'name' => $this->firstFilled($request, ['name', 'full_name', 'Full Legal Name']),
+            'email' => $this->firstFilled($request, ['email', 'Email', 'replyto']),
+            'phone' => $this->firstFilled($request, ['phone', 'phone_number', 'Phone']),
+            'date_of_birth' => $this->firstFilled($request, ['date_of_birth', 'dob', 'Date of Birth']),
+            'state' => $state,
+            'state_of_formation' => $this->firstFilled($request, ['state_of_formation', 'formation_state', 'State of LLC Formation']),
+            'company' => $this->firstFilled($request, ['company', 'Business Legal Name']),
+            'service_required' => $this->serviceFromSubject($request->input('subject'))
+                ?? $this->firstFilled($request, ['service_required']),
+            'address' => $address !== null && $address !== ''
+                ? $address
+                : implode(', ', array_filter([$street, $city, $state, $zip])),
+            'ssn_itin' => $this->firstFilled($request, ['ssn_itin', 'SSN or ITIN']),
+            'business_name_1' => $this->firstFilled($request, ['business_name_1', 'llc_name_1', 'Desired Business Name (1st choice)']),
+            'business_name_2' => $this->firstFilled($request, ['business_name_2', 'llc_name_2', 'Alternative Name (2nd choice)']),
+            'business_name_3' => $this->firstFilled($request, ['business_name_3', 'llc_name_3', 'Alternative Name (3rd choice)']),
+            'business_purpose' => $this->firstFilled($request, ['business_purpose', 'Business Purpose / Activity']),
+            'truck_type' => $this->firstFilled($request, ['truck_type', 'Truck Type']),
+            'truck_vin' => $this->firstFilled($request, ['truck_vin', 'Truck VIN']),
+            'operation_area' => $this->firstFilled($request, ['operation_area', 'Operation Area (City/Region)']),
+            'operation_type' => $this->firstFilled($request, ['operation_type', 'Operation Type']),
+            'hear_about_us' => $this->firstFilled($request, ['hear_about_us', 'heard_about_us', 'How did you hear about us?']),
+            'reference_id' => $this->firstFilled($request, ['reference_id', 'Reference ID']),
+            'notes' => $this->firstFilled($request, ['notes', 'Additional Notes / Questions', 'Current compliance issues or concerns']),
         ]);
 
         $webhookLog = Activity::create([
@@ -73,7 +92,7 @@ class PayloadLogController extends Controller
             'name'              => ['required', 'string', 'max:255'],
             'date_of_birth'     => ['nullable', 'date'],
             'email'             => ['nullable', 'email', 'max:255', 'required_without:phone'],
-            'phone'             => ['nullable', 'string', 'max:30', 'required_without:email'],
+            'phone'             => ['nullable', 'string', 'max:50', 'required_without:email'],
             'state'             => ['nullable', 'string', 'max:100'],
             'address'           => ['nullable', 'string', 'max:2000'],
             'ssn_itin'          => ['nullable', 'string', 'max:50'],
@@ -81,7 +100,7 @@ class PayloadLogController extends Controller
             'business_name_1'   => ['nullable', 'string', 'max:255'],
             'business_name_2'   => ['nullable', 'string', 'max:255'],
             'business_name_3'   => ['nullable', 'string', 'max:255'],
-            'state_of_formation'=> ['nullable', 'string', 'max:10'],
+            'state_of_formation'=> ['nullable', 'string', 'max:255'],
             'business_purpose'  => ['nullable', 'string', 'max:2000'],
             'truck_type'        => ['nullable', 'string', 'max:100'],
             'truck_vin'         => ['nullable', 'string', 'max:30'],
@@ -105,12 +124,24 @@ class PayloadLogController extends Controller
 
         // Collect all extra payload fields into meta so no submission data is lost
         $knownKeys = [
-            'name', 'full_name', 'date_of_birth', 'dob', 'email', 'phone', 'phone_number',
-            'state', 'address_state', 'address', 'address_street', 'address_city', 'address_zip',
-            'ssn_itin', 'company', 'business_name_1', 'business_name_2', 'business_name_3',
-            'state_of_formation', 'formation_state', 'business_purpose', 'truck_type', 'truck_vin',
-            'operation_area', 'operation_type', 'hear_about_us', 'reference_id', 'service_required',
-            'notes', 'files', 'files_note', 'subject', 'from_name', 'access_key', 'botcheck',
+            'name', 'full_name', 'Full Legal Name', 'date_of_birth', 'dob', 'Date of Birth',
+            'email', 'Email', 'replyto', 'phone', 'phone_number', 'Phone',
+            'state', 'address_state', 'State', 'address', 'address_street', 'Street Address',
+            'address_city', 'City', 'address_zip', 'ZIP', 'Zip',
+            'ssn_itin', 'SSN or ITIN', 'company', 'Business Legal Name',
+            'Business Physical Address', 'Current compliance issues or concerns',
+            'business_name_1', 'llc_name_1', 'Desired Business Name (1st choice)',
+            'business_name_2', 'llc_name_2', 'Alternative Name (2nd choice)',
+            'business_name_3', 'llc_name_3', 'Alternative Name (3rd choice)',
+            'state_of_formation', 'formation_state', 'State of LLC Formation',
+            'business_purpose', 'Business Purpose / Activity',
+            'truck_type', 'Truck Type', 'truck_vin', 'Truck VIN',
+            'operation_area', 'Operation Area (City/Region)',
+            'operation_type', 'Operation Type',
+            'hear_about_us', 'heard_about_us', 'How did you hear about us?',
+            'reference_id', 'Reference ID',
+            'service_required', 'notes', 'Additional Notes / Questions',
+            'files', 'files_note', 'subject', 'from_name', 'access_key', 'botcheck',
         ];
         $meta = collect($request->all())->except($knownKeys)->filter(fn ($v) => $v !== null && $v !== '')->all();
         if ($request->filled('subject')) {
@@ -169,16 +200,35 @@ class PayloadLogController extends Controller
      * Derive the service name from the website's subject line,
      * e.g. "New Starter Package Order — $999" => "Starter Package".
      */
+    private function firstFilled(Request $request, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            $value = $request->input($key);
+
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
     private function serviceFromSubject(?string $subject): ?string
     {
-        if (preg_match('/New\s+(.+?)\s+Request/i', (string) $subject, $m)) {
+        $subject = trim((string) $subject);
+
+        if ($subject === '') {
+            return null;
+        }
+
+        if (preg_match('/^New\s+(.+?)\s+(?:Order|Request)\b/iu', $subject, $m)) {
             return trim($m[1]);
         }
 
-        if (preg_match('/New\s+(.+?)\s+Order/i', (string) $subject, $m)) {
+        if (preg_match('/^New\s+(.+?)(?:\s+[—–\-].*)?$/u', $subject, $m)) {
             return trim($m[1]);
         }
 
-        return 'Starter Package';
+        return null;
     }
 }
