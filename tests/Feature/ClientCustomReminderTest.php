@@ -56,6 +56,30 @@ class ClientCustomReminderTest extends TestCase
         $this->assertSame('09:30', $first?->remind_at?->format('H:i'));
     }
 
+    public function test_frontend_timezone_is_converted_to_utc_and_shown_in_that_zone(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['name' => 'Zone Client', 'status' => 'onboarding']);
+
+        $this->actingAs($admin)
+            ->post("/clients/{$client->id}/reminders", [
+                'reminders' => [[
+                    'date'        => '2026-11-02',
+                    'time'        => '10:00',
+                    'timezone'    => 'Asia/Karachi',
+                    'description' => 'Pakistan morning call',
+                ]],
+            ])
+            ->assertRedirect();
+
+        $reminder = ClientReminder::where('description', 'Pakistan morning call')->first();
+
+        $this->assertNotNull($reminder);
+        $this->assertSame('Asia/Karachi', $reminder->timezone);
+        $this->assertSame('2026-11-02 05:00:00', $reminder->remind_at?->utc()->format('Y-m-d H:i:s'));
+        $this->assertSame('Nov 2, 2026 10:00 AM', $reminder->dueLabel());
+    }
+
     public function test_reminders_belong_only_to_the_client_they_were_created_on(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);

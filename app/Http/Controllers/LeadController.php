@@ -704,7 +704,7 @@ class LeadController extends Controller
             'sla_expires_at'   => $lead->sla_expires_at?->toIso8601String(),
             'sla_completed_at' => $lead->sla_completed_at?->toIso8601String(),
             'sla_breached_at'  => $lead->sla_breached_at?->toIso8601String(),
-            'created_at'       => $lead->created_at->toDateTimeString(),
+            'created_at'       => \App\Support\UserTime::iso($lead->created_at),
             'updated_at'       => $lead->updated_at->toDateTimeString(),
             'documents'        => $lead->documents->map(fn ($d) => [
                 'id'                => $d->id,
@@ -729,7 +729,7 @@ class LeadController extends Controller
                 'causer'      => $a->causer?->name ?? 'System',
                 'old_value'   => $a->old_value,
                 'new_value'   => $a->new_value,
-                'created_at'  => $a->created_at->format('M j, Y g:i A'),
+                'created_at'  => \App\Support\UserTime::iso($a->created_at),
             ])->toArray(),
         ];
     }

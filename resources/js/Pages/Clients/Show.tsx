@@ -28,6 +28,7 @@ import PrintInvoiceLink from '@/components/PrintInvoiceLink';
 import { ProfileTab, FleetTab, ComplianceTab, type ProfileOptions } from '@/Pages/Clients/ClientProfileForms';
 import { ClientRemindersList, CustomReminderDialog, type ClientReminder } from '@/Pages/Clients/CustomReminders';
 import { cn } from '@/lib/utils';
+import { formatDateTime } from '@/lib/datetime';
 
 interface Lead { id: number; name: string; email: string | null; phone: string | null; state: string | null; company: string | null; service_required: string | null; source: string; status: string; created_at: string }
 interface Payment { id: number; invoice_amount: number; amount_received: number; balance_due: number; payment_method: string | null; transaction_reference: string | null; notes: string | null; paid_at: string | null; created_by: string | null; has_receipt: boolean; created_at: string }
@@ -1306,7 +1307,7 @@ function TasksTab({ clientId, tasks, users }: { clientId: number; tasks: Task[];
                                     )}
                                     <p className="mt-0.5 text-xs text-gray-400">
                                         {t.assigned_user?.name ?? 'Unassigned'}
-                                        {t.due_date && ` · Due ${new Date(t.due_date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
+                                        {t.due_date && ` · Due ${formatDateTime(t.due_date)}`}
                                         {t.is_overdue && <span className="ml-1 text-red-500">Overdue</span>}
                                     </p>
                                 </div>

@@ -4,6 +4,7 @@ import {
     UserCheck, Upload, CheckSquare, Settings, User, Zap, Clock, Phone,
     Trophy, Ban, Briefcase, Link2, Mail,
 } from 'lucide-react';
+import { formatDateTime } from '@/lib/datetime';
 
 interface Activity {
     id: number;
@@ -123,7 +124,7 @@ export default function ActivityTimeline({ activities }: { activities: Activity[
                         <div className="flex items-center gap-2 mt-1.5">
                             <span className="text-xs font-medium text-gray-500">{a.causer}</span>
                             <span className="text-gray-300">·</span>
-                            <span className="text-xs text-gray-400">{a.created_at}</span>
+                            <span className="text-xs text-gray-400">{formatDateTime(a.created_at)}</span>
                         </div>
                     </div>
                 </li>

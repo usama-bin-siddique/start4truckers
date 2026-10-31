@@ -34,7 +34,7 @@ class Web3FormsController extends Controller
         $payload = $request->all();
 
         $name    = $payload['name']             ?? $payload['full_name']      ?? $payload['your-name']     ?? null;
-        $email   = $payload['email']            ?? $payload['your-email']     ?? null;
+        $email   = $this->submittedEmail($payload);
         $phone   = $payload['phone']            ?? $payload['phone_number']   ?? $payload['your-phone']    ?? null;
         $state   = $payload['state']            ?? $payload['your-state']     ?? null;
         $company = $payload['company']          ?? $payload['company_name']   ?? $payload['your-company']  ?? null;
@@ -111,5 +111,22 @@ class Web3FormsController extends Controller
             'message' => 'Lead created successfully',
             'lead_id' => $lead->id,
         ], 201);
+    }
+
+    private function submittedEmail(array $payload): ?string
+    {
+        $normalized = [];
+        foreach ($payload as $key => $value) {
+            $normalized[strtolower(str_replace([' ', '_'], '-', (string) $key))] = $value;
+        }
+
+        foreach (['email', 'your-email', 'e-mail', 'mail', 'contact-email'] as $key) {
+            $value = $normalized[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
     }
 }

@@ -8,12 +8,14 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Bell, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDateTime } from '@/lib/datetime';
 
 export const MAX_REMINDERS_PER_BATCH = 10;
 
 export type ClientReminder = {
     id: number;
     remind_at: string | null;
+    timezone?: string | null;
     date: string | null;
     time: string | null;
     description: string;
@@ -44,13 +46,7 @@ function formatWhen(reminder: ClientReminder): string {
         return reminder.remind_at.replace('T', ' ');
     }
 
-    return parsed.toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-    });
+    return formatDateTime(reminder.remind_at);
 }
 
 export function CustomReminderDialog({
@@ -77,8 +73,10 @@ export function CustomReminderDialog({
     function submit(e: React.FormEvent) {
         e.preventDefault();
         const offset = new Date().getTimezoneOffset();
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const payload = form.data.reminders.map(r => ({
             ...r,
+            timezone,
             tz_offset: offset,
         }));
         form.transform(() => ({ reminders: payload }));

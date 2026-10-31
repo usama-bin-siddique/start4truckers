@@ -1,12 +1,17 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
+import { browserTimezone } from './lib/datetime';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import LoginSplashOverlay from './components/LoginSplashOverlay';
 
 const appName = (window as any).appName || 'Start4Truckers CRM';
+
+router.on('before', (event) => {
+    event.detail.visit.headers['X-Timezone'] = browserTimezone();
+});
 
 createInertiaApp({
     title: (title) => `${title} — ${appName}`,

@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientReminder;
+use App\Support\UserTime;
 use App\Services\ActivityService;
 use App\Services\ClientReminderService;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
@@ -31,16 +31,29 @@ class ClientReminderController extends Controller
             'reminders.*.date'          => ['required', 'date'],
             'reminders.*.time'          => ['required', 'string', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'reminders.*.description'   => ['required', 'string', 'max:2000'],
+            'reminders.*.timezone'      => ['nullable', 'timezone'],
             'reminders.*.tz_offset'     => ['nullable', 'numeric'],
         ]);
 
         $created = 0;
 
         foreach ($data['reminders'] as $row) {
-            $remindAt = $this->combineDateTime($row['date'], $row['time'], $row['tz_offset'] ?? null);
+            $timezone = $row['timezone'] ?? UserTime::zone($request);
+            $remindAt = UserTime::parse(
+                trim($row['date'].' '.$row['time']),
+                $timezone,
+                isset($row['tz_offset']) ? (int) $row['tz_offset'] : null,
+            );
+
+            if (! $remindAt) {
+                throw ValidationException::withMessages([
+                    'reminders' => 'Each reminder needs a valid date and time.',
+                ]);
+            }
 
             $reminder = $client->reminders()->create([
                 'remind_at'   => $remindAt,
+                'timezone'    => $this->rememberedTimezone($timezone, isset($row['tz_offset']) ? (int) $row['tz_offset'] : null),
                 'description' => trim($row['description']),
                 'created_by'  => Auth::id(),
             ]);
@@ -96,24 +109,18 @@ class ClientReminderController extends Controller
         return back()->with('success', 'Reminder removed.');
     }
 
-    private function combineDateTime(string $date, string $time, ?int $tzOffset = null): Carbon
+    private function rememberedTimezone(?string $timezone, ?int $tzOffset): string
     {
-        $time = strlen($time) === 5 ? "{$time}:00" : $time;
-        $parsed = Carbon::createFromFormat('Y-m-d H:i:s', trim("{$date} {$time}"));
-
-        if (! $parsed) {
-            throw ValidationException::withMessages([
-                'reminders' => 'Each reminder needs a valid date and time.',
-            ]);
+        if (is_string($timezone) && in_array($timezone, timezone_identifiers_list(), true)) {
+            return $timezone;
         }
 
-        // If client sent JavaScript timezone offset (minutes UTC - local)
-        // e.g. for UTC+3, getTimezoneOffset() is -180.
-        // We add the offset to convert the user's local input to true UTC.
         if ($tzOffset !== null) {
-            $parsed->addMinutes($tzOffset);
+            $hours = -1 * ($tzOffset / 60);
+
+            return sprintf('UTC%+d', (int) $hours);
         }
 
-        return $parsed;
+        return 'UTC';
     }
 }

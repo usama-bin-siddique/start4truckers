@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use App\Models\Task;
+use App\Support\UserTime;
 use App\Services\ActivityService;
 use App\Services\MonthlyComplianceService;
 use Illuminate\Http\RedirectResponse;
@@ -53,8 +54,8 @@ class TaskController extends Controller
                 'client_name'   => $t->client?->display_name,
                 'client_number' => $t->client?->client_number,
                 'kind'          => $t->kind,
-                'due_date'      => $t->due_date?->format('Y-m-d\\TH:i'),
-                'reminder_at'   => $t->reminder_at?->format('Y-m-d\\TH:i'),
+                'due_date'      => UserTime::iso($t->due_date),
+                'reminder_at'   => UserTime::iso($t->reminder_at),
                 'is_overdue'    => $t->isOverdue(),
                 'created_at'    => $t->created_at->toDateString(),
             ]),
@@ -168,7 +169,7 @@ class TaskController extends Controller
 
         foreach (['due_date', 'reminder_at'] as $key) {
             if (! empty($data[$key]) && is_string($data[$key])) {
-                $data[$key] = \Illuminate\Support\Carbon::parse($data[$key]);
+                $data[$key] = UserTime::parse($data[$key]);
             }
         }
 

@@ -40,7 +40,7 @@ class ClientReminderService
             return false;
         }
 
-        $when = $reminder->remind_at?->format('M j, Y g:i A');
+        $when = $reminder->dueLabel();
 
         $stakeholderIds = $this->notification->stakeholderIds($client);
         if ($reminder->created_by && ! in_array((int) $reminder->created_by, $stakeholderIds, true)) {

@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Search, AlarmClock, Filter, X, Clock, AlertCircle, Bell, CheckCircle2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDateTime } from '@/lib/datetime';
 
 interface Reminder {
     id: number;
     description: string;
     remind_at: string | null;
+    timezone?: string | null;
     notified_at: string | null;
     client_id: number | null;
     client_name: string | null;
@@ -23,13 +25,6 @@ interface Reminder {
 interface Paginator<T> { data: T[]; total: number; last_page: number; links: { url: string | null; label: string; active: boolean }[] }
 interface Stats { upcoming: number; overdue: number; reminded: number; total: number }
 interface Filters { search?: string; status?: string; created_by?: string }
-
-function formatDateTime(value: string | null): string {
-    if (!value) return '';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
 
 export default function RemindersIndex({ reminders, users, filters, stats }: {
     reminders: Paginator<Reminder>;

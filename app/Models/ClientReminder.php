@@ -12,6 +12,7 @@ class ClientReminder extends Model
     protected $fillable = [
         'client_id',
         'remind_at',
+        'timezone',
         'description',
         'created_by',
         'notified_at',
@@ -38,6 +39,22 @@ class ClientReminder extends Model
     public function scopeOverdue($query)
     {
         return $query->whereNull('notified_at')->where('remind_at', '<', now());
+    }
+
+    public function displayTimezone(): string
+    {
+        if (is_string($this->timezone) && in_array($this->timezone, timezone_identifiers_list(), true)) {
+            return $this->timezone;
+        }
+
+        return 'UTC';
+    }
+
+    public function dueLabel(): string
+    {
+        return $this->remind_at
+            ? $this->remind_at->copy()->timezone($this->displayTimezone())->format('M j, Y g:i A')
+            : '';
     }
 
     public function createdBy(): BelongsTo

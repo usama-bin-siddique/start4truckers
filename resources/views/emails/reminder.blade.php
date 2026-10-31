@@ -18,7 +18,7 @@
                 <p style="margin: 0 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; color: #92400E; letter-spacing: 0.05em;">Reminder Details</p>
                 <p style="margin: 0; font-size: 15px; color: #1E293B; font-weight: 500;">{{ $reminder->description }}</p>
                 @if($reminder->remind_at)
-                    <p style="margin: 8px 0 0; font-size: 13px; color: #78350F;"><strong>Due:</strong> {{ $reminder->remind_at->format('M j, Y g:i A') }}</p>
+                    <p style="margin: 8px 0 0; font-size: 13px; color: #78350F;"><strong>Due:</strong> {{ $reminder->dueLabel() }} ({{ $reminder->displayTimezone() }})</p>
                 @endif
             </div>
 

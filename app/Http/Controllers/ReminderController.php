@@ -50,6 +50,7 @@ class ReminderController extends Controller
                 'id'            => $r->id,
                 'description'   => $r->description,
                 'remind_at'     => $r->remind_at?->toIso8601String(),
+                'timezone'      => $r->displayTimezone(),
                 'notified_at'   => $r->notified_at?->toIso8601String(),
                 'client_id'     => $r->client?->id,
                 'client_name'   => $r->client?->display_name,

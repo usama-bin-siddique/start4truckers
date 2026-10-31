@@ -15,6 +15,7 @@ import {
     Filter, X, CheckSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDateTime, toDatetimeLocal } from '@/lib/datetime';
 
 interface Task {
     id: number; title: string; description: string | null; priority: string; status: string;
@@ -30,13 +31,6 @@ interface Filters { search?: string; status?: string; priority?: string; assigne
 const priorityVariant: Record<string, 'secondary' | 'default' | 'warning' | 'destructive'> = {
     low: 'secondary', medium: 'default', high: 'warning', urgent: 'destructive',
 };
-
-function formatDateTime(value: string | null): string {
-    if (!value) return '';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
 
 const statusIcon: Record<string, React.ReactNode> = {
     pending:     <Circle size={14} className="text-gray-400" />,
@@ -91,8 +85,8 @@ export default function TasksIndex({ tasks, users, filters, stats }: {
             assigned_to: t.assigned_user ? String(t.assigned_user.id) : '',
             priority: t.priority,
             status: t.status,
-            due_date: t.due_date ?? '',
-            reminder_at: t.reminder_at ?? '',
+            due_date: toDatetimeLocal(t.due_date),
+            reminder_at: toDatetimeLocal(t.reminder_at),
         });
         setEditTarget(t);
     }

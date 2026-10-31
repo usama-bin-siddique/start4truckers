@@ -17,6 +17,7 @@ class WebsiteLeadController extends Controller
         // Accept the field names used by the Starter Package HTML form as well
         // as the normalized API field names.
         $request->merge([
+            'email' => $this->submittedEmail($request),
             'name' => $request->input('name', $request->input('full_name')),
             'date_of_birth' => $request->input('date_of_birth', $request->input('dob')),
             'state' => $request->input('state', $request->input('address_state')),
@@ -35,7 +36,7 @@ class WebsiteLeadController extends Controller
         $rules = [
             'name'             => ['required', 'string', 'max:255'],
             'date_of_birth'    => ['nullable', 'date'],
-            'email'            => ['nullable', 'email', 'max:255', 'required_without:phone'],
+            'email'            => ['nullable', 'string', 'max:255', 'required_without:phone'],
             'phone'            => ['nullable', 'string', 'max:30', 'required_without:email'],
             'state'            => ['nullable', 'string', 'max:100'],
             'address'          => ['nullable', 'string', 'max:2000'],
@@ -84,6 +85,7 @@ class WebsiteLeadController extends Controller
         }
 
         unset($data['files']);
+        $data['email'] = $this->cleanEmail($data['email'] ?? null);
         $lead = $intake->createFromWebsite($data, $files);
 
         return response()->json([
@@ -94,5 +96,28 @@ class WebsiteLeadController extends Controller
                 'documents_count' => $lead->documents()->count(),
             ],
         ], 201);
+    }
+
+    private function submittedEmail(Request $request): ?string
+    {
+        foreach (['email', 'Email', 'e-mail', 'mail', 'contact_email', 'your-email'] as $key) {
+            $value = $request->input($key);
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
+    private function cleanEmail(mixed $email): ?string
+    {
+        if (! is_string($email)) {
+            return null;
+        }
+
+        $email = trim($email);
+
+        return $email === '' ? null : $email;
     }
 }
