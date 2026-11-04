@@ -9,13 +9,20 @@ class ClientPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true; // all roles
+        return ! $user->isSalesRep();
     }
 
     public function view(User $user, Client $client): bool
     {
         if ($user->isSalesRep()) {
-            return $client->isAssignedTo($user);
+            return false;
+        }
+
+        if ($user->isProcessor()) {
+            return $client->isAssignedTo($user) && (
+                $client->compliance_type === Client::COMPLIANCE_MONTHLY
+                || $client->status !== Client::STATUS_COMPLETED
+            );
         }
 
         return true;
@@ -23,16 +30,20 @@ class ClientPolicy
 
     public function create(User $user): bool
     {
-        return in_array($user->role, ['admin', 'sales', 'manager'], true);
+        return in_array($user->role, ['admin', 'manager'], true);
     }
 
     public function update(User $user, Client $client): bool
     {
         if ($user->isSalesRep()) {
-            return $client->isAssignedTo($user);
+            return false;
         }
 
-        return in_array($user->role, ['admin', 'sales', 'processing', 'manager'], true);
+        if ($user->isProcessor()) {
+            return $this->view($user, $client);
+        }
+
+        return in_array($user->role, ['admin', 'manager'], true);
     }
 
     public function delete(User $user, Client $client): bool

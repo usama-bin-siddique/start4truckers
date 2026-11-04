@@ -145,7 +145,7 @@ class ReportService
             ->groupBy('service_id')
             ->get()
             ->map(fn ($r) => [
-                'service' => $r->service->name ?? 'Unknown',
+                'service' => $r->service?->name ?? 'Custom service',
                 'count'   => (int) $r->count,
                 'color'   => $this->serviceColor($r->service_id),
             ])
@@ -290,10 +290,10 @@ class ReportService
         ];
     }
 
-    private function serviceColor(int $id): string
+    private function serviceColor(?int $id): string
     {
         $colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899', '#10b981', '#6366f1'];
 
-        return $colors[$id % count($colors)];
+        return $colors[($id ?? 0) % count($colors)];
     }
 }

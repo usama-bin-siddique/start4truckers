@@ -29,8 +29,9 @@ class TaskController extends Controller
             ->when($request->priority, fn ($q, $v) => $q->where('priority', $v))
             ->when($request->assigned_to, fn ($q, $v) => $q->where('assigned_to', $v));
 
-        // Non-admins only see their own tasks
-        if ($user->role !== 'admin') {
+        if ($user->isProcessor()) {
+            $query->where('assigned_to', $user->id)->where('status', '!=', Task::STATUS_COMPLETED);
+        } elseif (! $user->isAdmin() && ! $user->isManager()) {
             $query->where(fn ($q) =>
                 $q->where('assigned_to', $user->id)->orWhere('created_by', $user->id)
             );
@@ -62,10 +63,10 @@ class TaskController extends Controller
             'users'   => \App\Models\User::where('is_active', true)->select('id', 'name', 'role')->get(),
             'filters' => $request->only(['search', 'status', 'priority', 'assigned_to']),
             'stats'   => [
-                'pending'     => Task::where('status', 'pending')->when($user->role !== 'admin', fn ($q) => $q->where('assigned_to', $user->id))->count(),
-                'in_progress' => Task::where('status', 'in_progress')->when($user->role !== 'admin', fn ($q) => $q->where('assigned_to', $user->id))->count(),
-                'completed'   => Task::where('status', 'completed')->when($user->role !== 'admin', fn ($q) => $q->where('assigned_to', $user->id))->count(),
-                'overdue'     => Task::where('status', '!=', 'completed')->where('due_date', '<', now())->when($user->role !== 'admin', fn ($q) => $q->where('assigned_to', $user->id))->count(),
+                'pending'     => Task::where('status', 'pending')->when(! $user->isAdmin() && ! $user->isManager(), fn ($q) => $q->where('assigned_to', $user->id))->count(),
+                'in_progress' => Task::where('status', 'in_progress')->when(! $user->isAdmin() && ! $user->isManager(), fn ($q) => $q->where('assigned_to', $user->id))->count(),
+                'completed'   => $user->isProcessor() ? 0 : Task::where('status', 'completed')->when(! $user->isAdmin() && ! $user->isManager(), fn ($q) => $q->where('assigned_to', $user->id))->count(),
+                'overdue'     => Task::where('status', '!=', 'completed')->where('due_date', '<', now())->when(! $user->isAdmin() && ! $user->isManager(), fn ($q) => $q->where('assigned_to', $user->id))->count(),
             ],
         ]);
     }

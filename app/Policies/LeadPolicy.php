@@ -54,7 +54,7 @@ class LeadPolicy
         }
 
         if ($user->isSalesRep()) {
-            return $lead->isAssignedTo($user);
+            return $lead->isAssignedTo($user) && ! $lead->isStatusLocked();
         }
 
         return true;

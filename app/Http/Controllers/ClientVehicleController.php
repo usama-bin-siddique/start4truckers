@@ -42,6 +42,7 @@ class ClientVehicleController extends Controller
 
     public function destroy(Client $client, ClientVehicle $vehicle): RedirectResponse
     {
+        abort_unless(auth()->user()?->isAdmin(), 403);
         $this->authorize('update', $client);
         abort_unless($vehicle->client_id === $client->id, 404);
 

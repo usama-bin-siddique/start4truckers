@@ -60,6 +60,7 @@ class ClientCustomFieldController extends Controller
 
     public function destroy(Client $client, ClientCustomField $customField): RedirectResponse
     {
+        abort_unless(auth()->user()?->isAdmin(), 403);
         $this->authorize('update', $client);
         abort_unless($customField->client_id === $client->id, 404);
 

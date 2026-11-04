@@ -97,7 +97,7 @@ class PaymentRecordUpdateTest extends TestCase
         $this->assertSoftDeleted('payments', ['id' => $payment->id]);
     }
 
-    public function test_sales_can_update_and_delete_a_payment_for_an_assigned_client(): void
+    public function test_sales_cannot_update_or_delete_a_payment(): void
     {
         $sales = User::factory()->create(['role' => 'sales', 'is_active' => true]);
         $client = Client::create([
@@ -118,15 +118,13 @@ class PaymentRecordUpdateTest extends TestCase
                 'amount_received' => 300,
                 'payment_method'  => 'check',
             ])
-            ->assertRedirect();
-
-        $this->assertEquals(300, (float) $payment->fresh()->amount_received);
+            ->assertForbidden();
 
         $this->actingAs($sales)
             ->delete("/payments/{$payment->id}")
-            ->assertRedirect();
+            ->assertForbidden();
 
-        $this->assertSoftDeleted('payments', ['id' => $payment->id]);
+        $this->assertEquals(50, (float) $payment->fresh()->amount_received);
     }
 
     public function test_sales_cannot_change_a_payment_for_an_unassigned_client(): void

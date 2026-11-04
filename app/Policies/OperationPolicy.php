@@ -9,17 +9,17 @@ class OperationPolicy
 {
     public function viewAny(User $user): bool
     {
-        return in_array($user->role, ['admin', 'processing']);
+        return in_array($user->role, ['admin', 'manager', 'processing']);
     }
 
     public function create(User $user): bool
     {
-        return in_array($user->role, ['admin', 'processing']);
+        return in_array($user->role, ['admin', 'manager', 'processing']);
     }
 
     public function update(User $user, ClientService $clientService): bool
     {
-        return in_array($user->role, ['admin', 'processing']);
+        return in_array($user->role, ['admin', 'manager', 'processing']);
     }
 
     public function delete(User $user, ClientService $clientService): bool

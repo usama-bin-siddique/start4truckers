@@ -20,28 +20,31 @@ class SettingsController extends Controller
     // ── Main settings page ────────────────────────────────────────────────
     public function index(): Response
     {
-        abort_unless(auth()->user()->role === 'admin', 403, 'Unauthorized');
-
-        \Log::info('Settings page accessed', ['user' => auth()->id()]);
+        $actor = auth()->user();
+        abort_unless($actor->isAdmin() || $actor->isManager(), 403, 'Unauthorized');
 
         return Inertia::render('Settings/Index', [
             'users'     => User::orderBy('name')->get(['id', 'name', 'email', 'role', 'is_active']),
-            'services'  => Service::orderBy('order')->with('pricing')->get(),
-            'templates' => EmailTemplate::orderBy('name')->get(),
-            'settings'  => Setting::pluck('value', 'key'),
+            'services'  => $actor->isAdmin() ? Service::orderBy('order')->with('pricing')->get() : [],
+            'templates' => $actor->isAdmin() ? EmailTemplate::orderBy('name')->get() : [],
+            'settings'  => $actor->isAdmin() ? Setting::pluck('value', 'key') : [],
+            'users_only' => $actor->isManager(),
+            'can_delete_users' => $actor->isAdmin(),
+            'assignable_roles' => $this->assignableRoles($actor),
         ]);
     }
 
     // ── Users ─────────────────────────────────────────────────────────────
     public function storeUser(Request $request): RedirectResponse
     {
-        abort_unless(auth()->user()->role === 'admin', 403, 'Unauthorized');
+        $actor = auth()->user();
+        abort_unless($actor->isAdmin() || $actor->isManager(), 403, 'Unauthorized');
 
         $data = $request->validate([
             'name'     => ['required', 'string', 'max:255'],
             'email'    => ['required', 'email', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
-            'role'     => ['required', 'in:admin,sales,manager,processing'],
+            'role'     => ['required', Rule::in($this->assignableRoles($actor))],
         ]);
 
         User::create([
@@ -57,12 +60,16 @@ class SettingsController extends Controller
 
     public function updateUser(Request $request, User $user): RedirectResponse
     {
-        abort_unless(auth()->user()->role === 'admin', 403, 'Unauthorized');
+        $actor = auth()->user();
+        abort_unless($actor->isAdmin() || $actor->isManager(), 403, 'Unauthorized');
+        if ($actor->isManager() && ! in_array($user->role, ['sales', 'processing'], true)) {
+            abort(403, 'Unauthorized');
+        }
 
         $data = $request->validate([
             'name'      => ['required', 'string', 'max:255'],
             'email'     => ['required', 'email', Rule::unique('users')->ignore($user->id)],
-            'role'      => ['required', 'in:admin,sales,manager,processing'],
+            'role'      => ['required', Rule::in($this->assignableRoles($actor))],
             'is_active' => ['required', 'boolean'],
             'password'  => ['nullable', 'string', 'min:8'],
         ]);
@@ -81,6 +88,15 @@ class SettingsController extends Controller
         $user->update($update);
 
         return back()->with('success', 'User updated.');
+    }
+
+    private function assignableRoles(User $actor): array
+    {
+        if ($actor->isAdmin()) {
+            return ['admin', 'manager', 'sales', 'processing'];
+        }
+
+        return ['sales', 'processing'];
     }
 
     public function destroyUser(User $user): RedirectResponse

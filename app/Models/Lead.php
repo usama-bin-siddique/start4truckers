@@ -104,7 +104,8 @@ class Lead extends Model
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->isSalesRep()) {
-            $query->where('assigned_to', $user->id);
+            $query->where('assigned_to', $user->id)
+                ->whereNotIn('status', [self::STATUS_WON, self::STATUS_LOST]);
         }
 
         return $query;

@@ -25,13 +25,15 @@ class TaskPolicy
     public function update(User $user, Task $task): bool
     {
         // Admin can update any; others can only update tasks assigned to them or created by them
-        if ($user->role === 'admin') return true;
+        if ($user->isAdmin() || $user->isManager()) {
+            return true;
+        }
+
         return $task->assigned_to === $user->id || $task->created_by === $user->id;
     }
 
     public function delete(User $user, Task $task): bool
     {
-        if ($user->role === 'admin') return true;
-        return $task->created_by === $user->id;
+        return $user->isAdmin();
     }
 }

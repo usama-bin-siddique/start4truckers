@@ -94,6 +94,7 @@ class ClientReminderController extends Controller
 
     public function destroy(Client $client, ClientReminder $reminder): RedirectResponse
     {
+        abort_unless(Auth::user()?->isAdmin(), 403);
         $this->authorize('update', $client);
         abort_unless($reminder->client_id === $client->id, 404);
 

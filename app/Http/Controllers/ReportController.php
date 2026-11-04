@@ -21,7 +21,7 @@ class ReportController extends Controller
 
     public function index(Request $request): Response
     {
-        abort_unless(auth()->user()->role === 'admin', 403, 'Unauthorized');
+        abort_unless(in_array(auth()->user()->role, ['admin', 'manager'], true), 403, 'Unauthorized');
 
         $filters = $this->reports->filtersFromRequest($request);
         $report = $this->reports->compile($filters);
@@ -48,7 +48,7 @@ class ReportController extends Controller
 
     public function exportExcel(Request $request): StreamedResponse
     {
-        abort_unless(auth()->user()->role === 'admin', 403, 'Unauthorized');
+        abort_unless(in_array(auth()->user()->role, ['admin', 'manager'], true), 403, 'Unauthorized');
 
         $report = $this->reports->compile($this->reports->filtersFromRequest($request));
 
@@ -57,7 +57,7 @@ class ReportController extends Controller
 
     public function exportPdf(Request $request)
     {
-        abort_unless(auth()->user()->role === 'admin', 403, 'Unauthorized');
+        abort_unless(in_array(auth()->user()->role, ['admin', 'manager'], true), 403, 'Unauthorized');
 
         $report = $this->reports->compile($this->reports->filtersFromRequest($request));
         $filename = $this->exporter->filename($report, 'pdf');

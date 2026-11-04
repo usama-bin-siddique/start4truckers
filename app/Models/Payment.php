@@ -71,19 +71,13 @@ class Payment extends Model
 
     public function isVisibleTo(User $user): bool
     {
-        if (! $user->isSalesRep()) {
-            return true;
-        }
-
-        $this->loadMissing('client');
-
-        return $this->client?->isAssignedTo($user) ?? false;
+        return in_array($user->role, ['admin', 'manager'], true);
     }
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if ($user->isSalesRep()) {
-            $query->whereHas('client', fn (Builder $q) => $q->where('assigned_to', $user->id));
+        if (! in_array($user->role, ['admin', 'manager'], true)) {
+            $query->whereRaw('0 = 1');
         }
 
         return $query;

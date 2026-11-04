@@ -85,7 +85,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
 
     // Payments — admin + sales
-    Route::middleware('role:admin,sales')->group(function () {
+    Route::middleware('role:admin,manager')->group(function () {
         Route::get('/payments',               [PaymentController::class, 'index'])->name('payments.index');
         Route::post('/payments',              [PaymentController::class, 'store'])->name('payments.store');
         Route::match(['put', 'post'], '/payments/{payment}', [PaymentController::class, 'update'])->name('payments.update');
@@ -97,10 +97,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/payments/{payment}/email',   [PaymentController::class, 'sendEmail'])->name('payments.email.send');
     });
 
-    Route::get('/payments/{payment}/invoice', [PaymentController::class, 'invoice'])->name('payments.invoice');
+    Route::middleware('role:admin,manager')->group(function () {
+        Route::get('/payments/{payment}/invoice', [PaymentController::class, 'invoice'])->name('payments.invoice');
+    });
 
-    // Operations — admin + processing
-    Route::middleware('role:admin,processing')->group(function () {
+    // Operations — admin, manager, and the executor
+    Route::middleware('role:admin,manager,processing')->group(function () {
         Route::get('/operations',              [OperationController::class, 'index'])->name('operations.index');
         Route::post('/operations',             [OperationController::class, 'store'])->name('operations.store');
         Route::put('/operations/{operation}',  [OperationController::class, 'update'])->name('operations.update');
@@ -125,11 +127,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/reminders', [ReminderController::class, 'index'])->name('reminders.index');
     Route::delete('/reminders/clear-all', [ReminderController::class, 'clearAll'])->name('reminders.clear-all');
 
-    // Reports — admin only
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('role:admin,manager')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/export/xlsx', [ReportController::class, 'exportExcel'])->name('reports.export.xlsx');
         Route::get('/reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
+    });
+
+    Route::middleware('role:admin')->group(function () {
         Route::get('/request-logs', [RequestLogController::class, 'index'])->name('request-logs.index');
         Route::get('/request-logs/{requestLog}', [RequestLogController::class, 'show'])->name('request-logs.show');
     });
@@ -145,12 +149,14 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/notifications/device-token',       [DeviceTokenController::class, 'store'])->name('notifications.device-token');
     Route::post('/notifications/test-push',          [DeviceTokenController::class, 'testPush'])->name('notifications.test-push');
 
+    Route::middleware('role:admin,manager')->group(function () {
+        Route::get('/settings',               [SettingsController::class, 'index'])->name('settings.index');
+        Route::post('/settings/users',        [SettingsController::class, 'storeUser'])->name('settings.users.store');
+        Route::put('/settings/users/{user}',  [SettingsController::class, 'updateUser'])->name('settings.users.update');
+    });
+
     // Settings — admin only
     Route::middleware('role:admin')->group(function () {
-        Route::get('/settings',                          [SettingsController::class, 'index'])->name('settings.index');
-        // Users
-        Route::post('/settings/users',                  [SettingsController::class, 'storeUser'])->name('settings.users.store');
-        Route::put('/settings/users/{user}',            [SettingsController::class, 'updateUser'])->name('settings.users.update');
         Route::delete('/settings/users/{user}',         [SettingsController::class, 'destroyUser'])->name('settings.users.destroy');
         // Services
         Route::post('/settings/services',               [SettingsController::class, 'storeService'])->name('settings.services.store');

@@ -24,6 +24,6 @@ class DocumentPolicy
 
     public function delete(User $user, Document $document): bool
     {
-        return in_array($user->role, ['admin', 'processing'], true);
+        return $user->isAdmin();
     }
 }

@@ -76,15 +76,15 @@ const navGroups: NavGroup[] = [
         label: 'Pipeline',
         items: [
             { label: 'Leads', href: '/leads', icon: <Users size={18} />, roles: ['admin', 'sales', 'manager'] },
-            { label: 'Clients', href: '/clients', icon: <UserCheck size={18} /> },
-            { label: 'Payments', href: '/payments', icon: <CreditCard size={18} />, roles: ['admin', 'sales'] },
+            { label: 'Clients', href: '/clients', icon: <UserCheck size={18} />, roles: ['admin', 'manager', 'processing'] },
+            { label: 'Payments', href: '/payments', icon: <CreditCard size={18} />, roles: ['admin', 'manager'] },
         ],
     },
     {
         label: 'Work',
         items: [
-            { label: 'Operations', href: '/operations', icon: <Briefcase size={18} />, roles: ['admin', 'processing'] },
-            { label: 'Documents', href: '/documents', icon: <FolderOpen size={18} /> },
+            { label: 'Operations', href: '/operations', icon: <Briefcase size={18} />, roles: ['admin', 'manager', 'processing'] },
+            { label: 'Documents', href: '/documents', icon: <FolderOpen size={18} />, roles: ['admin', 'manager', 'sales', 'processing'] },
             { label: 'Tasks', href: '/tasks', icon: <CheckSquare size={18} /> },
             { label: 'Reminders', href: '/reminders', icon: <AlarmClock size={18} /> },
         ],
@@ -94,8 +94,8 @@ const navGroups: NavGroup[] = [
         items: [
             { label: 'Notifications', href: '/notifications', icon: <Bell size={18} /> },
             { label: 'Activity logs', href: '/request-logs', icon: <ScrollText size={18} />, roles: ['admin'] },
-            { label: 'Reports', href: '/reports', icon: <BarChart3 size={18} />, roles: ['admin'] },
-            { label: 'Settings', href: '/settings', icon: <Settings size={18} />, roles: ['admin'] },
+            { label: 'Reports', href: '/reports', icon: <BarChart3 size={18} />, roles: ['admin', 'manager'] },
+            { label: 'Settings', href: '/settings', icon: <Settings size={18} />, roles: ['admin', 'manager'] },
         ],
     },
 ];

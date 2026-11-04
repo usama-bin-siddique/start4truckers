@@ -22,13 +22,16 @@ interface Props {
     services: ServiceItem[];
     templates: Template[];
     settings: Record<string, string>;
+    users_only?: boolean;
+    can_delete_users?: boolean;
+    assignable_roles?: string[];
 }
 
 const ROLES = [
     { value: 'admin',      label: 'Admin',      color: 'bg-red-100 text-red-800' },
     { value: 'manager',    label: 'Manager',    color: 'bg-purple-100 text-purple-800' },
     { value: 'sales',      label: 'Sales',      color: 'bg-blue-100 text-blue-800' },
-    { value: 'processing', label: 'Processing', color: 'bg-green-100 text-green-800' },
+    { value: 'processing', label: 'Executor', color: 'bg-green-100 text-green-800' },
 ];
 
 function RoleBadge({ role }: { role: string }) {
@@ -36,7 +39,7 @@ function RoleBadge({ role }: { role: string }) {
     return <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize', r?.color ?? 'bg-gray-100 text-gray-800')}>{r?.label ?? role}</span>;
 }
 
-export default function SettingsIndex({ users, services, templates, settings }: Props) {
+export default function SettingsIndex({ users, services, templates, settings, users_only = false, can_delete_users = true, assignable_roles }: Props) {
     return (
         <>
             <Head title="Settings" />
@@ -63,30 +66,30 @@ export default function SettingsIndex({ users, services, templates, settings }: 
                                 </p>
                                 <TabsList className="flex h-auto w-full flex-col items-stretch gap-1 bg-transparent p-0">
                                     <SettingsCategoryTrigger value="users" icon={<Users className="h-4 w-4" />}>Users</SettingsCategoryTrigger>
-                                    <SettingsCategoryTrigger value="services" icon={<Briefcase className="h-4 w-4" />}>Services & Pricing</SettingsCategoryTrigger>
-                                    <SettingsCategoryTrigger value="templates" icon={<Mail className="h-4 w-4" />}>Email Templates</SettingsCategoryTrigger>
-                                    <SettingsCategoryTrigger value="api" icon={<KeyRound className="h-4 w-4" />}>API Settings</SettingsCategoryTrigger>
-                                    <SettingsCategoryTrigger value="general" icon={<Building2 className="h-4 w-4" />}>General</SettingsCategoryTrigger>
+                                    {!users_only && <SettingsCategoryTrigger value="services" icon={<Briefcase className="h-4 w-4" />}>Services & Pricing</SettingsCategoryTrigger>}
+                                    {!users_only && <SettingsCategoryTrigger value="templates" icon={<Mail className="h-4 w-4" />}>Email Templates</SettingsCategoryTrigger>}
+                                    {!users_only && <SettingsCategoryTrigger value="api" icon={<KeyRound className="h-4 w-4" />}>API Settings</SettingsCategoryTrigger>}
+                                    {!users_only && <SettingsCategoryTrigger value="general" icon={<Building2 className="h-4 w-4" />}>General</SettingsCategoryTrigger>}
                                 </TabsList>
                             </div>
                         </aside>
 
                         <div className="min-w-0 flex-1">
                             <TabsContent value="users" className="mt-0">
-                                <UsersTab users={users} />
+                                <UsersTab users={users} canDelete={can_delete_users} assignableRoles={assignable_roles ?? ROLES.map(role => role.value)} />
                             </TabsContent>
-                            <TabsContent value="services" className="mt-0">
+                            {!users_only && <TabsContent value="services" className="mt-0">
                                 <ServicesTab services={services} />
-                            </TabsContent>
-                            <TabsContent value="templates" className="mt-0">
+                            </TabsContent>}
+                            {!users_only && <TabsContent value="templates" className="mt-0">
                                 <TemplatesTab templates={templates} />
-                            </TabsContent>
-                            <TabsContent value="api" className="mt-0">
+                            </TabsContent>}
+                            {!users_only && <TabsContent value="api" className="mt-0">
                                 <ApiTab settings={settings} />
-                            </TabsContent>
-                            <TabsContent value="general" className="mt-0">
+                            </TabsContent>}
+                            {!users_only && <TabsContent value="general" className="mt-0">
                                 <GeneralTab settings={settings} />
-                            </TabsContent>
+                            </TabsContent>}
                         </div>
                     </Tabs>
                 </div>
@@ -96,7 +99,8 @@ export default function SettingsIndex({ users, services, templates, settings }: 
 }
 
 // ─── Users Tab ────────────────────────────────────────────────────────────────
-function UsersTab({ users }: { users: User[] }) {
+function UsersTab({ users, canDelete, assignableRoles }: { users: User[]; canDelete: boolean; assignableRoles: string[] }) {
+    const roleOptions = ROLES.filter(role => assignableRoles.includes(role.value));
     const [createOpen, setCreateOpen] = useState(false);
     const [editTarget, setEditTarget] = useState<User | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
@@ -160,8 +164,8 @@ function UsersTab({ users }: { users: User[] }) {
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex gap-1">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(u)}><Edit size={13} /></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget(u)}><Trash2 size={13} /></Button>
+                                        {(canDelete || assignableRoles.includes(u.role)) && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(u)}><Edit size={13} /></Button>}
+                                        {canDelete && <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget(u)}><Trash2 size={13} /></Button>}
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -188,7 +192,7 @@ function UsersTab({ users }: { users: User[] }) {
                             <Select value={createForm.data.role} onValueChange={v => createForm.setData('role', v)}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    {ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                                    {roleOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </Field>
@@ -216,7 +220,7 @@ function UsersTab({ users }: { users: User[] }) {
                                 <Select value={editForm.data.role} onValueChange={v => editForm.setData('role', v)}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        {ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                                        {roleOptions.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </Field>

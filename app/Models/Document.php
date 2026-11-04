@@ -54,26 +54,40 @@ class Document extends Model
 
     public function isVisibleTo(User $user): bool
     {
-        if (! $user->isSalesRep()) {
+        if ($user->isAdmin() || $user->isManager()) {
             return true;
         }
 
         $this->loadMissing(['lead', 'client']);
 
-        return ($this->lead && $this->lead->isAssignedTo($user))
-            || ($this->client && $this->client->isAssignedTo($user));
+        if ($user->isSalesRep()) {
+            return $this->lead
+                && $this->lead->isAssignedTo($user)
+                && ! $this->lead->isStatusLocked();
+        }
+
+        if ($user->isProcessor()) {
+            return $this->client && $user->can('view', $this->client);
+        }
+
+        return false;
     }
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if (! $user->isSalesRep()) {
+        if ($user->isAdmin() || $user->isManager()) {
             return $query;
         }
 
-        return $query->where(function (Builder $q) use ($user) {
-            $q->whereHas('lead', fn (Builder $lead) => $lead->where('assigned_to', $user->id))
-                ->orWhereHas('client', fn (Builder $client) => $client->where('assigned_to', $user->id));
-        });
+        if ($user->isSalesRep()) {
+            return $query->whereHas('lead', fn (Builder $lead) => $lead->visibleTo($user));
+        }
+
+        if ($user->isProcessor()) {
+            return $query->whereHas('client', fn (Builder $client) => $client->visibleTo($user));
+        }
+
+        return $query->whereRaw('0 = 1');
     }
 
     public function client(): BelongsTo

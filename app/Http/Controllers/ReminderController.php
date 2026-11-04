@@ -33,8 +33,7 @@ class ReminderController extends Controller
             })
             ->when($request->created_by, fn ($q, $v) => $q->where('created_by', $v));
 
-        // Only admins see every reminder; everyone else sees what they created
-        if ($user->role !== 'admin') {
+        if (! $user->isAdmin() && ! $user->isManager()) {
             $query->where('created_by', $user->id);
         }
 
@@ -74,7 +73,7 @@ class ReminderController extends Controller
     {
         $query = ClientReminder::query();
 
-        if ($user->role !== 'admin') {
+        if (! $user->isAdmin() && ! $user->isManager()) {
             $query->where('created_by', $user->id);
         } elseif ($createdBy) {
             $query->where('created_by', $createdBy);
@@ -85,13 +84,9 @@ class ReminderController extends Controller
 
     public function clearAll(Request $request)
     {
-        $user = Auth::user();
-        $query = ClientReminder::query();
+        abort_unless(Auth::user()?->isAdmin(), 403);
 
-        // If not admin, only delete their own reminders
-        if ($user->role !== 'admin') {
-            $query->where('created_by', $user->id);
-        }
+        $query = ClientReminder::query();
 
         // Optional filter: only clear notified/reminded ones if scope=notified
         if ($request->scope === 'notified') {

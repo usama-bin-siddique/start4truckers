@@ -165,7 +165,15 @@ class Client extends Model
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->isSalesRep()) {
-            $query->where('assigned_to', $user->id);
+            $query->whereRaw('0 = 1');
+        }
+
+        if ($user->isProcessor()) {
+            $query->where('assigned_to', $user->id)
+                ->where(function (Builder $query) {
+                    $query->where('compliance_type', self::COMPLIANCE_MONTHLY)
+                        ->orWhere('status', '!=', self::STATUS_COMPLETED);
+                });
         }
 
         return $query;
