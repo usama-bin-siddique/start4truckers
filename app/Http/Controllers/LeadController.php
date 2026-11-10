@@ -281,6 +281,10 @@ class LeadController extends Controller
 
         $this->sla->complete($lead, 'status update');
 
+        if (Auth::user()->isSalesRep() && $lead->fresh()->isStatusLocked()) {
+            return redirect()->route('leads.index')->with('success', 'Status updated.');
+        }
+
         return back()->with('success', 'Status updated.');
     }
 

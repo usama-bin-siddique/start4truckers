@@ -40,7 +40,8 @@ class ClientPolicy
         }
 
         if ($user->isProcessor()) {
-            return $this->view($user, $client);
+            return $client->isAssignedTo($user)
+                || $client->clientServices()->where('assigned_to', $user->id)->exists();
         }
 
         return in_array($user->role, ['admin', 'manager'], true);

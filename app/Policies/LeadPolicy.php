@@ -14,6 +14,10 @@ class LeadPolicy
 
     public function view(User $user, Lead $lead): bool
     {
+        if ($user->isSalesRep() && $lead->isStatusLocked()) {
+            return false;
+        }
+
         return $this->canManage($user, $lead);
     }
 
@@ -54,7 +58,7 @@ class LeadPolicy
         }
 
         if ($user->isSalesRep()) {
-            return $lead->isAssignedTo($user) && ! $lead->isStatusLocked();
+            return $lead->isAssignedTo($user);
         }
 
         return true;

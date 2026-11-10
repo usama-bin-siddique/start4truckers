@@ -26,7 +26,11 @@ class OperationController extends Controller
     {
         $this->authorize('viewAny', ClientService::class);
 
+        $user = Auth::user();
+        $processor = $user->isProcessor();
+
         $query = ClientService::with(['client.lead', 'service', 'assignedUser'])
+            ->when($processor, fn ($q) => $q->where('assigned_to', $user->id)->where('status', '!=', ClientService::STATUS_COMPLETED))
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
             ->when($request->service_id, fn ($q, $v) => $q->where('service_id', $v))
             ->when($request->assigned_to, fn ($q, $v) => $q->where('assigned_to', $v))
@@ -38,6 +42,9 @@ class OperationController extends Controller
                     $q->where('client_number', 'like', "%{$v}%")
                 )
             );
+
+        $scoped = ClientService::query()
+            ->when($processor, fn ($q) => $q->where('assigned_to', $user->id)->where('status', '!=', ClientService::STATUS_COMPLETED));
 
         $services = $query->latest()->paginate(25)->withQueryString();
 
@@ -57,9 +64,9 @@ class OperationController extends Controller
             'users'        => \App\Models\User::where('is_active', true)->select('id', 'name', 'role')->get(),
             'filters'      => $request->only(['search', 'status', 'service_id', 'assigned_to']),
             'stats'        => [
-                'pending'     => ClientService::where('status', 'pending')->count(),
-                'in_progress' => ClientService::where('status', 'in_progress')->count(),
-                'completed'   => ClientService::where('status', 'completed')->count(),
+                'pending'     => (clone $scoped)->where('status', 'pending')->count(),
+                'in_progress' => (clone $scoped)->where('status', 'in_progress')->count(),
+                'completed'   => $processor ? 0 : (clone $scoped)->where('status', 'completed')->count(),
             ],
         ]);
     }
@@ -138,7 +145,7 @@ class OperationController extends Controller
                 'client_id'     => $client->id,
                 'client_name'   => $client->display_name,
                 'client_number' => $client->client_number,
-                'service_name'  => $operation->service->name,
+                'service_name'  => $operation->display_name,
             ]);
         }
         $allDone = $client->clientServices()->where('status', '!=', 'completed')->doesntExist();
@@ -147,6 +154,11 @@ class OperationController extends Controller
             $this->activity->log($client, 'status_changed',
                 'All services completed — client status set to Completed'
             );
+        }
+
+        $client->refresh();
+        if (Auth::user()->isProcessor() && $client && Auth::user()->cannot('view', $client) && url()->previous() === route('clients.show', $client)) {
+            return redirect()->route('operations.index')->with('success', 'Service updated.');
         }
 
         return back()->with('success', 'Service updated.');

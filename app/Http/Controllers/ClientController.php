@@ -303,6 +303,11 @@ class ClientController extends Controller
             );
         }
 
+        $client->refresh();
+        if (Auth::user()->isProcessor() && Auth::user()->cannot('view', $client)) {
+            return redirect()->route('clients.index')->with('success', 'Status updated to '.ClientProfile::statusLabel($status).'.');
+        }
+
         return back()->with('success', 'Status updated to '.ClientProfile::statusLabel($status).'.');
     }
 

@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Client;
+use App\Models\ClientService;
 use App\Models\Lead;
+use App\Models\Service;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -117,5 +119,54 @@ class RoleAccessTest extends TestCase
         $this->actingAs($processor)->get("/clients/{$done->id}")->assertForbidden();
         $this->actingAs($processor)->get('/tasks')->assertOk()->assertSee('File the DOT')->assertDontSee('Done task');
         $this->actingAs($processor)->delete("/tasks/{$pending->id}")->assertForbidden();
+    }
+
+    public function test_sales_can_mark_an_assigned_lead_won_or_lost(): void
+    {
+        $sales = User::factory()->create(['role' => 'sales', 'is_active' => true]);
+        $lead = Lead::create([
+            'name' => 'Ready Lead',
+            'status' => Lead::STATUS_CONTACTED,
+            'assigned_to' => $sales->id,
+        ]);
+
+        $this->actingAs($sales)
+            ->from("/leads/{$lead->id}")
+            ->patch("/leads/{$lead->id}/status", ['status' => Lead::STATUS_WON])
+            ->assertRedirect('/leads');
+
+        $this->assertSame(Lead::STATUS_WON, $lead->fresh()->status);
+    }
+
+    public function test_processor_can_complete_an_assigned_service_and_client_status(): void
+    {
+        $processor = User::factory()->create(['role' => 'processing', 'is_active' => true]);
+        $client = Client::create([
+            'name' => 'Filing Client',
+            'status' => Client::STATUS_IN_PROGRESS,
+            'assigned_to' => null,
+        ]);
+        $catalog = Service::create(['name' => 'DOT Filing', 'slug' => 'dot-filing', 'is_active' => true, 'order' => 1]);
+        $service = ClientService::create([
+            'client_id' => $client->id,
+            'service_id' => $catalog->id,
+            'status' => ClientService::STATUS_PENDING,
+            'assigned_to' => $processor->id,
+        ]);
+
+        $this->actingAs($processor)
+            ->put("/operations/{$service->id}", [
+                'status' => 'completed',
+                'notes' => 'Filed',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('completed', $service->fresh()->status);
+
+        $this->actingAs($processor)
+            ->post("/clients/{$client->id}/status", ['status' => Client::STATUS_COMPLETED])
+            ->assertRedirect();
+
+        $this->assertSame(Client::STATUS_COMPLETED, $client->fresh()->status);
     }
 }
