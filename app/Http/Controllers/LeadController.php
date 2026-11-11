@@ -591,11 +591,15 @@ class LeadController extends Controller
             $this->monthlyCompliance->enroll($client);
         }
 
-        return redirect()->route('clients.show', $client)
-            ->with('success', $existing
-                ? "Lead converted onto existing client #{$client->client_number}."
-                : "Lead converted. Client #{$client->client_number} created."
-            );
+        $message = $existing
+            ? "It's done. Lead converted onto existing client #{$client->client_number}."
+            : "It's done. Client #{$client->client_number} created.";
+
+        if (Auth::user()->cannot('view', $client)) {
+            return redirect()->route('leads.index')->with('success', "It's done.");
+        }
+
+        return redirect()->route('clients.show', $client)->with('success', $message);
     }
 
     public function destroy(Lead $lead): RedirectResponse

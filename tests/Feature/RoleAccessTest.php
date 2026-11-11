@@ -138,6 +138,25 @@ class RoleAccessTest extends TestCase
         $this->assertSame(Lead::STATUS_WON, $lead->fresh()->status);
     }
 
+    public function test_sales_convert_finishes_on_the_lead_list_instead_of_a_forbidden_client(): void
+    {
+        $sales = User::factory()->create(['role' => 'sales', 'is_active' => true]);
+        $lead = Lead::create([
+            'name' => 'Convert Me',
+            'email' => 'convert@example.com',
+            'status' => Lead::STATUS_CONTACTED,
+            'assigned_to' => $sales->id,
+        ]);
+
+        $this->actingAs($sales)
+            ->post("/leads/{$lead->id}/convert", ['compliance_type' => 'project'])
+            ->assertRedirect('/leads')
+            ->assertSessionHas('success', "It's done.");
+
+        $this->assertNotNull($lead->fresh()->client_id);
+        $this->assertSame(Lead::STATUS_WON, $lead->fresh()->status);
+    }
+
     public function test_processor_can_complete_an_assigned_service_and_client_status(): void
     {
         $processor = User::factory()->create(['role' => 'processing', 'is_active' => true]);
